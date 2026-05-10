@@ -5,7 +5,6 @@ import ffmpeg from "./ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import prisma from "../lib/prisma";
 import { extractCover } from "./processor";
-import { emitScanProgress } from "../lib/socket";
 import { getCoverUrl, findCoverInFolder } from "./covers";
 import {
   getConfiguredLibraries,
@@ -24,6 +23,21 @@ type DiscoveredFolder = {
   libraryId: string;
   folderName: string;
   folderPath: string;
+  files: string[];
+};
+
+export type ScanProgressPayload = {
+  libraryId?: string;
+  status: "starting" | "scanning" | "completed" | "failed";
+  progress: number;
+  currentFolder?: string;
+  totalFolders?: number;
+  scannedFolders?: number;
+};
+
+type ScanRunContext = {
+  emitProgress?: (data: ScanProgressPayload) => void;
+  shouldStop?: () => boolean;
 };
 
 const probeFile = (toolPath: string): Promise<any> =>
@@ -65,44 +79,59 @@ export const getAudioMetadata = (filePath: string): Promise<any> =>
     probeFile(preparePathForTool(filePath, false)),
   );
 
-const discoverBookFolders = (library: LibraryWithSources): DiscoveredFolder[] => {
+const discoverBookFolders = (
+  library: LibraryWithSources,
+  shouldStop: () => boolean = () => false,
+): DiscoveredFolder[] => {
   const folders: DiscoveredFolder[] = [];
 
   const walk = (dirPath: string) => {
-    if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-      return;
-    }
+    const stack = [dirPath];
 
-    let entries: fs.Dirent[] = [];
-    try {
-      entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    } catch (error) {
-      console.error(`Error reading directory ${dirPath}:`, error);
-      return;
-    }
+    while (stack.length > 0 && !shouldStop()) {
+      const currentDir = stack.pop();
+      if (!currentDir || !fs.existsSync(currentDir)) {
+        continue;
+      }
 
-    let hasAudio = false;
-    for (const entry of entries) {
-      if (entry.isFile()) {
+      if (!fs.statSync(currentDir).isDirectory()) {
+        continue;
+      }
+
+      let entries: fs.Dirent[] = [];
+      try {
+        entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      } catch (error) {
+        console.error(`Error reading directory ${currentDir}:`, error);
+        continue;
+      }
+
+      const files: string[] = [];
+      let hasAudio = false;
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          stack.push(path.join(currentDir, entry.name));
+          continue;
+        }
+
+        if (!entry.isFile()) {
+          continue;
+        }
+
+        files.push(entry.name);
         const ext = path.extname(entry.name).toLowerCase();
         if (AUDIO_EXTENSIONS.includes(ext)) {
           hasAudio = true;
-          break;
         }
       }
-    }
 
-    if (hasAudio) {
-      folders.push({
-        libraryId: library.id,
-        folderName: path.basename(dirPath),
-        folderPath: dirPath,
-      });
-    }
-
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        walk(path.join(dirPath, entry.name));
+      if (hasAudio) {
+        folders.push({
+          libraryId: library.id,
+          folderName: path.basename(currentDir),
+          folderPath: currentDir,
+          files,
+        });
       }
     }
   };
@@ -125,18 +154,22 @@ const removeMissingBooks = async (
     select: { id: true, folderPath: true, coverPath: true },
   });
 
-  for (const book of existingBooks) {
-    const normalizedBookPath = normalizeSourcePath(book.folderPath);
-    const belongsToCurrentRoots = sourceRoots.some((root) => {
-      const relative = path.relative(root, normalizedBookPath);
-      return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  const missingBookIds = existingBooks
+    .filter((book) => {
+      const normalizedBookPath = normalizeSourcePath(book.folderPath);
+      const belongsToCurrentRoots = sourceRoots.some((root) => {
+        const relative = path.relative(root, normalizedBookPath);
+        return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+      });
+
+      return belongsToCurrentRoots && !discoveredPaths.has(normalizedBookPath);
+    })
+    .map((book) => book.id);
+
+  if (missingBookIds.length > 0) {
+    await prisma.book.deleteMany({
+      where: { id: { in: missingBookIds } },
     });
-
-    if (!belongsToCurrentRoots || discoveredPaths.has(normalizedBookPath)) {
-      continue;
-    }
-
-    await prisma.book.delete({ where: { id: book.id } });
     // Cover files live in the book's folder within the library volume — don't delete them
   }
 };
@@ -196,8 +229,12 @@ const pickDescription = (...values: unknown[]): string | null => {
   return null;
 };
 
-const upsertBookFolder = async ({ libraryId, folderName, folderPath }: DiscoveredFolder) => {
-  const files = fs.readdirSync(folderPath);
+const upsertBookFolder = async (
+  { libraryId, folderName, folderPath, files }: DiscoveredFolder,
+  shouldStop: () => boolean = () => false,
+) => {
+  if (shouldStop()) return;
+
   const audioFiles = files
     .filter((file) => AUDIO_EXTENSIONS.includes(path.extname(file).toLowerCase()))
     .sort();
@@ -208,7 +245,23 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
 
   const existingBook = await prisma.book.findUnique({
     where: { folderPath },
-    include: { _count: { select: { audioFiles: true } } },
+    include: {
+      author: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+      audioFiles: {
+        select: {
+          filename: true,
+        },
+        orderBy: {
+          index: "asc",
+        },
+      },
+      _count: { select: { audioFiles: true } },
+    },
   });
 
   // Skip metadata extraction only if file count matches AND we already ran the current extractor
@@ -216,6 +269,10 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     existingBook !== null &&
     existingBook._count.audioFiles === audioFiles.length &&
     existingBook.metadataVersion >= METADATA_VERSION;
+  const canReuseAudioIndex =
+    skipMetadata &&
+    existingBook.audioFiles.length === audioFiles.length &&
+    existingBook.audioFiles.every((audioFile, index) => audioFile.filename === audioFiles[index]);
 
   const firstAudioPath = path.join(folderPath, audioFiles[0]);
 
@@ -246,6 +303,7 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
 
   if (!skipMetadata) {
     try {
+      if (shouldStop()) return;
       firstAudioMetadata = await getAudioMetadata(firstAudioPath);
       const tags = firstAudioMetadata.format.tags || {};
 
@@ -297,8 +355,7 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     }
   } else if (existingBook) {
     title = existingBook.title;
-    const author = await prisma.author.findUnique({ where: { id: existingBook.authorId } });
-    if (author) authorName = author.name;
+    authorName = existingBook.author.name;
   }
 
   // Cover art resolution — store directly in the book's folder (persists with the library volume)
@@ -326,6 +383,7 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
 
     if (!hasCover) {
       try {
+        if (shouldStop()) return;
         const hasEmbeddedArt =
           firstAudioMetadata?.streams?.some(
             (s: any) => s.codec_type === "video" || s.codec_type === "attachment",
@@ -347,11 +405,14 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
   // coverPath uses bookId; for existing books we know the id upfront
   const coverPath = hasCover && existingBook ? getCoverUrl(existingBook.id) : (existingBook?.coverPath || "");
 
-  const author = await prisma.author.upsert({
-    where: { name: authorName },
-    update: {},
-    create: { name: authorName },
-  });
+  const author =
+    existingBook && existingBook.author.name === authorName
+      ? existingBook.author
+      : await prisma.author.upsert({
+          where: { name: authorName },
+          update: {},
+          create: { name: authorName },
+        });
 
   // Resolve series record when we have a series name from tags
   let seriesId: string | null = existingBook?.seriesId ?? null;
@@ -468,13 +529,21 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     });
   }
 
+  if (canReuseAudioIndex) {
+    return;
+  }
+
   let totalDuration = 0;
   const allChapters: { title: string; start: number; end: number }[] = [];
+
+  if (shouldStop()) return;
 
   await prisma.audioFile.deleteMany({ where: { bookId: book.id } });
   await prisma.chapter.deleteMany({ where: { bookId: book.id } });
 
   for (let index = 0; index < audioFiles.length; index++) {
+    if (shouldStop()) return;
+
     const filename = audioFiles[index];
     const filePath = path.join(folderPath, filename);
     let duration = 0;
@@ -534,90 +603,103 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
   });
 };
 
-let isScanningActive = false;
+export const scanLibrary = async (libraryId?: string, context: ScanRunContext = {}) => {
+  const emitProgress = context.emitProgress ?? (() => {});
+  const shouldStop = context.shouldStop ?? (() => false);
 
-export const scanLibrary = async (libraryId?: string) => {
-  if (isScanningActive) {
-    console.log("Scan already in progress, skipping...");
-    return;
-  }
-  isScanningActive = true;
+  const libraries = await getConfiguredLibraries(libraryId);
+  if (shouldStop()) return;
 
-  try {
-    const libraries = await getConfiguredLibraries(libraryId);
-
-    emitScanProgress({
-      libraryId,
-      status: "starting",
-      progress: 0,
-    });
-
-    let totalDiscovered = 0;
-    let processedCount = 0;
-
-    const allDiscovered: { library: any; folders: DiscoveredFolder[] }[] = [];
-    for (const library of libraries) {
-      const discoveredFolders = discoverBookFolders(library);
-      allDiscovered.push({ library, folders: discoveredFolders });
-      totalDiscovered += discoveredFolders.length;
-    }
-
-    for (const { library, folders } of allDiscovered) {
-      if (!isScanningActive) break;
-
-      const sourceRoots = library.sources
-        .map((source: any) => normalizeSourcePath(source.path))
-        .filter((sourcePath: string) => fs.existsSync(sourcePath) && fs.statSync(sourcePath).isDirectory());
-
-      const discoveredPaths = new Set(folders.map((entry) => entry.folderPath));
-      await removeMissingBooks(library.id, discoveredPaths, sourceRoots);
-
-      for (const folder of folders) {
-        if (!isScanningActive) break;
-        try {
-          processedCount++;
-          const progress = totalDiscovered > 0 ? Math.round((processedCount / totalDiscovered) * 100) : 100;
-
-          emitScanProgress({
-            libraryId: library.id,
-            status: "scanning",
-            progress,
-            currentFolder: folder.folderName,
-            totalFolders: totalDiscovered,
-            scannedFolders: processedCount,
-          });
-
-          await upsertBookFolder(folder);
-        } catch (error) {
-          console.error(`Failed to process folder ${folder.folderPath}:`, error);
-        }
-      }
-    }
-
-    if (isScanningActive) {
-      emitScanProgress({
-        libraryId,
-        status: "completed",
-        progress: 100,
-      });
-    }
-
-    await prisma.author.deleteMany({
-      where: { books: { none: {} } },
-    });
-
-    await prisma.series.deleteMany({
-      where: { books: { none: {} } },
-    });
-  } finally {
-    isScanningActive = false;
-  }
-};
-
-export const stopScanning = () => {
-  isScanningActive = false;
-  emitScanProgress({
-    status: "failed",
+  emitProgress({
+    libraryId,
+    status: "starting",
     progress: 0,
   });
+
+  let totalDiscovered = 0;
+  let processedCount = 0;
+
+  const allDiscovered: { library: LibraryWithSources; folders: DiscoveredFolder[] }[] = [];
+  for (const library of libraries) {
+    if (shouldStop()) return;
+
+    const discoveredFolders = discoverBookFolders(library, shouldStop);
+    allDiscovered.push({ library, folders: discoveredFolders });
+    totalDiscovered += discoveredFolders.length;
+  }
+
+  for (const { library, folders } of allDiscovered) {
+    if (shouldStop()) return;
+
+    const sourceRoots = library.sources
+      .map((source) => normalizeSourcePath(source.path))
+      .filter((sourcePath) => fs.existsSync(sourcePath) && fs.statSync(sourcePath).isDirectory());
+
+    const discoveredPaths = new Set(folders.map((entry) => entry.folderPath));
+    await removeMissingBooks(library.id, discoveredPaths, sourceRoots);
+
+    for (const folder of folders) {
+      if (shouldStop()) return;
+
+      try {
+        processedCount++;
+        const progress = totalDiscovered > 0 ? Math.round((processedCount / totalDiscovered) * 100) : 100;
+
+        emitProgress({
+          libraryId: library.id,
+          status: "scanning",
+          progress,
+          currentFolder: folder.folderName,
+          totalFolders: totalDiscovered,
+          scannedFolders: processedCount,
+        });
+
+        await upsertBookFolder(folder, shouldStop);
+      } catch (error) {
+        console.error(`Failed to process folder ${folder.folderPath}:`, error);
+      }
+    }
+  }
+
+  if (shouldStop()) return;
+
+  emitProgress({
+    libraryId,
+    status: "completed",
+    progress: 100,
+  });
+
+  await prisma.author.deleteMany({
+    where: { books: { none: {} } },
+  });
+
+  await prisma.series.deleteMany({
+    where: { books: { none: {} } },
+  });
 };
+
+export const rescanBook = async (bookId: string) => {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { libraryId: true, folderPath: true },
+  });
+
+  if (!book) {
+    throw new Error("Book not found");
+  }
+
+  if (!fs.existsSync(book.folderPath)) {
+    throw new Error("Folder does not exist");
+  }
+
+  const folderPath = book.folderPath;
+  const files = fs.readdirSync(folderPath);
+
+  await upsertBookFolder({
+    libraryId: book.libraryId,
+    folderName: path.basename(folderPath),
+    folderPath,
+    files,
+  });
+};
+

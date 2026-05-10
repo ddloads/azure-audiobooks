@@ -22,6 +22,10 @@ import {
   Settings,
   Database,
   Undo,
+  Scan,
+  Trash2,
+  FileSearch,
+  RefreshCw,
 } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
@@ -101,7 +105,10 @@ const BookDetailsPage: React.FC = () => {
   const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
   const [hasBackup, setHasBackup] = useState(false);
   const [isTracksCollapsed, setIsTracksCollapsed] = useState(true);
-  const [confirmAction, setConfirmAction] = useState<null | "merge" | "undo">(null);
+  const [confirmAction, setConfirmAction] = useState<null | "merge" | "undo" | "rescan" | "cleanup" | "merge-duplicates">(null);
+  const [duplicates, setDuplicates] = useState<Book[]>([]);
+  const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>([]);
+  const [isSearchingDuplicates, setIsSearchingDuplicates] = useState(false);
   const { playBook, currentBook, isPlaying, togglePlay } = usePlayer();
   const { upsertTask, removeTask } = useTasks();
   const { user } = useAuth();
@@ -236,6 +243,108 @@ const BookDetailsPage: React.FC = () => {
         description: msg,
         tone: "error",
         durationMs: 6500,
+      });
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const handleRescan = async () => {
+    if (!book) return;
+    setMerging(true);
+    setShowToolsMenu(false);
+    setConfirmAction(null);
+    try {
+      await api.post(`/admin/books/${book.id}/rescan`);
+      showToast({
+        title: "Rescan complete",
+        description: "The book's folder has been rescanned for changes.",
+        tone: "success",
+      });
+      await fetchBookDetails();
+    } catch (error) {
+      console.error("Rescan failed", error);
+      showToast({
+        title: "Rescan failed",
+        description: "Could not rescan the book folder.",
+        tone: "error",
+      });
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const handleCleanupBackup = async () => {
+    if (!book) return;
+    setShowToolsMenu(false);
+    setConfirmAction(null);
+    try {
+      await api.post(`/admin/books/${book.id}/cleanup-backup`);
+      showToast({
+        title: "Cleanup complete",
+        description: "The merged backup folder has been deleted.",
+        tone: "success",
+      });
+      await fetchBookDetails();
+    } catch (error) {
+      console.error("Cleanup failed", error);
+      showToast({
+        title: "Cleanup failed",
+        description: "Could not delete the backup folder.",
+        tone: "error",
+      });
+    }
+  };
+
+  const handleFindDuplicates = async () => {
+    if (!book) return;
+    setIsSearchingDuplicates(true);
+    setShowToolsMenu(false);
+    try {
+      const res = await api.get<Book[]>(`/admin/books/${book.id}/duplicates`);
+      setDuplicates(res.data);
+      if (res.data.length > 0) {
+        setConfirmAction("merge-duplicates");
+      } else {
+        showToast({
+          title: "No duplicates found",
+          description: "No other books with matching ASIN, ISBN, or Title/Author were found.",
+          tone: "info",
+        });
+      }
+    } catch (error) {
+      console.error("Duplicate search failed", error);
+      showToast({
+        title: "Search failed",
+        description: "Could not search for duplicates.",
+        tone: "error",
+      });
+    } finally {
+      setIsSearchingDuplicates(false);
+    }
+  };
+
+  const handleMergeDuplicates = async () => {
+    if (!book || selectedDuplicateIds.length === 0) return;
+    setMerging(true);
+    try {
+      await api.post(`/admin/books/${book.id}/merge-with`, {
+        secondaryIds: selectedDuplicateIds,
+      });
+      showToast({
+        title: "Books merged",
+        description: "Selected duplicates have been merged into this book.",
+        tone: "success",
+      });
+      setConfirmAction(null);
+      setSelectedDuplicateIds([]);
+      await fetchBookDetails();
+    } catch (error) {
+      console.error("Merge failed", error);
+      showToast({
+        title: "Merge failed",
+        description: "Could not merge the selected books.",
+        tone: "error",
       });
     } finally {
       setMerging(false);
@@ -483,6 +592,32 @@ const BookDetailsPage: React.FC = () => {
                           >
                             <Undo size={16} />
                             <span>Undo Merge</span>
+                          </button>
+                        )}
+                        <div className="book-tools-divider" />
+                        <button
+                          className="book-tools-option"
+                          onClick={() => setConfirmAction("rescan")}
+                          disabled={merging}
+                        >
+                          <RefreshCw size={16} className={merging ? "animate-spin" : ""} />
+                          <span>Refresh Metadata</span>
+                        </button>
+                        <button
+                          className="book-tools-option"
+                          onClick={() => handleFindDuplicates()}
+                          disabled={isSearchingDuplicates}
+                        >
+                          <FileSearch size={16} />
+                          <span>Find Duplicates</span>
+                        </button>
+                        {hasBackup && (
+                          <button
+                            className="book-tools-option text-danger"
+                            onClick={() => setConfirmAction("cleanup")}
+                          >
+                            <Trash2 size={16} />
+                            <span>Cleanup Backups</span>
                           </button>
                         )}
                       </div>
@@ -770,6 +905,72 @@ const BookDetailsPage: React.FC = () => {
         onCancel={() => setConfirmAction(null)}
         onConfirm={() => void handleUndoMerge()}
       />
+      <ConfirmDialog
+        open={confirmAction === "rescan"}
+        title="Refresh Metadata"
+        message="This will rescan the book's folder for file changes and update the database. Existing progress will be preserved."
+        confirmLabel="Rescan Now"
+        busy={merging}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => void handleRescan()}
+      />
+      <ConfirmDialog
+        open={confirmAction === "cleanup"}
+        title="Cleanup Backups"
+        message="This will permanently delete the '.merged-backup' folder for this book. You will no longer be able to undo the merge."
+        confirmLabel="Delete Backup"
+        tone="danger"
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => void handleCleanupBackup()}
+      />
+
+      {/* Duplicate Merge Modal */}
+      {confirmAction === "merge-duplicates" && (
+        <div className="modal-overlay">
+          <div className="modal-content metadata-modal">
+            <div className="modal-header">
+              <h2 className="modal-title">Merge Duplicates</h2>
+              <button className="btn-close" onClick={() => setConfirmAction(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-4">Select the books you want to merge <strong>INTO</strong> this primary record. Audio files and progress will be consolidated.</p>
+              <div className="duplicate-list">
+                {duplicates.map(dup => (
+                  <label key={dup.id} className="duplicate-item">
+                    <input
+                      type="checkbox"
+                      checked={selectedDuplicateIds.includes(dup.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedDuplicateIds([...selectedDuplicateIds, dup.id]);
+                        } else {
+                          setSelectedDuplicateIds(selectedDuplicateIds.filter(id => id !== dup.id));
+                        }
+                      }}
+                    />
+                    <div className="dup-info">
+                      <div className="dup-title">{dup.title}</div>
+                      <div className="dup-meta">
+                        {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                disabled={selectedDuplicateIds.length === 0 || merging}
+                onClick={() => void handleMergeDuplicates()}
+              >
+                {merging ? "Merging..." : `Merge ${selectedDuplicateIds.length} Books`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

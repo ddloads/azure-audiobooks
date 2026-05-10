@@ -15,7 +15,7 @@ import {
   getActiveScanTask,
 } from "../lib/socket";
 import { AuthRequest } from "../middleware/authMiddleware";
-import { scanLibrary } from "../utils/scanner";
+import { requestLibraryScan } from "../lib/scanJobPool";
 import { backupDatabase } from "../utils/backup";
 import {
   normalizeSourcePath,
@@ -1282,6 +1282,238 @@ export const getBookHasBackup = async (req: AuthRequest, res: Response): Promise
   }
 };
 
+export const rescanSingleBookHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bookId = getSingleParam(req.params.bookId);
+    if (!bookId) {
+      res.status(400).json({ error: "Invalid book id" });
+      return;
+    }
+
+    await rescanBook(bookId);
+    res.json({ message: "Book rescanned successfully" });
+  } catch (error) {
+    console.error("Rescan book error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to rescan book" });
+  }
+};
+
+export const cleanupMergedBackupsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bookId = getSingleParam(req.params.bookId);
+    if (!bookId) {
+      res.status(400).json({ error: "Invalid book id" });
+      return;
+    }
+
+    const book = await prisma.book.findUnique({
+      where: { id: bookId },
+      select: { folderPath: true },
+    });
+
+    if (!book) {
+      res.status(404).json({ error: "Book not found" });
+      return;
+    }
+
+    const backupDir = path.join(book.folderPath, ".merged-backup");
+    if (fs.existsSync(backupDir)) {
+      fs.rmSync(backupDir, { recursive: true, force: true });
+      res.json({ message: "Backup folder deleted successfully" });
+    } else {
+      res.status(404).json({ error: "No backup folder found" });
+    }
+  } catch (error) {
+    console.error("Cleanup backup error:", error);
+    res.status(500).json({ error: "Failed to cleanup backup folder" });
+  }
+};
+
+export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bookId = getSingleParam(req.params.bookId);
+    if (!bookId) {
+      res.status(400).json({ error: "Invalid book id" });
+      return;
+    }
+
+    const book = await prisma.book.findUnique({
+      where: { id: bookId },
+      include: { author: true },
+    });
+
+    if (!book) {
+      res.status(404).json({ error: "Book not found" });
+      return;
+    }
+
+    // Find duplicates by ASIN, ISBN, or Title + Author
+    const duplicates = await prisma.book.findMany({
+      where: {
+        id: { not: bookId },
+        OR: [
+          book.asin ? { asin: book.asin } : {},
+          book.isbn ? { isbn: book.isbn } : {},
+          {
+            AND: [
+              { title: { equals: book.title, mode: "insensitive" } },
+              { authorId: book.authorId },
+            ],
+          },
+        ].filter((cond) => Object.keys(cond).length > 0),
+      },
+      include: {
+        author: true,
+        library: { select: { name: true } },
+        _count: { select: { audioFiles: true } },
+      },
+    });
+
+    res.json(duplicates);
+  } catch (error) {
+    console.error("Find duplicates error:", error);
+    res.status(500).json({ error: "Failed to find duplicates" });
+  }
+};
+
+export const mergeBooksHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const primaryId = getSingleParam(req.params.bookId);
+    const { secondaryIds } = req.body as { secondaryIds: string[] };
+
+    if (!primaryId || !secondaryIds || !Array.isArray(secondaryIds) || secondaryIds.length === 0) {
+      res.status(400).json({ error: "Primary book ID and at least one secondary book ID are required" });
+      return;
+    }
+
+    const primaryBook = await prisma.book.findUnique({
+      where: { id: primaryId },
+      include: { audioFiles: true },
+    });
+
+    if (!primaryBook) {
+      res.status(404).json({ error: "Primary book not found" });
+      return;
+    }
+
+    const secondaryBooks = await prisma.book.findMany({
+      where: { id: { in: secondaryIds } },
+      include: { audioFiles: true },
+    });
+
+    if (secondaryBooks.length !== secondaryIds.length) {
+      res.status(404).json({ error: "One or more secondary books not found" });
+      return;
+    }
+
+    // Perform merge in a transaction
+    await prisma.$transaction(async (tx) => {
+      for (const secondary of secondaryBooks) {
+        // 1. Move progress records if they don't exist for the primary book
+        const secondaryProgress = await tx.progress.findMany({
+          where: { bookId: secondary.id },
+        });
+
+        for (const prog of secondaryProgress) {
+          const existingPrimaryProg = await tx.progress.findUnique({
+            where: { userId_bookId: { userId: prog.userId, bookId: primaryId } },
+          });
+
+          if (!existingPrimaryProg) {
+            await tx.progress.create({
+              data: {
+                userId: prog.userId,
+                bookId: primaryId,
+                currentTime: prog.currentTime,
+                isFinished: prog.isFinished,
+                lastUpdate: prog.lastUpdate,
+              },
+            });
+          } else if (!existingPrimaryProg.isFinished && prog.isFinished) {
+            // Update to finished if secondary was finished
+            await tx.progress.update({
+              where: { id: existingPrimaryProg.id },
+              data: {
+                isFinished: true,
+                currentTime: prog.currentTime,
+                lastUpdate: prog.lastUpdate,
+              },
+            });
+          }
+        }
+
+        // 2. Move audio files physically and update DB
+        // We move files to a subfolder or just move them into the primary folder?
+        // Let's create a subfolder if it's multiple files to avoid name collisions
+        const destFolder = primaryBook.folderPath;
+        const subFolderName = `merged_${secondary.id.split("-")[0]}`;
+        const subFolderPath = path.join(destFolder, subFolderName);
+
+        if (secondary.audioFiles.length > 0) {
+          if (!fs.existsSync(subFolderPath)) {
+            fs.mkdirSync(subFolderPath, { recursive: true });
+          }
+
+          let lastIndex = await tx.audioFile.count({ where: { bookId: primaryId } });
+
+          for (const af of secondary.audioFiles) {
+            const oldPath = af.path;
+            const newPath = path.join(subFolderPath, af.filename);
+
+            if (fs.existsSync(oldPath)) {
+              fs.renameSync(oldPath, newPath);
+            }
+
+            await tx.audioFile.create({
+              data: {
+                filename: path.join(subFolderName, af.filename),
+                path: newPath,
+                duration: af.duration,
+                index: lastIndex++,
+                title: af.title,
+                bookId: primaryId,
+              },
+            });
+          }
+        }
+
+        // 3. Delete secondary book (cascade will delete its old audioFile records in DB)
+        await tx.book.delete({ where: { id: secondary.id } });
+
+        // 4. Try to delete the empty folder of the secondary book
+        try {
+          if (fs.existsSync(secondary.folderPath) && fs.readdirSync(secondary.folderPath).length === 0) {
+            fs.rmdirSync(secondary.folderPath);
+          }
+        } catch (e) {
+          console.error(`Failed to delete folder ${secondary.folderPath}:`, e);
+        }
+      }
+
+      // 5. Update primary book duration
+      const totalDuration = await tx.audioFile.aggregate({
+        where: { bookId: primaryId },
+        _sum: { duration: true },
+      });
+
+      await tx.book.update({
+        where: { id: primaryId },
+        data: { duration: totalDuration._sum.duration || 0 },
+      });
+    });
+
+    adminLogger.info("Books merged", {
+      primaryId,
+      secondaryIds,
+    });
+
+    res.json({ message: "Books merged successfully" });
+  } catch (error) {
+    console.error("Merge books error:", error);
+    res.status(500).json({ error: "Failed to merge books" });
+  }
+};
+
 export const searchBookMatches = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const bookId = getSingleParam(req.params.bookId);
@@ -1980,9 +2212,11 @@ export const renameAudibleCliProfileHandler = async (
 
 export const rescanLibrary = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    await scanLibrary();
-    adminLogger.info("Full library rescan completed");
-    res.json({ message: "Library scan completed" });
+    const scanRequest = requestLibraryScan();
+    adminLogger.info("Full library rescan requested", {
+      status: scanRequest.status,
+    });
+    res.status(202).json({ message: scanRequest.message, status: scanRequest.status });
   } catch (error) {
     console.error("Rescan library error:", error);
     res.status(500).json({ error: "Failed to rescan library" });
@@ -2007,12 +2241,17 @@ export const rescanSingleLibrary = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    await scanLibrary(libraryId);
-    adminLogger.info("Single library rescan completed", {
+    const scanRequest = requestLibraryScan(libraryId);
+    adminLogger.info("Single library rescan requested", {
       libraryId: library.id,
       name: library.name,
+      status: scanRequest.status,
     });
-    res.json({ message: `${library.name} scan completed` });
+    res.status(202).json({
+      message:
+        scanRequest.status === "queued" ? `${library.name} scan queued` : `${library.name} scan started`,
+      status: scanRequest.status,
+    });
   } catch (error) {
     console.error("Rescan single library error:", error);
     res.status(500).json({ error: "Failed to rescan library" });

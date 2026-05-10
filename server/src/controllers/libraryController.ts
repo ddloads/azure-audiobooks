@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import prisma from "../lib/prisma";
-import { scanLibrary, stopScanning } from "../utils/scanner";
+import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
 
@@ -407,13 +407,17 @@ export const triggerScan = async (req: Request, res: Response) => {
         return;
       }
 
-      await scanLibrary(libraryId);
-      res.json({ message: `${library.name} scan completed` });
+      const scanRequest = requestLibraryScan(libraryId);
+      res.status(202).json({
+        message:
+          scanRequest.status === "queued" ? `${library.name} scan queued` : `${library.name} scan started`,
+        status: scanRequest.status,
+      });
       return;
     }
 
-    await scanLibrary();
-    res.json({ message: "Scan completed" });
+    const scanRequest = requestLibraryScan();
+    res.status(202).json({ message: scanRequest.message, status: scanRequest.status });
   } catch (error) {
     res.status(500).json({ error: "Scan failed" });
   }

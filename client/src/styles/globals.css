@@ -5337,3 +5337,62 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.8125rem;
   color: var(--text-subtle);
 }
+
+/* Duplicate Detection & Book Tools Extensions */
+.book-tools-divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 4px 0;
+  opacity: 0.3;
+}
+
+.text-danger {
+  color: #ef4444 !important;
+}
+
+.duplicate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.duplicate-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: 1px solid transparent;
+}
+
+.duplicate-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-color);
+}
+
+.duplicate-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.dup-info {
+  flex: 1;
+}
+
+.dup-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+  color: var(--text-color);
+}
+
+.dup-meta {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
