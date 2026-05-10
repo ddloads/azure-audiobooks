@@ -36,6 +36,7 @@ import {
 import { searchGoogleBooks } from "../utils/googleBooks";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../utils/covers";
 import { embedMetadata, mergeToM4B } from "../utils/processor";
+import { rescanBook } from "../utils/scanner";
 import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
 import { createLogger } from "../lib/logger";
 
@@ -1366,7 +1367,7 @@ export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response)
           book.isbn ? { isbn: book.isbn } : {},
           {
             AND: [
-              { title: { equals: book.title, mode: "insensitive" } },
+              { title: { equals: book.title, mode: "insensitive" as any } },
               { authorId: book.authorId },
             ],
           },
