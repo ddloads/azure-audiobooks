@@ -1,9 +1,8 @@
 import fs from "fs";
 import path from "path";
-import { getCoversRoot } from "./libraryConfig";
 
-export const getCoverUrl = (coverName: string) =>
-  `/api/library/cover/${encodeURIComponent(coverName)}`;
+export const getCoverUrl = (bookId: string) =>
+  `/api/library/cover/${encodeURIComponent(bookId)}`;
 
 export const normalizeCoverPath = (coverPath?: string | null) => {
   if (!coverPath) {
@@ -18,7 +17,15 @@ export const normalizeCoverPath = (coverPath?: string | null) => {
   return getCoverUrl(decodeURIComponent(match[1]));
 };
 
-export const downloadCover = async (url: string, baseName: string): Promise<string | null> => {
+export const findCoverInFolder = (folderPath: string): string | null => {
+  for (const ext of [".jpg", ".jpeg", ".png", ".webp"]) {
+    const p = path.join(folderPath, `cover${ext}`);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+};
+
+export const downloadCover = async (url: string, folderPath: string): Promise<boolean> => {
   try {
     const response = await fetch(url, {
       headers: {
@@ -29,7 +36,7 @@ export const downloadCover = async (url: string, baseName: string): Promise<stri
 
     if (!response.ok) {
       console.error(`Failed to download cover from ${url}: ${response.status} ${response.statusText}`);
-      return null;
+      return false;
     }
 
     const contentType = response.headers.get("content-type");
@@ -37,15 +44,13 @@ export const downloadCover = async (url: string, baseName: string): Promise<stri
     if (contentType?.includes("image/png")) ext = ".png";
     if (contentType?.includes("image/webp")) ext = ".webp";
 
-    const fileName = `${baseName}${ext}`;
-    const filePath = path.join(getCoversRoot(), fileName);
-
+    const filePath = path.join(folderPath, `cover${ext}`);
     const buffer = Buffer.from(await response.arrayBuffer());
     fs.writeFileSync(filePath, buffer);
 
-    return fileName;
+    return true;
   } catch (error) {
     console.error(`Error downloading cover from ${url}:`, error);
-    return null;
+    return false;
   }
 };

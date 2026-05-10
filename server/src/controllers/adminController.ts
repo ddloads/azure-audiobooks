@@ -18,7 +18,6 @@ import { AuthRequest } from "../middleware/authMiddleware";
 import { scanLibrary } from "../utils/scanner";
 import { backupDatabase } from "../utils/backup";
 import {
-  getCoversRoot,
   normalizeSourcePath,
 } from "../utils/libraryConfig";
 import { searchAudible } from "../utils/audible";
@@ -35,7 +34,7 @@ import {
   setStoredActiveAudibleProfile,
 } from "../utils/audibleCli";
 import { searchGoogleBooks } from "../utils/googleBooks";
-import { downloadCover, getCoverUrl, normalizeCoverPath } from "../utils/covers";
+import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../utils/covers";
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
 import { createLogger } from "../lib/logger";
@@ -153,9 +152,7 @@ const runWriteTagsJob = async (jobId: string, bookId: string) => {
       publisher: book.publisher,
       year: book.year,
       genres: book.genres,
-      coverPath: book.coverPath
-        ? path.join(process.cwd(), "data", "covers", path.basename(book.coverPath))
-        : null,
+      coverPath: findCoverInFolder(book.folderPath),
     };
 
     for (const audioFile of book.audioFiles) {
@@ -426,7 +423,7 @@ export const getAdminDashboard = async (_req: AuthRequest, res: Response): Promi
         totalDuration: totalDurationResult._sum.duration ?? 0,
       },
       library: {
-        coversRoot: getCoversRoot(),
+        coversRoot: "in-book-folder",
         libraries,
       },
       backups: getBackupEntries(),
@@ -987,15 +984,7 @@ export const deleteBook = async (req: AuthRequest, res: Response): Promise<void>
       fs.rmSync(book.folderPath, { recursive: true, force: true });
     }
 
-    if (book.coverPath) {
-      const coverName = book.coverPath.split("/").pop();
-      if (coverName) {
-        const coverPath = path.join(process.cwd(), "data", "covers", coverName);
-        if (fs.existsSync(coverPath)) {
-          fs.rmSync(coverPath, { force: true });
-        }
-      }
-    }
+    // Cover files live in book.folderPath which was already deleted above
 
     res.status(204).send();
   } catch (error) {
@@ -1112,9 +1101,7 @@ export const mergeBookFiles = async (req: AuthRequest, res: Response): Promise<v
         publisher: book.publisher || undefined,
         year: book.year || undefined,
         genres: book.genres || undefined,
-        coverPath: book.coverPath
-          ? path.join(process.cwd(), "data", "covers", book.coverPath.split("/").pop()!)
-          : undefined,
+        coverPath: findCoverInFolder(book.folderPath) ?? undefined,
       });
     } catch (embedError) {
       console.error("Failed to embed metadata after merge:", embedError);
@@ -1441,24 +1428,13 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
     if (selectedFields.imageUrl) {
       const imageUrl = toNullableString(sourceFields.imageUrl);
       if (imageUrl) {
-        // Delete old cover if it exists
-        if (book.coverPath) {
-          const oldCoverName = book.coverPath.split("/").pop();
-          if (oldCoverName) {
-            const oldPath = path.join(process.cwd(), "data", "covers", oldCoverName);
-            if (fs.existsSync(oldPath)) fs.rmSync(oldPath, { force: true });
-          }
-        }
+        // Delete old cover from book folder before downloading new one
+        const oldCoverFile = findCoverInFolder(book.folderPath);
+        if (oldCoverFile) fs.rmSync(oldCoverFile, { force: true });
 
-        const baseName = `${book.folderPath
-          .split(path.sep)
-          .filter(Boolean)
-          .pop()!
-          .replace(/[^a-z0-9]/gi, "_")}_${Math.random().toString(16).slice(2, 10)}`;
-
-        const newCoverName = await downloadCover(imageUrl, baseName);
-        if (newCoverName) {
-          updateData.coverPath = getCoverUrl(newCoverName);
+        const downloaded = await downloadCover(imageUrl, book.folderPath);
+        if (downloaded) {
+          updateData.coverPath = getCoverUrl(book.id);
         }
       }
     }

@@ -2,7 +2,6 @@ import fs from "fs";
 import path from "path";
 import prisma from "../lib/prisma";
 
-export const getCoversRoot = () => path.join(process.cwd(), "data", "covers");
 
 export const normalizeSourcePath = (input: string) => {
   const trimmed = input.trim();
@@ -41,9 +40,7 @@ export const preparePathForTool = (filePath: string, useForwardSlashes = false):
 };
 
 export const ensureStorageFolders = () => {
-  const coversRoot = getCoversRoot();
-
-  if (!fs.existsSync(coversRoot)) fs.mkdirSync(coversRoot, { recursive: true });
+  // No-op: covers are now stored in each book's folder within the library volume
 };
 
 export const getConfiguredLibraries = async (libraryId?: string) => {

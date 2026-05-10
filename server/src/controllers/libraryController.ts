@@ -3,8 +3,7 @@ import path from "path";
 import fs from "fs";
 import prisma from "../lib/prisma";
 import { scanLibrary, stopScanning } from "../utils/scanner";
-import { normalizeCoverPath } from "../utils/covers";
-import { getCoversRoot } from "../utils/libraryConfig";
+import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
 
 const getSingleParam = (value: string | string[] | undefined): string | null =>
@@ -15,14 +14,7 @@ const normalizeBookCover = <T extends { coverPath?: string | null }>(book: T) =>
   coverPath: normalizeCoverPath(book.coverPath),
 });
 
-const hasAvailableCover = (coverPath?: string | null) => {
-  if (!coverPath) return false;
-
-  const coverName = coverPath.split("/").pop()?.split("?")[0];
-  if (!coverName) return false;
-
-  return fs.existsSync(path.join(getCoversRoot(), decodeURIComponent(coverName)));
-};
+const hasAvailableCover = (coverPath?: string | null) => !!coverPath;
 
 const getQueryString = (value: unknown) =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -437,22 +429,34 @@ export const stopScan = async (_req: Request, res: Response) => {
 };
 
 export const getCover = async (req: Request, res: Response) => {
-  const name = getSingleParam(req.params.name);
-  if (!name) {
-    res.status(400).send("Invalid cover name");
+  const param = getSingleParam(req.params.name);
+  if (!param) {
+    res.status(400).send("Invalid cover id");
     return;
   }
 
-  const coverPath = path.join(process.cwd(), "data", "covers", name);
-  if (fs.existsSync(coverPath)) {
-    const fileHeader = fs.readFileSync(coverPath).subarray(0, 8);
-    if (fileHeader[0] === 0x89 && fileHeader[1] === 0x50 && fileHeader[2] === 0x4e && fileHeader[3] === 0x47) {
-      res.type("png");
-    } else if (fileHeader[0] === 0xff && fileHeader[1] === 0xd8) {
-      res.type("jpeg");
+  const bookId = decodeURIComponent(param);
+
+  // New format: bookId → serve cover from the book's folder
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: { folderPath: true },
+  });
+
+  if (book) {
+    const coverFile = findCoverInFolder(book.folderPath);
+    if (coverFile) {
+      res.sendFile(coverFile);
+      return;
     }
-    res.sendFile(coverPath);
-  } else {
-    res.status(404).send("Not found");
   }
+
+  // Fallback: old format (filename with extension) stored in data/covers
+  const legacyPath = path.join(process.cwd(), "data", "covers", bookId);
+  if (fs.existsSync(legacyPath)) {
+    res.sendFile(legacyPath);
+    return;
+  }
+
+  res.status(404).send("Not found");
 };

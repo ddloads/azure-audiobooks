@@ -6,10 +6,9 @@ import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import prisma from "../lib/prisma";
 import { extractCover } from "./processor";
 import { emitScanProgress } from "../lib/socket";
-import { getCoverUrl } from "./covers";
+import { getCoverUrl, findCoverInFolder } from "./covers";
 import {
   getConfiguredLibraries,
-  getCoversRoot,
   normalizeSourcePath,
   preparePathForTool,
 } from "./libraryConfig";
@@ -138,16 +137,7 @@ const removeMissingBooks = async (
     }
 
     await prisma.book.delete({ where: { id: book.id } });
-
-    if (book.coverPath) {
-      const coverName = book.coverPath.split("/").pop();
-      if (coverName) {
-        const coverPath = path.join(getCoversRoot(), coverName);
-        if (fs.existsSync(coverPath)) {
-          fs.rmSync(coverPath, { force: true });
-        }
-      }
-    }
+    // Cover files live in the book's folder within the library volume — don't delete them
   }
 };
 
@@ -226,8 +216,6 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     existingBook !== null &&
     existingBook._count.audioFiles === audioFiles.length &&
     existingBook.metadataVersion >= METADATA_VERSION;
-
-  const needsCover = !existingBook || !existingBook.coverPath;
 
   const firstAudioPath = path.join(folderPath, audioFiles[0]);
 
@@ -313,17 +301,10 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     if (author) authorName = author.name;
   }
 
-  // Cover art resolution
-  const coverBaseName = `${folderPath
-    .split(path.sep)
-    .pop()
-    ?.replace(/[^a-z0-9]/gi, "_")
-    .toLowerCase()}_${Buffer.from(folderPath).toString("hex").substring(0, 8)}`;
-  let coverName = `${coverBaseName}.jpg`;
-  let coverLocalPath = path.join(getCoversRoot(), coverName);
-  let coverPath = existingBook?.coverPath || "";
+  // Cover art resolution — store directly in the book's folder (persists with the library volume)
+  let hasCover = !!findCoverInFolder(folderPath);
 
-  if (!fs.existsSync(coverLocalPath) || needsCover) {
+  if (!hasCover) {
     const imageFiles = files.filter((f) => [".jpg", ".jpeg", ".png"].includes(path.extname(f).toLowerCase()));
     const commonCoverNames = ["cover", "folder", "front", "poster"];
     const foundCover =
@@ -333,16 +314,17 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     if (foundCover) {
       try {
         const coverExt = path.extname(foundCover).toLowerCase() || ".jpg";
-        coverName = `${coverBaseName}${coverExt}`;
-        coverLocalPath = path.join(getCoversRoot(), coverName);
-        fs.copyFileSync(path.join(folderPath, foundCover), coverLocalPath);
-        coverPath = getCoverUrl(coverName);
+        const coverDest = path.join(folderPath, `cover${coverExt}`);
+        if (path.resolve(folderPath, foundCover) !== coverDest) {
+          fs.copyFileSync(path.join(folderPath, foundCover), coverDest);
+        }
+        hasCover = true;
       } catch (err) {
         console.error(`Failed to copy cover image from ${folderPath}:`, err);
       }
     }
 
-    if (!coverPath) {
+    if (!hasCover) {
       try {
         const hasEmbeddedArt =
           firstAudioMetadata?.streams?.some(
@@ -350,18 +332,20 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
           ) ?? true;
 
         if (hasEmbeddedArt) {
-          await extractCover(firstAudioPath, coverLocalPath);
-          if (fs.existsSync(coverLocalPath) && fs.statSync(coverLocalPath).size > 0) {
-            coverPath = getCoverUrl(coverName);
+          const coverDest = path.join(folderPath, "cover.jpg");
+          await extractCover(firstAudioPath, coverDest);
+          if (fs.existsSync(coverDest) && fs.statSync(coverDest).size > 0) {
+            hasCover = true;
           }
         }
       } catch {
         // Silent fail — book has no embedded art
       }
     }
-  } else {
-    coverPath = getCoverUrl(coverName);
   }
+
+  // coverPath uses bookId; for existing books we know the id upfront
+  const coverPath = hasCover && existingBook ? getCoverUrl(existingBook.id) : (existingBook?.coverPath || "");
 
   const author = await prisma.author.upsert({
     where: { name: authorName },
@@ -474,6 +458,14 @@ const upsertBookFolder = async ({ libraryId, folderName, folderPath }: Discovere
     } else {
       throw error;
     }
+  }
+
+  // Ensure coverPath is set to the new format (needed for newly created books)
+  if (hasCover && book.coverPath !== getCoverUrl(book.id)) {
+    await prisma.book.update({
+      where: { id: book.id },
+      data: { coverPath: getCoverUrl(book.id) },
+    });
   }
 
   let totalDuration = 0;
