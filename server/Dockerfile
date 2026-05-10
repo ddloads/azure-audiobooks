@@ -39,8 +39,8 @@ RUN apt-get update && apt-get install -y \
     openssl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Audible library for Python scripts
-RUN pip3 install audible --break-system-packages
+# Install Audible library for Python scripts and audible-cli
+RUN pip3 install audible audible-cli --break-system-packages
 
 # Install 'tone' linux-x64 binary
 RUN wget https://github.com/sandreas/tone/releases/download/v0.2.5/tone-0.2.5-linux-x64.tar.gz \
