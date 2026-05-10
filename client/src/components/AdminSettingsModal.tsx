@@ -469,7 +469,6 @@ const AdminSettingsModal = ({
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [libraries, setLibraries] = useState<AdminLibrary[]>([]);
   const [logsData, setLogsData] = useState<AdminLogsResponse | null>(null);
-  const [writeTagsJobs] = useState<AdminWriteTagsJob[]>([]);
   const [runtimeTasks, setRuntimeTasks] = useState<AdminRuntimeTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
