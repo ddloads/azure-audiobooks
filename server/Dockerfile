@@ -45,8 +45,8 @@ RUN pip3 install audible --break-system-packages
 # Install 'tone' linux-x64 binary
 RUN wget https://github.com/sandreas/tone/releases/download/v0.2.5/tone-0.2.5-linux-x64.tar.gz \
     && tar -xzf tone-0.2.5-linux-x64.tar.gz \
-    && mv tone /usr/local/bin/tone \
-    && rm tone-0.2.5-linux-x64.tar.gz
+    && find . -maxdepth 1 -type f -executable -name "tone*" -exec mv {} /usr/local/bin/tone \; \
+    && rm -f tone*.tar.gz
 
 # Copy built assets and production node_modules from builder
 COPY --from=builder /app/server/dist ./dist
