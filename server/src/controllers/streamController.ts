@@ -18,12 +18,14 @@ export const streamAudio = async (req: Request, res: Response) => {
     });
 
     if (!audioFile) {
+      console.warn(`Stream 404: File record not found in database for ID ${fileId}`);
       res.status(404).json({ error: "File not found" });
       return;
     }
 
     const filePath = audioFile.path;
     if (!fs.existsSync(filePath)) {
+      console.warn(`Stream 404: Physical file not found at path: ${filePath}`);
       res.status(404).json({ error: "File not found on disk" });
       return;
     }
