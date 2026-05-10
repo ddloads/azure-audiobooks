@@ -10,6 +10,8 @@ services:
       - DIRECT_URL=${DIRECT_URL}
       - JWT_SECRET=${JWT_SECRET}
       - PORT=4000
+    ports:
+      - "4000:4000"
     volumes:
       - ./server/data:/app/data
       - Audiobooks:/app/library
