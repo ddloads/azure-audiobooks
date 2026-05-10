@@ -953,6 +953,8 @@ export const listAdminBooks = async (_req: AuthRequest, res: Response): Promise<
 export const deleteBook = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const bookId = getSingleParam(req.params.bookId);
+    const { deleteFiles } = req.body as { deleteFiles?: boolean };
+
     if (!bookId) {
       res.status(400).json({ error: "Invalid book id" });
       return;
@@ -974,17 +976,25 @@ export const deleteBook = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    // Delete from DB first
     await prisma.book.delete({ where: { id: bookId } });
 
-    const matchingSource = book.library.sources.find((source) =>
-      pathBelongsToRoot(book.folderPath, source.path),
-    );
+    // Delete physical files if requested
+    if (deleteFiles) {
+      const matchingSource = book.library.sources.find((source) =>
+        pathBelongsToRoot(book.folderPath, source.path),
+      );
 
-    if (matchingSource && fs.existsSync(book.folderPath)) {
-      fs.rmSync(book.folderPath, { recursive: true, force: true });
+      if (matchingSource && fs.existsSync(book.folderPath)) {
+        fs.rmSync(book.folderPath, { recursive: true, force: true });
+      }
     }
 
-    // Cover files live in book.folderPath which was already deleted above
+    adminLogger.info("Book deleted", {
+      bookId,
+      title: book.title,
+      deleteFiles: !!deleteFiles,
+    });
 
     res.status(204).send();
   } catch (error) {

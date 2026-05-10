@@ -351,6 +351,29 @@ const BookDetailsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteBook = async () => {
+    if (!book) return;
+    setIsDeleting(true);
+    try {
+      await api.post(`/admin/books/${book.id}/delete`, { deleteFiles });
+      showToast({
+        title: "Title removed",
+        description: deleteFiles ? "The book and its files have been deleted." : "the book has been removed from your library.",
+        tone: "success",
+      });
+      navigate(backTarget);
+    } catch (error) {
+      console.error("Delete failed", error);
+      showToast({
+        title: "Delete failed",
+        description: "Could not remove the title from your library.",
+        tone: "error",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const checkCache = async () => {
     if (!book) return;
     try {
@@ -966,6 +989,42 @@ const BookDetailsPage: React.FC = () => {
                 onClick={() => void handleMergeDuplicates()}
               >
                 {merging ? "Merging..." : `Merge ${selectedDuplicateIds.length} Books`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Title Modal */}
+      {confirmAction === "delete" && (
+        <div className="modal-overlay">
+          <div className="modal-content metadata-modal">
+            <div className="modal-header">
+              <h2 className="modal-title">Remove Title</h2>
+              <button className="btn-close" onClick={() => setConfirmAction(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-4">Are you sure you want to remove <strong>{book.title}</strong> from your library?</p>
+              <label className="flex items-center gap-3 p-4 bg-danger-bg rounded-lg cursor-pointer border border-danger-border hover:bg-danger-bg-hover transition-colors">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 accent-danger"
+                  checked={deleteFiles}
+                  onChange={(e) => setDeleteFiles(e.target.checked)}
+                />
+                <div className="flex flex-col">
+                  <span className="font-bold text-danger">Delete physical files</span>
+                  <span className="text-sm text-muted">This will permanently remove the audio files from disk.</span>
+                </div>
+              </label>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button
+                className={`btn ${deleteFiles ? "btn-danger" : "btn-primary"}`}
+                disabled={isDeleting}
+                onClick={() => void handleDeleteBook()}
+              >
+                {isDeleting ? "Removing..." : deleteFiles ? "Delete Files & Remove" : "Remove from Library"}
               </button>
             </div>
           </div>

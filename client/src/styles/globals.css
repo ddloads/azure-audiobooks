@@ -5396,3 +5396,33 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+.bg-danger-bg {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.bg-danger-bg-hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.border-danger-border {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.accent-danger {
+  accent-color: #ef4444;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+.btn-danger:disabled {
+  background: #f87171;
+  cursor: not-allowed;
+}
