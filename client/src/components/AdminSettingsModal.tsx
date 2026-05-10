@@ -2338,8 +2338,9 @@ const AdminSettingsModal = ({
                             <div>
                               <span>CLI installed</span>
                               <span className={`audible-cli-status-dot ${audibleCliStatus.installed ? "ok" : "off"}`}>
-                                {audibleCliStatus.installed ? "Yes — audible found in PATH" : "Not found — run: pip install audible-cli"}
+                                {audibleCliStatus.installed ? "Yes — audible found in PATH" : "Not found — ensure you have redeployed with the latest Docker image"}
                               </span>
+
                             </div>
                             <div>
                               <span>Authenticated</span>
@@ -2367,10 +2368,8 @@ const AdminSettingsModal = ({
 
                           {!audibleCliStatus.installed && (
                             <div className="audible-cli-setup-hint">
-                              <strong>Installation required</strong>
-                              <p>audible-cli must be installed and available in the PATH of the process running this server.</p>
-                              <pre className="admin-log-block">pip install audible-cli</pre>
-                              <p>Restart the server after installing, then click <em>Check status</em>.</p>
+                              <strong>Installation pending</strong>
+                              <p>audible-cli is now automatically installed in the server container. If it shows as "Not found", please pull the latest image and redeploy your stack.</p>
                             </div>
                           )}
 
