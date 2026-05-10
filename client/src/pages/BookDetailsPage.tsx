@@ -22,7 +22,6 @@ import {
   Settings,
   Database,
   Undo,
-  Scan,
   Trash2,
   FileSearch,
   RefreshCw,
@@ -105,10 +104,12 @@ const BookDetailsPage: React.FC = () => {
   const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
   const [hasBackup, setHasBackup] = useState(false);
   const [isTracksCollapsed, setIsTracksCollapsed] = useState(true);
-  const [confirmAction, setConfirmAction] = useState<null | "merge" | "undo" | "rescan" | "cleanup" | "merge-duplicates">(null);
+  const [confirmAction, setConfirmAction] = useState<null | "merge" | "undo" | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
   const [duplicates, setDuplicates] = useState<Book[]>([]);
   const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>([]);
   const [isSearchingDuplicates, setIsSearchingDuplicates] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteFiles, setDeleteFiles] = useState(false);
   const { playBook, currentBook, isPlaying, togglePlay } = usePlayer();
   const { upsertTask, removeTask } = useTasks();
   const { user } = useAuth();
@@ -355,10 +356,10 @@ const BookDetailsPage: React.FC = () => {
     if (!book) return;
     setIsDeleting(true);
     try {
-      await api.post(`/admin/books/${book.id}/delete`, { deleteFiles });
+      await api.delete(`/admin/books/${book.id}`, { data: { deleteFiles } });
       showToast({
         title: "Title removed",
-        description: deleteFiles ? "The book and its files have been deleted." : "the book has been removed from your library.",
+        description: deleteFiles ? "The book and its files have been deleted." : "The book has been removed from your library.",
         tone: "success",
       });
       navigate(backTarget);
@@ -643,6 +644,14 @@ const BookDetailsPage: React.FC = () => {
                             <span>Cleanup Backups</span>
                           </button>
                         )}
+                        <div className="book-tools-divider" />
+                        <button
+                          className="book-tools-option text-danger"
+                          onClick={() => setConfirmAction("delete")}
+                        >
+                          <Trash2 size={16} />
+                          <span>Remove Title</span>
+                        </button>
                       </div>
                     )}
                   </div>
