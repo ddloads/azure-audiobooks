@@ -39,6 +39,7 @@ Create a `.env` file or set these in your container orchestrator (like Portainer
 | `DATABASE_URL` | PostgreSQL connection string | Required |
 | `DIRECT_URL` | Direct PostgreSQL connection string | Required |
 | `JWT_SECRET` | Secret key for auth tokens | Recommended |
+| `CLIENT_ORIGIN` | Allowed CORS origin (your public domain) | `http://localhost:8080` |
 | `PORT_CLIENT` | External port for the web UI | `8080` |
 
 > **Note for Supabase users:** If using the connection pooler (port 6543), append `&statement_cache_size=0` to your `DATABASE_URL`.
