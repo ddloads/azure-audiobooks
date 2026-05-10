@@ -1,0 +1,38 @@
+services:
+  azure-server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: azure-server
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - PORT=4000
+    volumes:
+      - ./server/data:/app/data
+      # Map your audiobook library here
+      # Replace 'E:/Audiobooks' with your Proxmox path (e.g., /mnt/audiobooks)
+      - /mnt/audiobooks:/app/library
+    networks:
+      - azure-network
+
+  azure-client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args:
+        - VITE_API_URL=/api
+    container_name: azure-client
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - azure-server
+    networks:
+      - azure-network
+
+networks:
+  azure-network:
+    driver: bridge

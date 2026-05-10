@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.db
+*.db-journal
+server/data/
+server/bin/tone.exe
+client/.tsbuildinfo
+.idea/
+.vscode/
+*.zip
+deploy_stage/

@@ -1,0 +1,56 @@
+import express from "express";
+import cors from "cors";
+import authRoutes from "./routes/authRoutes";
+import libraryRoutes from "./routes/libraryRoutes";
+import uploadRoutes from "./routes/uploadRoutes";
+import streamRoutes from "./routes/streamRoutes";
+import progressRoutes from "./routes/progressRoutes";
+import adminRoutes from "./routes/adminRoutes";
+import {
+  errorLoggingMiddleware,
+  requestLoggingMiddleware,
+} from "./middleware/loggingMiddleware";
+
+const app = express();
+const allowedOrigins = new Set(
+  (process.env.CLIENT_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+);
+
+const isAllowedDevOrigin = (origin: string) =>
+  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/i.test(
+    origin,
+  );
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin) || isAllowedDevOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+  }),
+);
+app.use(express.json());
+app.use(requestLoggingMiddleware);
+
+app.use("/api/auth", authRoutes);
+app.use("/api/library", libraryRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/stream", streamRoutes);
+app.use("/api/progress", progressRoutes);
+app.use("/api/admin", adminRoutes);
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.use(errorLoggingMiddleware);
+
+export default app;

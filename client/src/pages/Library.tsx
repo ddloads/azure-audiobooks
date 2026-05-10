@@ -1,0 +1,1204 @@
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { isAxiosError } from "axios";
+import {
+  Plus,
+  RefreshCw,
+  LogOut,
+  BookOpen,
+  Loader2,
+  Settings,
+  Save,
+  Sparkles,
+  X,
+  Headphones,
+  SlidersHorizontal,
+} from "lucide-react";
+import { io } from "socket.io-client";
+import { useAuth } from "../context/AuthContext";
+import api from "../api/axios";
+import { getSocketBaseUrl } from "../api/backend";
+import AppLogo from "../components/AppLogo";
+import BookCard from "../components/BookCard";
+import BookMetadataModal from "../components/BookMetadataModal";
+import SearchBox from "../components/SearchBox";
+import UploadModal from "../components/UploadModal";
+import { usePlayer } from "../context/PlayerContext";
+
+interface LibraryBook {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  asin?: string | null;
+  duration: number;
+  coverPath?: string;
+  library: { id: string; name: string };
+  author: { name: string };
+}
+
+interface ProgressRecord {
+  bookId: string;
+  currentTime: number;
+  lastUpdate: string;
+  book: {
+    id: string;
+    title: string;
+    duration: number;
+    coverPath?: string | null;
+    author: { name: string };
+  };
+}
+
+const formatTimeLeft = (seconds: number) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m left`;
+  return `${m}m left`;
+};
+
+interface LibraryOption {
+  id: string;
+  name: string;
+  description?: string;
+  _count: {
+    books: number;
+    sources: number;
+  };
+}
+
+interface FilterOption {
+  id: string;
+  name: string;
+  _count?: { books: number };
+}
+
+interface FilterOptions {
+  libraries: LibraryOption[];
+  authors: FilterOption[];
+  series: FilterOption[];
+  narrators: string[];
+  publishers: string[];
+  languages: string[];
+  years: string[];
+  genres: string[];
+  tags: string[];
+  fileTypes: string[];
+}
+
+interface ScanProgress {
+  libraryId?: string;
+  status: "starting" | "scanning" | "completed" | "failed";
+  progress: number;
+  currentFolder?: string;
+  totalFolders?: number;
+  scannedFolders?: number;
+}
+
+type LibraryFilters = {
+  libraryId: string;
+  authorId: string;
+  seriesId: string;
+  narrator: string;
+  publisher: string;
+  language: string;
+  genre: string;
+  tag: string;
+  yearFrom: string;
+  yearTo: string;
+  durationMinHours: string;
+  durationMaxHours: string;
+  cover: string;
+  hasAsin: string;
+  hasIsbn: string;
+  abridged: string;
+  fileType: string;
+  listeningStatus: string;
+};
+
+const emptyFilters = (): LibraryFilters => ({
+  libraryId: "all",
+  authorId: "all",
+  seriesId: "all",
+  narrator: "",
+  publisher: "",
+  language: "",
+  genre: "",
+  tag: "",
+  yearFrom: "",
+  yearTo: "",
+  durationMinHours: "",
+  durationMaxHours: "",
+  cover: "all",
+  hasAsin: "all",
+  hasIsbn: "all",
+  abridged: "all",
+  fileType: "all",
+  listeningStatus: "all",
+});
+
+const emptyFilterOptions = (): FilterOptions => ({
+  libraries: [],
+  authors: [],
+  series: [],
+  narrators: [],
+  publishers: [],
+  languages: [],
+  years: [],
+  genres: [],
+  tags: [],
+  fileTypes: [],
+});
+
+const getFiltersFromParams = (params: URLSearchParams): LibraryFilters => {
+  const base = emptyFilters();
+  const keys = Object.keys(base) as Array<keyof LibraryFilters>;
+  keys.forEach((key) => {
+    const val = params.get(key);
+    if (val !== null) {
+      base[key] = val;
+    }
+  });
+  return base;
+};
+
+const getErrorMessage = (error: unknown, fallback: string) =>
+  isAxiosError<{ error?: string }>(error) ? error.response?.data?.error || fallback : fallback;
+
+type WriteTagsJob = {
+  id: string;
+  bookId: string;
+  bookTitle?: string | null;
+  status: "pending" | "running" | "completed" | "failed";
+  totalFiles: number;
+  processedFiles: number;
+  currentFile: string | null;
+  currentFileStartedAt: string | null;
+  lastCompletedFile: string | null;
+  lastCompletedAt: string | null;
+  failures: Array<{ path: string; error: string }>;
+  startedAt: string;
+  updatedAt: string;
+  finishedAt: string | null;
+  message: string | null;
+  stallTimeoutMs: number;
+};
+
+const INITIAL_BOOK_RENDER_COUNT = 120;
+const BOOK_RENDER_CHUNK_SIZE = 80;
+
+const SkeletonCard = () => (
+  <div className="skeleton-card">
+    <div className="skeleton skeleton-cover" />
+    <div className="book-meta">
+      <div className="skeleton skeleton-line" style={{ width: "80%" }} />
+      <div className="skeleton skeleton-line" style={{ width: "55%", marginTop: "0.375rem" }} />
+      <div className="skeleton skeleton-line" style={{ width: "40%", marginTop: "0.25rem" }} />
+    </div>
+  </div>
+);
+
+const Library = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { playBook } = usePlayer();
+  const returnTo = `${location.pathname}${location.search}`;
+
+  const filterAuthorId = searchParams.get("authorId") ?? undefined;
+  const filterSeriesId = searchParams.get("seriesId") ?? undefined;
+  const filterNarrator = searchParams.get("narrator") ?? undefined;
+  const filterAuthorName = searchParams.get("authorName") ?? undefined;
+  const filterSeriesName = searchParams.get("seriesName") ?? undefined;
+
+  const [books, setBooks] = useState<LibraryBook[]>([]);
+  const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
+  const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
+  const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
+  const [filters, setFilters] = useState<LibraryFilters>(() => getFiltersFromParams(searchParams));
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "newest");
+
+  useEffect(() => {
+    setFilters(getFiltersFromParams(searchParams));
+    setSearch(searchParams.get("search") || "");
+    setSortBy(searchParams.get("sortBy") || "newest");
+  }, [searchParams]);
+
+  const [loading, setLoading] = useState(true);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [matchBook, setMatchBook] = useState<LibraryBook | null>(null);
+  const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
+  const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
+  const [matchQueue, setMatchQueue] = useState<LibraryBook[]>([]);
+  const [matchQueueIndex, setMatchQueueIndex] = useState(0);
+  const [tagWriteProgress, setTagWriteProgress] = useState<{
+    current: number;
+    total: number;
+    percent: number;
+    label: string;
+  } | null>(null);
+  const [batchActionMessage, setBatchActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
+  const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
+  const activeBatchWriteRef = useRef<{
+    jobId: string;
+    bookId: string;
+    index: number;
+    total: number;
+    title: string;
+  } | null>(null);
+
+  const buildBookParams = () => ({
+    libraryId: filters.libraryId !== "all" ? filters.libraryId : undefined,
+    search: search.trim() || undefined,
+    sortBy,
+    authorId: filters.authorId !== "all" ? filters.authorId : undefined,
+    seriesId: filters.seriesId !== "all" ? filters.seriesId : undefined,
+    narrator: filters.narrator || undefined,
+    publisher: filters.publisher || undefined,
+    language: filters.language || undefined,
+    genre: filters.genre || undefined,
+    tag: filters.tag || undefined,
+    yearFrom: filters.yearFrom || undefined,
+    yearTo: filters.yearTo || undefined,
+    durationMin: filters.durationMinHours ? Number(filters.durationMinHours) * 3600 : undefined,
+    durationMax: filters.durationMaxHours ? Number(filters.durationMaxHours) * 3600 : undefined,
+    cover: filters.cover !== "all" ? filters.cover : undefined,
+    hasAsin: filters.hasAsin !== "all" ? filters.hasAsin : undefined,
+    hasIsbn: filters.hasIsbn !== "all" ? filters.hasIsbn : undefined,
+    abridged: filters.abridged !== "all" ? filters.abridged : undefined,
+    fileType: filters.fileType !== "all" ? filters.fileType : undefined,
+    listeningStatus: filters.listeningStatus !== "all" ? filters.listeningStatus : undefined,
+  });
+
+  const activeFilterCount = useMemo(() =>
+    Object.entries(filters).filter(([key, value]) => {
+      if (["libraryId", "authorId", "seriesId", "cover", "hasAsin", "hasIsbn", "abridged", "fileType", "listeningStatus"].includes(key)) {
+        return value !== "all";
+      }
+      return value.trim().length > 0;
+    }).length,
+    [filters]
+  );
+
+  const updateFilter = (key: keyof LibraryFilters, value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    if (value === "all" || value === "") {
+      newParams.delete(key);
+    } else {
+      newParams.set(key, value);
+    }
+    setSearchParams(newParams);
+  };
+
+  const clearFilters = () => {
+    setSearchParams({});
+  };
+
+  const fetchBooks = async () => {
+    try {
+      const res = await api.get("/library", {
+        params: buildBookParams(),
+      });
+      setBooks(res.data);
+    } catch (error) {
+      console.error("Failed to fetch books", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLibraries = async () => {
+    try {
+      const filtersRes = await api.get("/library/filters");
+      setFilterOptions(filtersRes.data);
+    } catch (error) {
+      console.error("Failed to fetch libraries", error);
+    }
+  };
+
+  const fetchProgress = async () => {
+    try {
+      const res = await api.get("/progress");
+      const records: ProgressRecord[] = res.data;
+      setProgressRecords(records);
+      setProgressMap(new Map(records.map((r) => [r.bookId, r.currentTime])));
+    } catch (error) {
+      console.error("Failed to fetch progress", error);
+    }
+  };
+
+  const handleContinuePlay = async (record: ProgressRecord) => {
+    try {
+      const bookRes = await api.get(`/library/${record.bookId}`);
+      playBook(bookRes.data, record.currentTime);
+    } catch (error) {
+      console.error("Failed to resume playback", error);
+    }
+  };
+
+  const handleScanProgress = useEffectEvent((data: ScanProgress) => {
+    setScanProgress(data);
+    if (data.status === "scanning" || data.status === "starting") {
+      setIsScanning(true);
+    } else if (data.status === "completed" || data.status === "failed") {
+      setIsScanning(false);
+      void fetchBooks();
+      void fetchLibraries();
+      setTimeout(() => setScanProgress(null), 5000);
+    }
+  });
+
+  const updateBatchWriteProgress = useEffectEvent(
+    (context: { index: number; total: number; title: string }, job: WriteTagsJob) => {
+      const filePercent = job.totalFiles > 0 ? job.processedFiles / job.totalFiles : 0;
+      const overallPercent = ((context.index + filePercent) / context.total) * 100;
+      setTagWriteProgress({
+        current: context.index + 1,
+        total: context.total,
+        percent: overallPercent,
+        label:
+          job.currentFile?.split(/[/\\]/).pop() ||
+          job.message ||
+          `Writing tags for ${context.title}`,
+      });
+    },
+  );
+
+  const handleWriteTagsProgress = useEffectEvent((job: WriteTagsJob) => {
+    writeTagsJobsRef.current.set(job.id, job);
+
+    const activeBatchWrite = activeBatchWriteRef.current;
+    if (activeBatchWrite?.jobId === job.id) {
+      updateBatchWriteProgress(activeBatchWrite, job);
+    }
+
+    if (job.status === "completed" || job.status === "failed") {
+      const resolve = writeTagsResolversRef.current.get(job.id);
+      if (resolve) {
+        writeTagsResolversRef.current.delete(job.id);
+        resolve(job);
+      }
+    }
+  });
+
+  const waitForWriteTagsJobCompletion = (jobId: string) => {
+    const existing = writeTagsJobsRef.current.get(jobId);
+    if (existing && (existing.status === "completed" || existing.status === "failed")) {
+      return Promise.resolve(existing);
+    }
+
+    return new Promise<WriteTagsJob>((resolve) => {
+      writeTagsResolversRef.current.set(jobId, resolve);
+    });
+  };
+
+  useEffect(() => {
+    void fetchProgress();
+  }, []);
+
+  useEffect(() => {
+    void fetchLibraries();
+  }, []);
+
+  useEffect(() => {
+    const socket = io(getSocketBaseUrl(), {
+      withCredentials: true,
+    });
+
+    socket.on("scanProgress", handleScanProgress);
+    socket.on("writeTagsProgress", handleWriteTagsProgress);
+
+    return () => {
+      socket.off("scanProgress", handleScanProgress);
+      socket.off("writeTagsProgress", handleWriteTagsProgress);
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const booksRes = await api.get("/library", {
+          params: buildBookParams(),
+        });
+        if (cancelled) return;
+
+        setBooks(booksRes.data);
+      } catch (error) {
+        console.error("Failed to fetch books", error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }, search ? 300 : 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [filters, search, sortBy]);
+
+  const handleScan = async () => {
+    setIsScanning(true);
+    try {
+      await api.post("/library/scan", filters.libraryId !== "all" ? { libraryId: filters.libraryId } : {});
+      // Status handled by socket
+    } catch (error) {
+      console.error("Scan failed", error);
+      setIsScanning(false);
+    }
+  };
+
+  const handleStopScan = async () => {
+    try {
+      await api.post("/library/scan/stop");
+    } catch (error) {
+      console.error("Failed to stop scan", error);
+    }
+  };
+
+  const bookIdToIndex = useMemo(
+    () => new Map(books.map((book, index) => [book.id, index])),
+    [books],
+  );
+  const bookById = useMemo(
+    () => new Map(books.map((book) => [book.id, book])),
+    [books],
+  );
+  const selectedBooks = useMemo(
+    () => Array.from(selectedBookIds)
+      .map((id) => bookById.get(id))
+      .filter((book): book is LibraryBook => Boolean(book)),
+    [selectedBookIds, bookById]
+  );
+  const visibleBooks = useMemo(
+    () => books.slice(0, visibleBookCount),
+    [books, visibleBookCount],
+  );
+
+  useEffect(() => {
+    setVisibleBookCount(INITIAL_BOOK_RENDER_COUNT);
+  }, [books]);
+
+  useEffect(() => {
+    if (visibleBookCount >= books.length) return;
+    const node = loadMoreRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        setVisibleBookCount((current) => Math.min(current + BOOK_RENDER_CHUNK_SIZE, books.length));
+      },
+      { rootMargin: "400px 0px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [books.length, visibleBookCount]);
+
+  const updateBookSelection = (bookId: string, selected: boolean, shiftKey: boolean) => {
+    setSelectedBookIds((current) => {
+      const next = new Set(current);
+      const anchorIndex = lastSelectedBookId ? (bookIdToIndex.get(lastSelectedBookId) ?? -1) : -1;
+      const targetIndex = bookIdToIndex.get(bookId) ?? -1;
+
+      if (selected && shiftKey && anchorIndex >= 0 && targetIndex >= 0) {
+        const start = Math.min(anchorIndex, targetIndex);
+        const end = Math.max(anchorIndex, targetIndex);
+        books.slice(start, end + 1).forEach((book) => next.add(book.id));
+      } else if (selected) {
+        next.add(bookId);
+      } else {
+        next.delete(bookId);
+      }
+      return next;
+    });
+    setLastSelectedBookId(bookId);
+  };
+
+  const startMetadataQueue = () => {
+    const queue = selectedBooks;
+    if (queue.length === 0) return;
+
+    setMatchQueue(queue);
+    setMatchQueueIndex(0);
+    setMatchBook(queue[0]);
+  };
+
+  const closeMetadataQueue = () => {
+    setMatchBook(null);
+    setMatchQueue([]);
+    setMatchQueueIndex(0);
+  };
+
+  const advanceMetadataQueue = async () => {
+    const nextIndex = matchQueueIndex + 1;
+    if (matchQueue.length > 0 && nextIndex < matchQueue.length) {
+      setMatchQueueIndex(nextIndex);
+      setMatchBook(matchQueue[nextIndex]);
+      setSelectedBookIds((current) => {
+        const next = new Set(current);
+        next.delete(matchQueue[matchQueueIndex].id);
+        return next;
+      });
+      return;
+    }
+
+    setSelectedBookIds(new Set());
+    setLastSelectedBookId(null);
+    closeMetadataQueue();
+    await fetchBooks();
+  };
+
+  const goToMetadataQueueIndex = (nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= matchQueue.length) return;
+
+    setMatchQueueIndex(nextIndex);
+    setMatchBook(matchQueue[nextIndex]);
+  };
+
+  const clearBatchSelection = () => {
+    setSelectedBookIds(new Set());
+    setLastSelectedBookId(null);
+  };
+
+  const writeSelectedMetadataTags = async () => {
+    const queue = selectedBooks;
+    if (queue.length === 0) return;
+
+    setTagWriteProgress({ current: 0, total: queue.length, percent: 0, label: "Preparing tag write…" });
+    setBatchActionMessage(null);
+    try {
+      for (let index = 0; index < queue.length; index += 1) {
+        const startResponse = await api.post<WriteTagsJob>(`/admin/books/${queue[index].id}/write-tags`);
+        let currentJob = startResponse.data;
+        writeTagsJobsRef.current.set(currentJob.id, currentJob);
+        activeBatchWriteRef.current = {
+          jobId: currentJob.id,
+          bookId: queue[index].id,
+          index,
+          total: queue.length,
+          title: queue[index].title,
+        };
+        updateBatchWriteProgress(activeBatchWriteRef.current, currentJob);
+
+        if (currentJob.status === "pending" || currentJob.status === "running") {
+          currentJob = await waitForWriteTagsJobCompletion(currentJob.id);
+        }
+
+        if (currentJob.status === "failed") {
+          throw new Error(currentJob.message || "Failed to write metadata tags");
+        }
+
+        setTagWriteProgress({
+          current: index + 1,
+          total: queue.length,
+          percent: ((index + 1) / queue.length) * 100,
+          label: currentJob.message || `Finished ${queue[index].title}`,
+        });
+      }
+      setBatchActionMessage({ type: "success", text: `Wrote tags for ${queue.length} title${queue.length === 1 ? "" : "s"}` });
+    } catch (error) {
+      console.error("Failed to write metadata tags", error);
+      setBatchActionMessage({
+        type: "error",
+        text: getErrorMessage(error, "Failed to write metadata tags"),
+      });
+    } finally {
+      activeBatchWriteRef.current = null;
+      setTagWriteProgress(null);
+    }
+  };
+
+  const batchActions = selectedBooks.length > 0 && (
+    <>
+      <span className="library-selected-count">
+        {tagWriteProgress
+          ? `Writing ${tagWriteProgress.current}/${tagWriteProgress.total}`
+          : `${selectedBooks.length} selected`}
+      </span>
+      {tagWriteProgress && (
+        <div className="library-batch-progress">
+          <div className="progress-bar-container">
+            <div className="progress-bar-fill" style={{ width: `${tagWriteProgress.percent}%` }} />
+          </div>
+          <span className="library-batch-progress-label">{tagWriteProgress.label}</span>
+        </div>
+      )}
+      {batchActionMessage && (
+        <span className={`library-batch-message ${batchActionMessage.type}`}>
+          {batchActionMessage.text}
+        </span>
+      )}
+      <button
+        className="btn btn-primary"
+        type="button"
+        onClick={startMetadataQueue}
+        disabled={Boolean(tagWriteProgress)}
+      >
+        <Sparkles size={15} />
+        Fetch Metadata
+      </button>
+      <button
+        className="btn btn-secondary"
+        type="button"
+        onClick={writeSelectedMetadataTags}
+        disabled={Boolean(tagWriteProgress)}
+        aria-busy={Boolean(tagWriteProgress)}
+      >
+        {tagWriteProgress ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+        {tagWriteProgress ? "Writing Tags..." : "Write Tags"}
+      </button>
+      <button
+        className="btn btn-secondary"
+        type="button"
+        onClick={clearBatchSelection}
+        disabled={Boolean(tagWriteProgress)}
+      >
+        <X size={15} />
+        Clear
+      </button>
+    </>
+  );
+
+  return (
+    <div className="container library-page">
+      <header className="library-header">
+        <div className="library-brand-section">
+          <AppLogo className="library-brand" imageClassName="library-brand-image" textClassName="library-title" />
+          <p className="library-subtitle">Welcome back, {user?.username}</p>
+        </div>
+
+        <div className="library-toolbar">
+          <SearchBox
+            value={search}
+            onChange={(v) => {
+              const newParams = new URLSearchParams(searchParams);
+              if (v) newParams.set("search", v);
+              else newParams.delete("search");
+              setSearchParams(newParams, { replace: true });
+            }}
+          />
+
+          <div className="filter-group">
+            <button
+              className={`btn btn-secondary filter-toggle-btn ${isFilterPanelOpen || activeFilterCount > 0 ? "active" : ""}`}
+              type="button"
+              onClick={() => setIsFilterPanelOpen((current) => !current)}
+            >
+              <SlidersHorizontal size={15} />
+              Filters
+              {activeFilterCount > 0 && <span className="filter-count-badge">{activeFilterCount}</span>}
+            </button>
+
+            <div className="filter-item">
+              <div className="select-wrap filter-select">
+                <select
+                  className="form-control"
+                  value={sortBy}
+                  onChange={(e) => {
+                    const newParams = new URLSearchParams(searchParams);
+                    newParams.set("sortBy", e.target.value);
+                    setSearchParams(newParams);
+                  }}
+                >
+                  <option value="newest">Newest First</option>
+                  <option value="oldest">Oldest First</option>
+                  <option value="title_asc">Title (A-Z)</option>
+                  <option value="title_desc">Title (Z-A)</option>
+                  <option value="author_asc">Author (A-Z)</option>
+                  <option value="author_desc">Author (Z-A)</option>
+                  <option value="duration_asc">Shortest First</option>
+                  <option value="duration_desc">Longest First</option>
+                  <option value="year_desc">Year (Newest)</option>
+                  <option value="year_asc">Year (Oldest)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="library-actions">
+          {user?.role === "ADMIN" && (
+            <>
+              <button
+                onClick={handleScan}
+                className="btn btn-secondary"
+                disabled={isScanning}
+              >
+                <RefreshCw size={15} className={isScanning ? "animate-spin" : ""} />
+                {isScanning ? "Scanning…" : "Scan Library"}
+              </button>
+              <button
+                onClick={() => setIsUploadModalOpen(true)}
+                className="btn btn-primary"
+              >
+                <Plus size={15} />
+                Add Book
+              </button>
+              <button
+                onClick={() => navigate("/settings", { state: { from: returnTo } })}
+                className="btn btn-secondary"
+              >
+                <Settings size={15} />
+              </button>
+            </>
+          )}
+          <button
+            onClick={logout}
+            className="btn logout-btn"
+            title="Sign out"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </header>
+
+      <div className={`library-filter-panel-wrapper${isFilterPanelOpen ? " open" : ""}`}>
+        <section className="library-filter-panel">
+          <div className="library-filter-panel-head">
+            <div>
+              <h2>Filters</h2>
+              <p>Refine the full catalog by metadata, listening status, and file details.</p>
+            </div>
+            {activeFilterCount > 0 && (
+              <button className="library-filter-clear" type="button" onClick={clearFilters}>
+                <X size={14} />
+                Clear all
+              </button>
+            )}
+          </div>
+
+          <div className="library-filter-grid">
+            <label className="filter-field">
+              <span>Library</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.libraryId} onChange={(e) => updateFilter("libraryId", e.target.value)}>
+                  <option value="all">Any library</option>
+                  {filterOptions.libraries.map((library) => (
+                    <option key={library.id} value={library.id}>
+                      {library.name} ({library._count.books})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Author</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.authorId} onChange={(e) => updateFilter("authorId", e.target.value)}>
+                  <option value="all">Any author</option>
+                  {filterOptions.authors.map((author) => (
+                    <option key={author.id} value={author.id}>
+                      {author.name} ({author._count?.books ?? 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Series</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.seriesId} onChange={(e) => updateFilter("seriesId", e.target.value)}>
+                  <option value="all">Any series</option>
+                  {filterOptions.series.map((series) => (
+                    <option key={series.id} value={series.id}>
+                      {series.name} ({series._count?.books ?? 0})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Narrator</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.narrator} onChange={(e) => updateFilter("narrator", e.target.value)}>
+                  <option value="">Any narrator</option>
+                  {filterOptions.narrators.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Publisher</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.publisher} onChange={(e) => updateFilter("publisher", e.target.value)}>
+                  <option value="">Any publisher</option>
+                  {filterOptions.publishers.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Language</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.language} onChange={(e) => updateFilter("language", e.target.value)}>
+                  <option value="">Any language</option>
+                  {filterOptions.languages.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Genre</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.genre} onChange={(e) => updateFilter("genre", e.target.value)}>
+                  <option value="">Any genre</option>
+                  {filterOptions.genres.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Tag</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.tag} onChange={(e) => updateFilter("tag", e.target.value)}>
+                  <option value="">Any tag</option>
+                  {filterOptions.tags.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Year from</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.yearFrom} onChange={(e) => updateFilter("yearFrom", e.target.value)}>
+                  <option value="">Any</option>
+                  {filterOptions.years.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Year to</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.yearTo} onChange={(e) => updateFilter("yearTo", e.target.value)}>
+                  <option value="">Any</option>
+                  {filterOptions.years.map((v) => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Min hours</span>
+              <input className="form-control" type="number" min="0" step="0.25" value={filters.durationMinHours} onChange={(e) => updateFilter("durationMinHours", e.target.value)} placeholder="Any" />
+            </label>
+
+            <label className="filter-field">
+              <span>Max hours</span>
+              <input className="form-control" type="number" min="0" step="0.25" value={filters.durationMaxHours} onChange={(e) => updateFilter("durationMaxHours", e.target.value)} placeholder="Any" />
+            </label>
+
+            <label className="filter-field">
+              <span>Cover art</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.cover} onChange={(e) => updateFilter("cover", e.target.value)}>
+                  <option value="all">Any</option>
+                  <option value="with">Has cover</option>
+                  <option value="missing">Missing cover</option>
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>ASIN</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.hasAsin} onChange={(e) => updateFilter("hasAsin", e.target.value)}>
+                  <option value="all">Any</option>
+                  <option value="true">Has ASIN</option>
+                  <option value="false">Missing ASIN</option>
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>ISBN</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.hasIsbn} onChange={(e) => updateFilter("hasIsbn", e.target.value)}>
+                  <option value="all">Any</option>
+                  <option value="true">Has ISBN</option>
+                  <option value="false">Missing ISBN</option>
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Edition</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.abridged} onChange={(e) => updateFilter("abridged", e.target.value)}>
+                  <option value="all">Any</option>
+                  <option value="false">Unabridged</option>
+                  <option value="true">Abridged</option>
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>File type</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.fileType} onChange={(e) => updateFilter("fileType", e.target.value)}>
+                  <option value="all">Any type</option>
+                  {filterOptions.fileTypes.map((type) => (
+                    <option key={type} value={type}>{type.toUpperCase().replace(".", "")}</option>
+                  ))}
+                </select>
+              </div>
+            </label>
+
+            <label className="filter-field">
+              <span>Listening status</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.listeningStatus} onChange={(e) => updateFilter("listeningStatus", e.target.value)}>
+                  <option value="all">Any status</option>
+                  <option value="not_started">Not started</option>
+                  <option value="in_progress">In progress</option>
+                  <option value="finished">Finished</option>
+                </select>
+              </div>
+            </label>
+          </div>
+
+        </section>
+      </div>
+
+      {(filterAuthorId || filterSeriesId || filterNarrator || search || activeFilterCount > 0) && (
+        <div className="library-filter-banner">
+          <div className="library-filter-banner-label">
+            {filterAuthorId && (
+              <>Books by <strong>{filterAuthorName}</strong></>
+            )}
+            {filterSeriesId && (
+              <>Series: <strong>{filterSeriesName}</strong></>
+            )}
+            {filterNarrator && (
+              <>Narrated by <strong>{filterNarrator}</strong></>
+            )}
+            {search && !filterAuthorId && !filterSeriesId && !filterNarrator && (
+              <>Search results for <strong>"{search}"</strong></>
+            )}
+            {activeFilterCount > 0 && !filterAuthorId && !filterSeriesId && !filterNarrator && !search && (
+              <><strong>{activeFilterCount}</strong> active {activeFilterCount === 1 ? "filter" : "filters"}</>
+            )}
+          </div>
+          <button className="library-filter-clear" onClick={() => {
+            if (search) setSearch("");
+            clearFilters();
+            navigate("/");
+          }}>
+            <X size={14} />
+            Clear filter
+          </button>
+        </div>
+      )}
+
+      {scanProgress && (
+        <div className="scan-progress-banner">
+          <div className="scan-progress-info">
+            <span className="scan-progress-status">
+              {scanProgress.status === "starting" && "Starting scan..."}
+              {scanProgress.status === "scanning" && (
+                <>
+                  Scanning: <span className="folder-name">{scanProgress.currentFolder}</span>
+                  <span className="count">({scanProgress.scannedFolders}/{scanProgress.totalFolders})</span>
+                </>
+              )}
+              {scanProgress.status === "completed" && "Scan complete!"}
+              {scanProgress.status === "failed" && "Scan stopped."}
+            </span>
+            <div className="scan-progress-right">
+              <span className="scan-progress-percentage">{scanProgress.progress}%</span>
+              {(scanProgress.status === "scanning" || scanProgress.status === "starting") && (
+                <button className="btn-stop-scan" onClick={handleStopScan} title="Stop scan">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="progress-bar-container">
+            <div 
+              className="progress-bar-fill" 
+              style={{ width: `${scanProgress.progress}%` }} 
+            />
+          </div>
+        </div>
+      )}
+
+      {progressRecords.length > 0 && (
+        <section className="continue-listening-section">
+          <div className="continue-listening-header">
+            <Headphones size={18} className="continue-listening-icon" />
+            <h2 className="continue-listening-title">Continue Listening</h2>
+          </div>
+          <div className="continue-shelf">
+            {progressRecords.map((record) => {
+              const pct = Math.min(100, Math.round((record.currentTime / record.book.duration) * 100));
+              const remaining = Math.max(0, record.book.duration - record.currentTime);
+              return (
+                <div
+                  key={record.bookId}
+                  className="continue-card"
+                  onClick={() => handleContinuePlay(record)}
+                  title={`Resume ${record.book.title}`}
+                >
+                  <div className="continue-card-cover">
+                    {record.book.coverPath ? (
+                      <img src={record.book.coverPath} alt={record.book.title} />
+                    ) : (
+                      <div className="continue-card-cover-placeholder">
+                        <BookOpen size={24} />
+                      </div>
+                    )}
+                    <div className="continue-card-play-overlay">
+                      <Headphones size={18} />
+                    </div>
+                    <div className="continue-card-progress-bar">
+                      <div className="continue-card-progress-fill" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <div className="continue-card-info">
+                    <p className="continue-card-title">{record.book.title}</p>
+                    <p className="continue-card-author">{record.book.author.name}</p>
+                    <p className="continue-card-time">{formatTimeLeft(remaining)}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {loading ? (
+        <div className="library-grid">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : books.length === 0 ? (
+        <div className="library-empty">
+          <div className="library-empty-icon">
+            <BookOpen size={28} />
+          </div>
+          {search ? (
+            <>
+              <h3>No results for "{search}"</h3>
+              <p>Try a different title, author, or series name.</p>
+              <button className="btn btn-secondary" onClick={() => setSearch("")}>
+                Clear search
+              </button>
+            </>
+          ) : (
+            <>
+              <h3>Your library is empty</h3>
+              <p>Upload your first audiobook to get started.</p>
+              {user?.role === "ADMIN" && (
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="btn btn-primary"
+                >
+                  <Plus size={15} />
+                  Upload your first book
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="library-grid-header">
+            <span className="library-grid-count">
+              {books.length} {books.length === 1 ? "audiobook" : "audiobooks"}
+              {search && <span className="library-grid-filter-note"> matching "{search}"</span>}
+            </span>
+            {user?.role === "ADMIN" && selectedBooks.length > 0 && (
+              <div className="library-batch-actions">
+                {batchActions}
+              </div>
+            )}
+          </div>
+          <div className="library-grid">
+            {visibleBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                progressSeconds={progressMap.get(book.id)}
+                isAdmin={user?.role === "ADMIN"}
+                isSelectable={user?.role === "ADMIN"}
+                isSelected={selectedBookIds.has(book.id)}
+                selectionControlsActive={selectedBookIds.size > 0}
+                onSelect={(selected, shiftKey) => updateBookSelection(book.id, selected, shiftKey)}
+                onMatch={() => setMatchBook(book)}
+              />
+            ))}
+          </div>
+          {visibleBookCount < books.length && (
+            <div className="library-load-more-wrap" ref={loadMoreRef}>
+              <button
+                className="btn btn-secondary"
+                onClick={() =>
+                  setVisibleBookCount((current) => Math.min(current + BOOK_RENDER_CHUNK_SIZE, books.length))
+                }
+              >
+                Show more
+              </button>
+              <span className="library-load-more-meta">
+                Showing {visibleBooks.length} of {books.length}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
+      {isUploadModalOpen && (
+        <UploadModal
+          onClose={() => setIsUploadModalOpen(false)}
+          onUploadComplete={async () => {
+            await fetchLibraries();
+            await fetchBooks();
+          }}
+        />
+      )}
+
+      {matchBook && (
+        <BookMetadataModal
+          key={matchBook.id}
+          book={matchBook}
+          onClose={closeMetadataQueue}
+          onApplied={matchQueue.length > 0 ? advanceMetadataQueue : () => fetchBooks()}
+          initialTab="fetch"
+          closeAfterSave={matchQueue.length === 0}
+          queuePosition={
+            matchQueue.length > 0
+              ? { current: matchQueueIndex + 1, total: matchQueue.length }
+              : undefined
+          }
+          onQueuePrevious={() => goToMetadataQueueIndex(matchQueueIndex - 1)}
+          onQueueNext={() => goToMetadataQueueIndex(matchQueueIndex + 1)}
+        />
+      )}
+
+      {user?.role === "ADMIN" && selectedBooks.length > 0 && !matchBook && (
+        <div className="library-sticky-selection-bar">
+          <div className="library-sticky-selection-inner">
+            {batchActions}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Library;
