@@ -12,9 +12,7 @@ services:
       - PORT=4000
     volumes:
       - ./server/data:/app/data
-      # Map your audiobook library here
-      # Replace 'E:/Audiobooks' with your Proxmox path (e.g., /mnt/audiobooks)
-      - /mnt/audiobooks:/app/library
+      - Audiobooks:/app/library
     networks:
       - azure-network
 
@@ -36,3 +34,7 @@ services:
 networks:
   azure-network:
     driver: bridge
+
+volumes:
+  Audiobooks:
+    external: true
