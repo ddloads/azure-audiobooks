@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Check, Clock, User, Play, MoreVertical, Search, ExternalLink } from "lucide-react";
+import { BookOpen, Check, Clock, User, Play, MoreVertical, Search, ExternalLink, RefreshCw, FileSearch, Trash2 } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import api from "../api/axios";
 
@@ -29,6 +29,9 @@ const BookCard: React.FC<{
   selectionControlsActive?: boolean;
   onSelect?: (selected: boolean, shiftKey: boolean) => void;
   onMatch?: () => void;
+  onRescan?: () => void;
+  onFindDuplicates?: () => void;
+  onDelete?: () => void;
 }> = ({
   book,
   progressSeconds,
@@ -38,6 +41,9 @@ const BookCard: React.FC<{
   selectionControlsActive = false,
   onSelect,
   onMatch,
+  onRescan,
+  onFindDuplicates,
+  onDelete,
 }) => {
   const { playBook } = usePlayer();
   const navigate = useNavigate();
@@ -141,6 +147,41 @@ const BookCard: React.FC<{
                 >
                   <Search size={14} />
                   Fetch Metadata
+                </button>
+                <div className="book-card-menu-divider" />
+                <button
+                  className="book-card-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    onRescan?.();
+                  }}
+                >
+                  <RefreshCw size={14} />
+                  Refresh Metadata
+                </button>
+                <button
+                  className="book-card-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    onFindDuplicates?.();
+                  }}
+                >
+                  <FileSearch size={14} />
+                  Find Duplicates
+                </button>
+                <div className="book-card-menu-divider" />
+                <button
+                  className="book-card-menu-item text-danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    onDelete?.();
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Remove Title
                 </button>
               </div>
             )}

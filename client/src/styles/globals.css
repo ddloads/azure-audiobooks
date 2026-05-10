@@ -1285,6 +1285,23 @@ select.form-control {
   background: var(--card-hover);
 }
 
+.book-card-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+  opacity: 0.3;
+}
+
+.dup-path {
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+  word-break: break-all;
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
 .book-cover-img {
   width: 100%;
   height: 100%;

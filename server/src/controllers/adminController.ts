@@ -1368,8 +1368,12 @@ export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response)
           {
             AND: [
               { title: { equals: book.title, mode: "insensitive" as any } },
-              { authorId: book.authorId },
+              { author: { name: { equals: book.author.name, mode: "insensitive" as any } } },
             ],
+          },
+          // Lenient match: just Title if Author is very similar or missing
+          {
+            title: { equals: book.title, mode: "insensitive" as any },
           },
         ].filter((cond) => Object.keys(cond).length > 0),
       },
@@ -1380,7 +1384,19 @@ export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response)
       },
     });
 
-    res.json(duplicates);
+    // Map to include folderPath (which we need for the UI to distinguish)
+    const result = await Promise.all(duplicates.map(async (dup) => {
+      const fullBook = await prisma.book.findUnique({
+        where: { id: dup.id },
+        select: { folderPath: true },
+      });
+      return {
+        ...dup,
+        folderPath: fullBook?.folderPath,
+      };
+    }));
+
+    res.json(result);
   } catch (error) {
     console.error("Find duplicates error:", error);
     res.status(500).json({ error: "Failed to find duplicates" });

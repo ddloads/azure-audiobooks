@@ -985,6 +985,9 @@ const BookDetailsPage: React.FC = () => {
                       <div className="dup-meta">
                         {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
                       </div>
+                      <div className="dup-path" title={(dup as any).folderPath}>
+                        {(dup as any).folderPath}
+                      </div>
                     </div>
                   </label>
                 ))}

@@ -13,9 +13,13 @@ import {
   X,
   Headphones,
   SlidersHorizontal,
+  FileSearch,
+  RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import AppLogo from "../components/AppLogo";
@@ -23,6 +27,7 @@ import BookCard from "../components/BookCard";
 import BookMetadataModal from "../components/BookMetadataModal";
 import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { usePlayer } from "../context/PlayerContext";
 
 interface LibraryBook {
@@ -199,6 +204,7 @@ const SkeletonCard = () => (
 
 const Library = () => {
   const { user, logout } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -229,6 +235,13 @@ const Library = () => {
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [matchBook, setMatchBook] = useState<LibraryBook | null>(null);
+  const [actionBook, setActionBook] = useState<LibraryBook | null>(null);
+  const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
+  const [duplicates, setDuplicates] = useState<LibraryBook[]>([]);
+  const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>([]);
+  const [isSearchingDuplicates, setIsSearchingDuplicates] = useState(false);
+  const [isActionBusy, setIsActionBusy] = useState(false);
+  const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
   const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
   const [matchQueue, setMatchQueue] = useState<LibraryBook[]>([]);
@@ -448,14 +461,89 @@ const Library = () => {
     };
   }, [filters, search, sortBy]);
 
-  const handleScan = async () => {
-    setIsScanning(true);
+  const handleRescan = async () => {
+    if (!actionBook) return;
+    setIsActionBusy(true);
     try {
-      await api.post("/library/scan", filters.libraryId !== "all" ? { libraryId: filters.libraryId } : {});
-      // Status handled by socket
+      await api.post(`/admin/books/${actionBook.id}/rescan`);
+      showToast({
+        title: "Rescan complete",
+        description: `Folder for "${actionBook.title}" rescanned.`,
+        tone: "success",
+      });
+      setConfirmAction(null);
+      await fetchBooks();
     } catch (error) {
-      console.error("Scan failed", error);
-      setIsScanning(false);
+      console.error("Rescan failed", error);
+      showToast({ title: "Rescan failed", description: "Check server logs.", tone: "error" });
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  const handleFindDuplicates = async (book: LibraryBook) => {
+    setIsSearchingDuplicates(true);
+    setActionBook(book);
+    try {
+      const res = await api.get<LibraryBook[]>(`/admin/books/${book.id}/duplicates`);
+      setDuplicates(res.data);
+      if (res.data.length > 0) {
+        setConfirmAction("merge-duplicates");
+      } else {
+        showToast({
+          title: "No duplicates found",
+          description: `No matching titles were found for "${book.title}".`,
+          tone: "info",
+        });
+      }
+    } catch (error) {
+      console.error("Duplicate search failed", error);
+      showToast({ title: "Search failed", description: "Check server logs.", tone: "error" });
+    } finally {
+      setIsSearchingDuplicates(false);
+    }
+  };
+
+  const handleMergeDuplicates = async () => {
+    if (!actionBook || selectedDuplicateIds.length === 0) return;
+    setIsActionBusy(true);
+    try {
+      await api.post(`/admin/books/${actionBook.id}/merge-with`, {
+        secondaryIds: selectedDuplicateIds,
+      });
+      showToast({
+        title: "Books merged",
+        description: "Selected duplicates merged into primary record.",
+        tone: "success",
+      });
+      setConfirmAction(null);
+      setSelectedDuplicateIds([]);
+      await fetchBooks();
+    } catch (error) {
+      console.error("Merge failed", error);
+      showToast({ title: "Merge failed", description: "Check server logs.", tone: "error" });
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  const handleDeleteBook = async () => {
+    if (!actionBook) return;
+    setIsActionBusy(true);
+    try {
+      await api.delete(`/admin/books/${actionBook.id}`, { data: { deleteFiles } });
+      showToast({
+        title: "Title removed",
+        description: deleteFiles ? "Book and files deleted." : "Book removed from library.",
+        tone: "success",
+      });
+      setConfirmAction(null);
+      await fetchBooks();
+    } catch (error) {
+      console.error("Delete failed", error);
+      showToast({ title: "Delete failed", description: "Check server logs.", tone: "error" });
+    } finally {
+      setIsActionBusy(false);
     }
   };
 
@@ -1141,6 +1229,16 @@ const Library = () => {
                 selectionControlsActive={selectedBookIds.size > 0}
                 onSelect={(selected, shiftKey) => updateBookSelection(book.id, selected, shiftKey)}
                 onMatch={() => setMatchBook(book)}
+                onRescan={() => {
+                  setActionBook(book);
+                  setConfirmAction("rescan");
+                }}
+                onFindDuplicates={() => handleFindDuplicates(book)}
+                onDelete={() => {
+                  setActionBook(book);
+                  setDeleteFiles(false);
+                  setConfirmAction("delete");
+                }}
               />
             ))}
           </div>
@@ -1190,7 +1288,106 @@ const Library = () => {
         />
       )}
 
-      {user?.role === "ADMIN" && selectedBooks.length > 0 && !matchBook && (
+      {/* Book Management Modals */}
+      <ConfirmDialog
+        open={confirmAction === "rescan"}
+        title="Refresh Metadata"
+        message={`This will rescan the folder for "${actionBook?.title}" for file changes and update the database. Existing progress will be preserved.`}
+        confirmLabel="Rescan Now"
+        busy={isActionBusy}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => void handleRescan()}
+      />
+
+      {/* Duplicate Merge Modal */}
+      {confirmAction === "merge-duplicates" && actionBook && (
+        <div className="modal-overlay">
+          <div className="modal-content metadata-modal">
+            <div className="modal-header">
+              <h2 className="modal-title">Merge Duplicates</h2>
+              <button className="btn-close" onClick={() => setConfirmAction(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-4">Select the books you want to merge <strong>INTO</strong> the primary record: <strong>{actionBook.title}</strong>.</p>
+              <div className="duplicate-list">
+                {duplicates.map(dup => (
+                  <label key={dup.id} className="duplicate-item">
+                    <input
+                      type="checkbox"
+                      checked={selectedDuplicateIds.includes(dup.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedDuplicateIds([...selectedDuplicateIds, dup.id]);
+                        } else {
+                          setSelectedDuplicateIds(selectedDuplicateIds.filter(id => id !== dup.id));
+                        }
+                      }}
+                    />
+                    <div className="dup-info">
+                      <div className="dup-title">{dup.title}</div>
+                      <div className="dup-meta">
+                        {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
+                      </div>
+                      <div className="dup-path" title={(dup as any).folderPath}>
+                        {(dup as any).folderPath}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button
+                className="btn btn-primary"
+                disabled={selectedDuplicateIds.length === 0 || isActionBusy}
+                onClick={() => void handleMergeDuplicates()}
+              >
+                {isActionBusy ? "Merging..." : `Merge ${selectedDuplicateIds.length} Books`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Title Modal */}
+      {confirmAction === "delete" && actionBook && (
+        <div className="modal-overlay">
+          <div className="modal-content metadata-modal">
+            <div className="modal-header">
+              <h2 className="modal-title">Remove Title</h2>
+              <button className="btn-close" onClick={() => setConfirmAction(null)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-4">Are you sure you want to remove <strong>{actionBook.title}</strong> from your library?</p>
+              <label className="flex items-center gap-3 p-4 bg-danger-bg rounded-lg cursor-pointer border border-danger-border hover:bg-danger-bg-hover transition-colors">
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 accent-danger"
+                  checked={deleteFiles}
+                  onChange={(e) => setDeleteFiles(e.target.checked)}
+                />
+                <div className="flex flex-col">
+                  <span className="font-bold text-danger">Delete physical files</span>
+                  <span className="text-sm text-muted">This will permanently remove the audio files from disk.</span>
+                </div>
+              </label>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button
+                className={`btn ${deleteFiles ? "btn-danger" : "btn-primary"}`}
+                disabled={isActionBusy}
+                onClick={() => void handleDeleteBook()}
+              >
+                {isActionBusy ? "Removing..." : deleteFiles ? "Delete Files & Remove" : "Remove from Library"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {user?.role === "ADMIN" && selectedBooks.length > 0 && !matchBook && !confirmAction && (
         <div className="library-sticky-selection-bar">
           <div className="library-sticky-selection-inner">
             {batchActions}
