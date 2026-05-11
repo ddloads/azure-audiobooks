@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BookOpen,
   Check,
+  Copy,
   HardDrive,
   Info,
   Loader2,
