@@ -185,8 +185,20 @@ const DuplicatesPage = () => {
 
   if (loading) {
     return (
-      <div className="duplicates-page flex items-center justify-center h-screen">
-        <Loader2 className="animate-spin" size={48} />
+      <div className="duplicates-page flex flex-col items-center justify-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-6 text-center animate-in fade-in zoom-in duration-300">
+          <div className="relative">
+            <Loader2 className="animate-spin text-primary" size={64} strokeWidth={1.5} />
+            <Copy className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary/40" size={24} />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Scanning for Duplicates</h2>
+            <p className="text-gray-400 max-w-md">
+              Comparing ASINs, ISBNs, and titles across your libraries to find matching content.
+              This may take a moment...
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
