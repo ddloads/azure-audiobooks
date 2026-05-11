@@ -39,6 +39,7 @@ import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
 import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
 import { createLogger } from "../lib/logger";
+import { booksArePotentialDuplicates, findDuplicateGroups } from "../utils/duplicates";
 
 const backupRoot = path.join(process.cwd(), "data", "backups");
 const adminLogger = createLogger("admin");
@@ -1295,108 +1296,24 @@ export const getBookHasBackup = async (req: AuthRequest, res: Response): Promise
 
 export const listAllDuplicatesHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // 1. Find all books with duplicate ASINs
-    const asinDuplicates = await prisma.$queryRaw<Array<{ asin: string; count: bigint }>>`
-      SELECT asin, COUNT(*) as count
-      FROM "Book"
-      WHERE asin IS NOT NULL AND asin != ''
-      GROUP BY asin
-      HAVING COUNT(*) > 1
-    `;
+    const books = await prisma.book.findMany({
+      include: {
+        author: true,
+        series: true,
+        library: { select: { name: true } },
+        audioFiles: { orderBy: { index: "asc" } },
+        progress: true,
+        _count: { select: { audioFiles: true } },
+      },
+      orderBy: [{ title: "asc" }, { createdAt: "asc" }],
+    });
 
-    // 2. Find all books with duplicate ISBNs
-    const isbnDuplicates = await prisma.$queryRaw<Array<{ isbn: string; count: bigint }>>`
-      SELECT isbn, COUNT(*) as count
-      FROM "Book"
-      WHERE isbn IS NOT NULL AND isbn != ''
-      GROUP BY isbn
-      HAVING COUNT(*) > 1
-    `;
-
-    // 3. Find all books with duplicate Title + Author
-    const titleAuthorDuplicates = await prisma.$queryRaw<Array<{ title: string; authorId: string; count: bigint }>>`
-      SELECT title, "authorId", COUNT(*) as count
-      FROM "Book"
-      GROUP BY title, "authorId"
-      HAVING COUNT(*) > 1
-    `;
-
-    const duplicateGroups: Array<{
-      type: "asin" | "isbn" | "title-author";
-      key: string;
-      books: any[];
-    }> = [];
-
-    // Process ASIN duplicates
-    for (const group of asinDuplicates) {
-      const books = await prisma.book.findMany({
-        where: { asin: group.asin },
-        include: {
-          author: true,
-          series: true,
-          library: { select: { name: true } },
-          audioFiles: { orderBy: { index: "asc" } },
-          progress: true,
-          _count: { select: { audioFiles: true } },
-        },
-      });
-      duplicateGroups.push({
-        type: "asin",
-        key: group.asin,
-        books,
-      });
-    }
-
-    // Process ISBN duplicates
-    for (const group of isbnDuplicates) {
-      const books = await prisma.book.findMany({
-        where: { isbn: group.isbn },
-        include: {
-          author: true,
-          series: true,
-          library: { select: { name: true } },
-          audioFiles: { orderBy: { index: "asc" } },
-          progress: true,
-          _count: { select: { audioFiles: true } },
-        },
-      });
-      duplicateGroups.push({
-        type: "isbn",
-        key: group.isbn,
-        books,
-      });
-    }
-
-    // Process Title + Author duplicates
-    for (const group of titleAuthorDuplicates) {
-      const books = await prisma.book.findMany({
-        where: {
-          title: group.title,
-          authorId: group.authorId,
-        },
-        include: {
-          author: true,
-          series: true,
-          library: { select: { name: true } },
-          audioFiles: { orderBy: { index: "asc" } },
-          progress: true,
-          _count: { select: { audioFiles: true } },
-        },
-      });
-
-      // Avoid adding groups that were already caught by ASIN or ISBN
-      const alreadyIn = duplicateGroups.some((dg) =>
-        dg.books.some((b) => books.some((nb) => nb.id === b.id)),
-      );
-
-      if (!alreadyIn) {
-        duplicateGroups.push({
-          type: "title-author",
-          key: `${group.title} by ${group.authorId}`,
-          books,
-        });
-      }
-    }
+    const duplicateGroups = findDuplicateGroups(
+      books.map((book) => ({
+        ...book,
+        coverPath: normalizeCoverPath(book.coverPath),
+      })),
+    );
 
     res.json(duplicateGroups);
   } catch (error) {
@@ -1685,43 +1602,26 @@ export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response)
       return;
     }
 
-    // Find duplicates by ASIN, ISBN, or Title + Author
-    const duplicates = await prisma.book.findMany({
+    const candidates = await prisma.book.findMany({
       where: {
         id: { not: bookId },
-        OR: [
-          book.asin ? { asin: book.asin } : {},
-          book.isbn ? { isbn: book.isbn } : {},
-          {
-            AND: [
-              { title: { equals: book.title, mode: "insensitive" as any } },
-              { author: { name: { equals: book.author.name, mode: "insensitive" as any } } },
-            ],
-          },
-          // Lenient match: just Title if Author is very similar or missing
-          {
-            title: { equals: book.title, mode: "insensitive" as any },
-          },
-        ].filter((cond) => Object.keys(cond).length > 0),
       },
       include: {
         author: true,
         library: { select: { name: true } },
         _count: { select: { audioFiles: true } },
+        audioFiles: { orderBy: { index: "asc" } },
+        progress: true,
+        series: true,
       },
     });
 
-    // Map to include folderPath (which we need for the UI to distinguish)
-    const result = await Promise.all(duplicates.map(async (dup) => {
-      const fullBook = await prisma.book.findUnique({
-        where: { id: dup.id },
-        select: { folderPath: true },
-      });
-      return {
-        ...dup,
-        folderPath: fullBook?.folderPath,
-      };
-    }));
+    const result = candidates
+      .filter((candidate) => booksArePotentialDuplicates(book, candidate))
+      .map((candidate) => ({
+        ...candidate,
+        coverPath: normalizeCoverPath(candidate.coverPath),
+      }));
 
     res.json(result);
   } catch (error) {

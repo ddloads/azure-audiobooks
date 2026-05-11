@@ -5,6 +5,7 @@ import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
+import { findDuplicateGroups } from "../utils/duplicates";
 
 const getSingleParam = (value: string | string[] | undefined): string | null =>
   typeof value === "string" ? value : null;
@@ -95,34 +96,30 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     const where: any = { AND: [] };
 
     if (duplicatesOnly) {
-      // Find IDs of books that have duplicates
-      const duplicateAsins = await prisma.$queryRaw<Array<{ asin: string }>>`
-        SELECT asin FROM "Book" WHERE asin IS NOT NULL AND asin != '' GROUP BY asin HAVING COUNT(*) > 1
-      `;
-      const duplicateIsbns = await prisma.$queryRaw<Array<{ isbn: string }>>`
-        SELECT isbn FROM "Book" WHERE isbn IS NOT NULL AND isbn != '' GROUP BY isbn HAVING COUNT(*) > 1
-      `;
-      const duplicateTitles = await prisma.$queryRaw<Array<{ title: string; authorId: string }>>`
-        SELECT title, "authorId" FROM "Book" GROUP BY title, "authorId" HAVING COUNT(*) > 1
-      `;
+      const duplicateCandidates = await prisma.book.findMany({
+        select: {
+          id: true,
+          title: true,
+          asin: true,
+          isbn: true,
+          authorId: true,
+          author: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+
+      const duplicateBookIds = new Set(
+        findDuplicateGroups(duplicateCandidates)
+          .flatMap((group) => group.books.map((book) => book.id)),
+      );
 
       where.AND.push({
-        OR: [
-          { asin: { in: duplicateAsins.map(d => d.asin) } },
-          { isbn: { in: duplicateIsbns.map(d => d.isbn) } },
-          {
-            OR: duplicateTitles.map(d => ({
-              AND: [
-                { title: d.title },
-                { authorId: d.authorId }
-              ]
-            }))
-          }
-        ].filter(cond => {
-          if ('in' in cond) return (cond as any).in?.length > 0;
-          if ('OR' in cond) return (cond as any).OR?.length > 0;
-          return true;
-        })
+        id: {
+          in: Array.from(duplicateBookIds),
+        },
       });
     }
 
