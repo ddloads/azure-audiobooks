@@ -16,6 +16,8 @@ import {
   getBookHasBackup,
   cleanupMergedBackupsHandler,
   findBookDuplicatesHandler,
+  listAllDuplicatesHandler,
+  resolveDuplicatesHandler,
   mergeBooksHandler,
   rescanSingleBookHandler,
   listAdminTasks,
