@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
 
 @theme {
   /* Map the project colour palette into Tailwind utility names */
@@ -1985,6 +1985,11 @@ input[type='range']::-moz-range-thumb {
   color: var(--text);
 }
 
+.metadata-path-value {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  word-break: break-all;
+}
+
 .series-sequence {
   color: var(--text-subtle);
   font-weight: 400;
@@ -2582,6 +2587,26 @@ input[type='range']::-moz-range-thumb {
   flex: 1;
 }
 
+.metadata-path-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.metadata-path-label {
+  color: var(--text-subtle);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metadata-path-input {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
 .book-match-link {
   display: inline-flex;
   align-items: center;
@@ -2635,6 +2660,37 @@ input[type='range']::-moz-range-thumb {
 .book-match-field-control textarea.form-control {
   resize: vertical;
   min-height: 120px;
+}
+
+.book-match-review-flag {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(124, 58, 237, 0.22);
+  background: rgba(124, 58, 237, 0.08);
+  color: var(--text);
+}
+
+.book-match-review-flag input {
+  margin-top: 0.15rem;
+  accent-color: var(--primary);
+}
+
+.book-match-review-flag span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.book-match-review-flag small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
 }
 
 .book-match-actions {

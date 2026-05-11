@@ -263,6 +263,41 @@ const toNullableNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const REVIEW_TAG = "review";
+
+const normalizeTagList = (value: unknown) => {
+  if (typeof value !== "string") return [];
+
+  const tags = value
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const tag of tags) {
+    const key = tag.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(tag);
+  }
+
+  return normalized;
+};
+
+const serializeTagList = (tags: string[]) => (tags.length > 0 ? tags.join(", ") : null);
+
+const mergeReviewTag = (baseTags: unknown, includeReviewTag: boolean) => {
+  const tags = normalizeTagList(baseTags);
+  if (!includeReviewTag) return tags;
+
+  if (!tags.some((tag) => tag.toLowerCase() === REVIEW_TAG)) {
+    tags.push(REVIEW_TAG);
+  }
+
+  return tags;
+};
+
 const pathBelongsToRoot = (folderPath: string, rootPath: string) => {
   const normalizedFolder = normalizeSourcePath(folderPath);
   const normalizedRoot = normalizeSourcePath(rootPath);
@@ -1919,6 +1954,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
 
     const selected = req.body?.selectedFields;
     const fields = req.body?.fields;
+    const markForReview = Boolean(req.body?.markForReview);
 
     if (!selected || typeof selected !== "object" || !fields || typeof fields !== "object") {
       res.status(400).json({ error: "selectedFields and fields are required" });
@@ -1957,11 +1993,18 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
     if (selectedFields.publisher) updateData.publisher = toNullableString(sourceFields.publisher);
     if (selectedFields.year) updateData.year = toNullableString(sourceFields.year);
     if (selectedFields.genres) updateData.genres = toNullableString(sourceFields.genres);
-    if (selectedFields.tags) updateData.tags = toNullableString(sourceFields.tags);
     if (selectedFields.language) updateData.language = toNullableString(sourceFields.language);
     if (selectedFields.isbn) updateData.isbn = toNullableString(sourceFields.isbn);
     if (selectedFields.asin) updateData.asin = toNullableString(sourceFields.asin)?.toUpperCase() || null;
     if (selectedFields.abridged) updateData.abridged = Boolean(sourceFields.abridged);
+
+    const bookHasReviewTag = normalizeTagList(book.tags).some((tag) => tag.toLowerCase() === REVIEW_TAG);
+    const keepReviewTag = markForReview || bookHasReviewTag;
+
+    if (selectedFields.tags || keepReviewTag) {
+      const baseTags = selectedFields.tags ? sourceFields.tags : book.tags;
+      updateData.tags = serializeTagList(mergeReviewTag(baseTags, keepReviewTag));
+    }
 
     if (selectedFields.imageUrl) {
       const imageUrl = toNullableString(sourceFields.imageUrl);
@@ -2028,6 +2071,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       },
     });
 
+    filterOptionsCache = null;
     res.json(updatedBook);
     } catch (error: any) {
     console.error("Apply book match error:", error);
@@ -2124,6 +2168,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       data: updateData,
     });
 
+    filterOptionsCache = null;
     res.json(updatedBook);
     } catch (error: any) {
     console.error("Update book metadata error:", error);

@@ -65,6 +65,7 @@ interface Book {
   language?: string | null;
   duration: number;
   coverPath?: string;
+  folderPath: string;
   tags?: string | null;
   isbn?: string | null;
   asin?: string | null;
@@ -737,6 +738,14 @@ const BookDetailsPage: React.FC = () => {
                   <span className="metadata-value">{book.language.toUpperCase()}</span>
                 </div>
               )}
+
+              <div className="metadata-row">
+                <Database size={16} className="metadata-icon" />
+                <span className="metadata-label">File Path</span>
+                <span className="metadata-value metadata-path-value" title={book.folderPath}>
+                  {book.folderPath}
+                </span>
+              </div>
 
               <div className="metadata-row">
                 <Clock size={16} className="metadata-icon" />

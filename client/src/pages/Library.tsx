@@ -335,6 +335,10 @@ const Library = () => {
     }
   };
 
+  const refreshLibraryData = async () => {
+    await Promise.all([fetchBooks(), fetchLibraries()]);
+  };
+
   const fetchProgress = async () => {
     try {
       const res = await api.get("/progress");
@@ -665,7 +669,7 @@ const Library = () => {
     setSelectedBookIds(new Set());
     setLastSelectedBookId(null);
     closeMetadataQueue();
-    await fetchBooks();
+    await refreshLibraryData();
   };
 
   const goToMetadataQueueIndex = (nextIndex: number) => {
@@ -1306,7 +1310,7 @@ const Library = () => {
           key={matchBook.id}
           book={matchBook}
           onClose={closeMetadataQueue}
-          onApplied={matchQueue.length > 0 ? advanceMetadataQueue : () => fetchBooks()}
+          onApplied={matchQueue.length > 0 ? advanceMetadataQueue : refreshLibraryData}
           initialTab="fetch"
           closeAfterSave={matchQueue.length === 0}
           queuePosition={

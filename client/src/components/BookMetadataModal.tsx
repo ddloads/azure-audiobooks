@@ -23,6 +23,7 @@ type MetadataBook = {
   asin?: string | null;
   abridged?: boolean | null;
   duration: number;
+  folderPath?: string | null;
 };
 
 type CandidateMetadata = {
@@ -235,6 +236,7 @@ const BookMetadataModal = ({
   const [writingTags, setWritingTags] = useState(false);
   const [writeTagsJob, setWriteTagsJob] = useState<WriteTagsJob | null>(null);
   const [tagSuccess, setTagSuccess] = useState(false);
+  const [markForReview, setMarkForReview] = useState(() => /(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
   const [error, setError] = useState("");
   const [results, setResults] = useState<MatchCandidate[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
@@ -388,6 +390,7 @@ const BookMetadataModal = ({
       await api.post(`/admin/books/${book.id}/match/apply`, {
         selectedFields,
         fields: fetchFields,
+        markForReview,
       });
       await onApplied();
       if (closeAfterSave) onClose();
@@ -756,6 +759,22 @@ const BookMetadataModal = ({
                     ))}
                   </div>
 
+                  <label className="book-match-review-flag">
+                    <input
+                      type="checkbox"
+                      checked={markForReview}
+                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                        setMarkForReview(event.target.checked)
+                      }
+                    />
+                    <span>
+                      Flag for review
+                      <small>
+                        Adds the `review` tag so you can filter this title in the library view.
+                      </small>
+                    </span>
+                  </label>
+
                   <div className="book-match-actions">
                     <button
                       className="btn btn-secondary"
@@ -785,6 +804,19 @@ const BookMetadataModal = ({
           </>
         ) : (
           <div className="metadata-edit-form">
+            {book.folderPath && (
+              <div className="metadata-path-row">
+                <div className="metadata-path-label">File Path</div>
+                <input
+                  className="form-control metadata-path-input"
+                  value={book.folderPath}
+                  readOnly
+                  aria-readonly="true"
+                  title={book.folderPath}
+                />
+              </div>
+            )}
+
             <div className="book-match-field-list">
               {FIELD_DEFINITIONS.filter((f) => f.key !== "imageUrl").map((field) => (
                 <div key={field.key} className="book-match-field-row">
