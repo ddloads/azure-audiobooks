@@ -66,6 +66,10 @@ let filterOptionsCache:
     }
   | null = null;
 
+export const invalidateFilterOptionsCache = () => {
+  filterOptionsCache = null;
+};
+
 export const getBooks = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;

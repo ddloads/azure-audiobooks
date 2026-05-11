@@ -539,7 +539,7 @@ const upsertBookFolder = async (
   if (shouldStop()) return;
 
   await prisma.audioFile.deleteMany({ where: { bookId: book.id } });
-  await prisma.chapter.deleteMany({ where: { bookId: book.id } });
+  await (prisma as any).chapter.deleteMany({ where: { bookId: book.id } });
 
   for (let index = 0; index < audioFiles.length; index++) {
     if (shouldStop()) return;
@@ -589,7 +589,7 @@ const upsertBookFolder = async (
 
   // Save chapters
   if (allChapters.length > 0) {
-    await prisma.chapter.createMany({
+    await (prisma as any).chapter.createMany({
       data: allChapters.map((c) => ({
         ...c,
         bookId: book.id,

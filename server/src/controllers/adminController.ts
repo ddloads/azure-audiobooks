@@ -37,6 +37,7 @@ import { searchGoogleBooks } from "../utils/googleBooks";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../utils/covers";
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
+import { invalidateFilterOptionsCache } from "./libraryController";
 import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
 import { createLogger } from "../lib/logger";
 import { booksArePotentialDuplicates, findDuplicateGroups } from "../utils/duplicates";
@@ -2071,7 +2072,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       },
     });
 
-    filterOptionsCache = null;
+    invalidateFilterOptionsCache();
     res.json(updatedBook);
     } catch (error: any) {
     console.error("Apply book match error:", error);
@@ -2168,7 +2169,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       data: updateData,
     });
 
-    filterOptionsCache = null;
+    invalidateFilterOptionsCache();
     res.json(updatedBook);
     } catch (error: any) {
     console.error("Update book metadata error:", error);
