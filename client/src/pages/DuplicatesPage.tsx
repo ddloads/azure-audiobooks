@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  BookOpen,
   Check,
   Copy,
   Eye,
@@ -160,47 +159,6 @@ const PALETTE = [
   },
 ];
 
-// ── Reusable mini cover thumbnail ────────────────────────────────────────────
-const CoverThumb = ({
-  src,
-  alt,
-  size,
-  gradient,
-  label,
-}: {
-  src?: string | null;
-  alt?: string;
-  size: "xs" | "sm" | "md";
-  gradient: string;
-  label: string;
-}) => {
-  const dims =
-    size === "xs"
-      ? "h-10 w-8"
-      : size === "sm"
-        ? "h-14 w-10"
-        : "h-full w-full";
-
-  return (
-    <div
-      className={`${size !== "md" ? dims : ""} relative flex-shrink-0 overflow-hidden rounded-lg border border-white/10`}
-      style={{ background: gradient }}
-    >
-      {src ? (
-        <img src={src} alt={alt ?? ""} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <span
-            className="select-none font-black text-white/20"
-            style={{ fontSize: size === "xs" ? 14 : size === "sm" ? 18 : 32 }}
-          >
-            {label}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // ── Main component ────────────────────────────────────────────────────────────
 const DuplicatesPage = () => {
