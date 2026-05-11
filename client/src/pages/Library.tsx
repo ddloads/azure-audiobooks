@@ -13,9 +13,6 @@ import {
   X,
   Headphones,
   SlidersHorizontal,
-  FileSearch,
-  RefreshCw,
-  Trash2,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
@@ -239,7 +236,6 @@ const Library = () => {
   const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
   const [duplicates, setDuplicates] = useState<LibraryBook[]>([]);
   const [selectedDuplicateIds, setSelectedDuplicateIds] = useState<string[]>([]);
-  const [isSearchingDuplicates, setIsSearchingDuplicates] = useState(false);
   const [isActionBusy, setIsActionBusy] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
@@ -461,6 +457,26 @@ const Library = () => {
     };
   }, [filters, search, sortBy]);
 
+  const handleScan = async () => {
+    setIsScanning(true);
+    try {
+      await api.post("/library/scan");
+      showToast({
+        title: "Scan started",
+        description: "Checking libraries for new content.",
+        tone: "info",
+      });
+    } catch (error) {
+      console.error("Scan failed", error);
+      showToast({
+        title: "Scan failed",
+        description: getErrorMessage(error, "Check server logs."),
+        tone: "error",
+      });
+      setIsScanning(false);
+    }
+  };
+
   const handleRescan = async () => {
     if (!actionBook) return;
     setIsActionBusy(true);
@@ -482,7 +498,7 @@ const Library = () => {
   };
 
   const handleFindDuplicates = async (book: LibraryBook) => {
-    setIsSearchingDuplicates(true);
+    setIsActionBusy(true);
     setActionBook(book);
     try {
       const res = await api.get<LibraryBook[]>(`/admin/books/${book.id}/duplicates`);
@@ -500,7 +516,7 @@ const Library = () => {
       console.error("Duplicate search failed", error);
       showToast({ title: "Search failed", description: "Check server logs.", tone: "error" });
     } finally {
-      setIsSearchingDuplicates(false);
+      setIsActionBusy(false);
     }
   };
 
