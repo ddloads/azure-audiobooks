@@ -40,7 +40,8 @@
       "PowerShell(Get-ChildItem -Path \"E:\\\\Software Dev\\\\Azure\\\\client\" -Recurse -Force | Where-Object {$_.PSIsContainer -eq $false} | Select-Object FullName | Format-Table -HideTableHeaders)",
       "PowerShell(Get-ChildItem -Path \"E:\\\\Software Dev\\\\Azure\\\\server\" -Recurse -Force | Where-Object {$_.PSIsContainer -eq $false} | Select-Object FullName | Format-Table -HideTableHeaders)",
       "PowerShell(Get-ChildItem -Path \"E:\\\\Software Dev\\\\Azure\\\\scripts\" -Recurse -Force | Where-Object {$_.PSIsContainer -eq $false} | Select-Object FullName | Format-Table -HideTableHeaders)",
-      "Bash(Get-ChildItem -Path \"E:\\\\Software Dev\\\\Azure\\\\client\\\\src\\\\components\" -File)"
+      "Bash(Get-ChildItem -Path \"E:\\\\Software Dev\\\\Azure\\\\client\\\\src\\\\components\" -File)",
+      "Bash(Get-ChildItem -Directory -ErrorAction SilentlyContinue)"
     ]
   }
 }
