@@ -1,4 +1,13 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  /* Map the project colour palette into Tailwind utility names */
+  --color-background: #060914;
+  --color-surface:    #101d35;
+  --color-border:     rgb(148 163 184);   /* use /10, /20 etc. modifiers for subtlety */
+  --color-primary:    #7c3aed;
+}
 
 :root {
   /* Brand gradient */
