@@ -72,6 +72,8 @@ router.post("/books/:bookId/merge-m4b", mergeBookFiles);
 router.post("/books/:bookId/undo-merge", undoMergeBookFiles);
 router.post("/books/:bookId/cleanup-backup", cleanupMergedBackupsHandler);
 router.get("/books/:bookId/duplicates", findBookDuplicatesHandler);
+router.get("/duplicates", listAllDuplicatesHandler);
+router.post("/duplicates/resolve", resolveDuplicatesHandler);
 router.post("/books/:bookId/merge-with", mergeBooksHandler);
 router.post("/books/:bookId/rescan", rescanSingleBookHandler);
 router.get("/books/:bookId/has-backup", getBookHasBackup);

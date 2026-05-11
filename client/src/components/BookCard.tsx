@@ -32,6 +32,7 @@ const BookCard: React.FC<{
   onRescan?: () => void;
   onFindDuplicates?: () => void;
   onDelete?: () => void;
+  onClickOverride?: () => void;
 }> = ({
   book,
   progressSeconds,
@@ -44,6 +45,7 @@ const BookCard: React.FC<{
   onRescan,
   onFindDuplicates,
   onDelete,
+  onClickOverride,
 }) => {
   const { playBook } = usePlayer();
   const navigate = useNavigate();
@@ -89,6 +91,10 @@ const BookCard: React.FC<{
   };
 
   const handleClick = () => {
+    if (onClickOverride) {
+      onClickOverride();
+      return;
+    }
     navigate(`/book/${book.id}`, { state: { from: returnTo } });
   };
 

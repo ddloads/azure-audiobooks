@@ -1,6 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   AlertCircle,
@@ -546,6 +546,7 @@ const AdminSettingsModal = ({
   const displayedOverviewPreferences = isEditingOverview && overviewDraft
     ? overviewDraft
     : overviewPreferences;
+  const navigate = useNavigate();
 
   const loadDashboard = async () => {
     try {
@@ -1445,6 +1446,14 @@ const AdminSettingsModal = ({
           </div>
 
           <div className="admin-header-actions">
+            <button
+              className="btn btn-secondary"
+              type="button"
+              onClick={() => navigate("/duplicates", { state: { from: backTarget } })}
+            >
+              <Copy size={15} />
+              Duplicates
+            </button>
             <button
               className="btn btn-secondary"
               type="button"

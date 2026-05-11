@@ -88,10 +88,44 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     const hasIsbn = getQueryBoolean(req.query.hasIsbn);
     const fileType = getQueryString(req.query.fileType);
     const listeningStatus = getQueryString(req.query.listeningStatus);
+    const duplicatesOnly = getQueryBoolean(req.query.duplicatesOnly);
     const search = getQueryString(req.query.search);
     const sortBy = getQueryString(req.query.sortBy) || "newest";
 
     const where: any = { AND: [] };
+
+    if (duplicatesOnly) {
+      // Find IDs of books that have duplicates
+      const duplicateAsins = await prisma.$queryRaw<Array<{ asin: string }>>`
+        SELECT asin FROM "Book" WHERE asin IS NOT NULL AND asin != '' GROUP BY asin HAVING COUNT(*) > 1
+      `;
+      const duplicateIsbns = await prisma.$queryRaw<Array<{ isbn: string }>>`
+        SELECT isbn FROM "Book" WHERE isbn IS NOT NULL AND isbn != '' GROUP BY isbn HAVING COUNT(*) > 1
+      `;
+      const duplicateTitles = await prisma.$queryRaw<Array<{ title: string; authorId: string }>>`
+        SELECT title, "authorId" FROM "Book" GROUP BY title, "authorId" HAVING COUNT(*) > 1
+      `;
+
+      where.AND.push({
+        OR: [
+          { asin: { in: duplicateAsins.map(d => d.asin) } },
+          { isbn: { in: duplicateIsbns.map(d => d.isbn) } },
+          {
+            OR: duplicateTitles.map(d => ({
+              AND: [
+                { title: d.title },
+                { authorId: d.authorId }
+              ]
+            }))
+          }
+        ].filter(cond => {
+          if ('in' in cond) return (cond as any).in?.length > 0;
+          if ('OR' in cond) return (cond as any).OR?.length > 0;
+          return true;
+        })
+      });
+    }
+
     if (libraryId) where.libraryId = libraryId;
     if (authorId) where.authorId = authorId;
     if (seriesId) where.seriesId = seriesId;

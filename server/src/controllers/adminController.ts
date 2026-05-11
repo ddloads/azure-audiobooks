@@ -1293,6 +1293,333 @@ export const getBookHasBackup = async (req: AuthRequest, res: Response): Promise
   }
 };
 
+export const listAllDuplicatesHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    // 1. Find all books with duplicate ASINs
+    const asinDuplicates = await prisma.$queryRaw<Array<{ asin: string; count: bigint }>>`
+      SELECT asin, COUNT(*) as count
+      FROM "Book"
+      WHERE asin IS NOT NULL AND asin != ''
+      GROUP BY asin
+      HAVING COUNT(*) > 1
+    `;
+
+    // 2. Find all books with duplicate ISBNs
+    const isbnDuplicates = await prisma.$queryRaw<Array<{ isbn: string; count: bigint }>>`
+      SELECT isbn, COUNT(*) as count
+      FROM "Book"
+      WHERE isbn IS NOT NULL AND isbn != ''
+      GROUP BY isbn
+      HAVING COUNT(*) > 1
+    `;
+
+    // 3. Find all books with duplicate Title + Author
+    const titleAuthorDuplicates = await prisma.$queryRaw<Array<{ title: string; authorId: string; count: bigint }>>`
+      SELECT title, "authorId", COUNT(*) as count
+      FROM "Book"
+      GROUP BY title, "authorId"
+      HAVING COUNT(*) > 1
+    `;
+
+    const duplicateGroups: Array<{
+      type: "asin" | "isbn" | "title-author";
+      key: string;
+      books: any[];
+    }> = [];
+
+    // Process ASIN duplicates
+    for (const group of asinDuplicates) {
+      const books = await prisma.book.findMany({
+        where: { asin: group.asin },
+        include: {
+          author: true,
+          series: true,
+          library: { select: { name: true } },
+          audioFiles: { orderBy: { index: "asc" } },
+          progress: true,
+          _count: { select: { audioFiles: true } },
+        },
+      });
+      duplicateGroups.push({
+        type: "asin",
+        key: group.asin,
+        books,
+      });
+    }
+
+    // Process ISBN duplicates
+    for (const group of isbnDuplicates) {
+      const books = await prisma.book.findMany({
+        where: { isbn: group.isbn },
+        include: {
+          author: true,
+          series: true,
+          library: { select: { name: true } },
+          audioFiles: { orderBy: { index: "asc" } },
+          progress: true,
+          _count: { select: { audioFiles: true } },
+        },
+      });
+      duplicateGroups.push({
+        type: "isbn",
+        key: group.isbn,
+        books,
+      });
+    }
+
+    // Process Title + Author duplicates
+    for (const group of titleAuthorDuplicates) {
+      const books = await prisma.book.findMany({
+        where: {
+          title: group.title,
+          authorId: group.authorId,
+        },
+        include: {
+          author: true,
+          series: true,
+          library: { select: { name: true } },
+          audioFiles: { orderBy: { index: "asc" } },
+          progress: true,
+          _count: { select: { audioFiles: true } },
+        },
+      });
+
+      // Avoid adding groups that were already caught by ASIN or ISBN
+      const alreadyIn = duplicateGroups.some((dg) =>
+        dg.books.some((b) => books.some((nb) => nb.id === b.id)),
+      );
+
+      if (!alreadyIn) {
+        duplicateGroups.push({
+          type: "title-author",
+          key: `${group.title} by ${group.authorId}`,
+          books,
+        });
+      }
+    }
+
+    res.json(duplicateGroups);
+  } catch (error) {
+    console.error("List all duplicates error:", error);
+    res.status(500).json({ error: "Failed to list all duplicates" });
+  }
+};
+
+export const resolveDuplicatesHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const {
+      primaryBookId,
+      secondaryBookIds,
+      metadata,
+      keepProgressFromBookId,
+      audioFileActions,
+    } = req.body as {
+      primaryBookId: string;
+      secondaryBookIds: string[];
+      metadata?: any;
+      keepProgressFromBookId?: string;
+      audioFileActions: Array<{ audioFileId: string; action: "keep" | "delete" | "keep_sub" }>;
+    };
+
+    if (!primaryBookId || !secondaryBookIds || !audioFileActions) {
+      res.status(400).json({ error: "Missing required fields" });
+      return;
+    }
+
+    const primaryBook = await prisma.book.findUnique({
+      where: { id: primaryBookId },
+      include: { author: true },
+    });
+
+    if (!primaryBook) {
+      res.status(404).json({ error: "Primary book not found" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Update metadata if provided
+      if (metadata) {
+        await tx.book.update({
+          where: { id: primaryBookId },
+          data: {
+            title: metadata.title,
+            subtitle: metadata.subtitle,
+            authorId: metadata.authorId,
+            seriesId: metadata.seriesId,
+            sequence: metadata.sequence,
+            narrator: metadata.narrator,
+            publisher: metadata.publisher,
+            year: metadata.year,
+            genres: metadata.genres,
+            tags: metadata.tags,
+            language: metadata.language,
+            isbn: metadata.isbn,
+            asin: metadata.asin,
+            abridged: metadata.abridged,
+          },
+        });
+      }
+
+      // 2. Handle Progress
+      if (keepProgressFromBookId) {
+        // Find all progress records for all involved books
+        const allBooks = [primaryBookId, ...secondaryBookIds];
+        const sourceProgress = await tx.progress.findMany({
+          where: { bookId: keepProgressFromBookId },
+        });
+
+        // Delete all progress for primary book first to avoid conflict (or we could be more surgical)
+        await tx.progress.deleteMany({
+          where: { bookId: primaryBookId },
+        });
+
+        for (const prog of sourceProgress) {
+          await tx.progress.create({
+            data: {
+              userId: prog.userId,
+              bookId: primaryBookId,
+              currentTime: prog.currentTime,
+              isFinished: prog.isFinished,
+              lastUpdate: prog.lastUpdate,
+            },
+          });
+        }
+      }
+
+      // 3. Handle Audio Files
+      const subFolderName = "merged_duplicates";
+      const subFolderPath = path.join(primaryBook.folderPath, subFolderName);
+
+      // Map actions for easy access
+      const actionMap = new Map(audioFileActions.map((a) => [a.audioFileId, a.action]));
+
+      // Get all involved audio files
+      const allAudioFiles = await tx.audioFile.findMany({
+        where: { bookId: { in: [primaryBookId, ...secondaryBookIds] } },
+      });
+
+      // Clear primary book's audio file records in DB (we will re-create them for those we keep)
+      await tx.audioFile.deleteMany({
+        where: { bookId: primaryBookId },
+      });
+
+      let nextIndex = 0;
+
+      for (const af of allAudioFiles) {
+        const action = actionMap.get(af.id) || "delete";
+
+        if (action === "keep") {
+          // If it's already in the primary folder, just keep it. 
+          // If it's in a secondary folder, move it to the primary folder.
+          const oldPath = af.path;
+          const newFilename = path.basename(af.filename);
+          const newPath = path.join(primaryBook.folderPath, newFilename);
+
+          if (oldPath !== newPath) {
+            if (fs.existsSync(oldPath)) {
+              // Ensure we don't overwrite if file exists with same name but different content? 
+              // For simplicity, we'll overwrite or rename if exists.
+              let finalPath = newPath;
+              let finalFilename = newFilename;
+              if (fs.existsSync(newPath)) {
+                 const ext = path.extname(newFilename);
+                 const base = path.basename(newFilename, ext);
+                 finalFilename = `${base}_${af.id.split('-')[0]}${ext}`;
+                 finalPath = path.join(primaryBook.folderPath, finalFilename);
+              }
+              fs.renameSync(oldPath, finalPath);
+              af.path = finalPath;
+              af.filename = finalFilename;
+            }
+          }
+
+          await tx.audioFile.create({
+            data: {
+              filename: path.basename(af.path),
+              path: af.path,
+              duration: af.duration,
+              index: nextIndex++,
+              title: af.title,
+              bookId: primaryBookId,
+            },
+          });
+        } else if (action === "keep_sub") {
+          if (!fs.existsSync(subFolderPath)) {
+            fs.mkdirSync(subFolderPath, { recursive: true });
+          }
+
+          const oldPath = af.path;
+          const newFilename = path.basename(af.filename);
+          const newPath = path.join(subFolderPath, newFilename);
+
+          if (fs.existsSync(oldPath)) {
+            let finalPath = newPath;
+            let finalFilenameInSub = newFilename;
+            if (fs.existsSync(newPath)) {
+               const ext = path.extname(newFilename);
+               const base = path.basename(newFilename, ext);
+               finalFilenameInSub = `${base}_${af.id.split('-')[0]}${ext}`;
+               finalPath = path.join(subFolderPath, finalFilenameInSub);
+            }
+            fs.renameSync(oldPath, finalPath);
+            af.path = finalPath;
+            af.filename = path.join(subFolderName, finalFilenameInSub);
+          }
+
+          await tx.audioFile.create({
+            data: {
+              filename: af.filename,
+              path: af.path,
+              duration: af.duration,
+              index: nextIndex++,
+              title: af.title,
+              bookId: primaryBookId,
+            },
+          });
+        } else {
+          // Action is delete
+          if (fs.existsSync(af.path)) {
+            fs.rmSync(af.path, { force: true });
+          }
+          // DB record will be deleted when secondary book is deleted
+        }
+      }
+
+      // 4. Delete secondary books
+      for (const sId of secondaryBookIds) {
+        const secondaryBook = await tx.book.findUnique({ where: { id: sId } });
+        if (secondaryBook) {
+          await tx.book.delete({ where: { id: sId } });
+          // Try to delete folder if empty
+          try {
+            if (fs.existsSync(secondaryBook.folderPath) && fs.readdirSync(secondaryBook.folderPath).length === 0) {
+              fs.rmdirSync(secondaryBook.folderPath);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      // 5. Update primary book duration
+      const totalDuration = await tx.audioFile.aggregate({
+        where: { bookId: primaryBookId },
+        _sum: { duration: true },
+      });
+
+      await tx.book.update({
+        where: { id: primaryBookId },
+        data: { duration: totalDuration._sum.duration || 0 },
+      });
+    });
+
+    res.json({ message: "Duplicates resolved successfully" });
+  } catch (error) {
+    console.error("Resolve duplicates error:", error);
+    res.status(500).json({ error: "Failed to resolve duplicates" });
+  }
+};
+
 export const rescanSingleBookHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const bookId = getSingleParam(req.params.bookId);

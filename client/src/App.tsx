@@ -6,6 +6,7 @@ import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Library from "./pages/Library";
+import DuplicatesPage from "./pages/DuplicatesPage";
 import BookDetailsPage from "./pages/BookDetailsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import Player from "./components/Player";
@@ -50,6 +51,14 @@ function AppRoutes() {
             <PrivateRoute>
               <Library />
             </PrivateRoute>
+          }
+        />
+        <Route
+          path="/duplicates"
+          element={
+            <AdminRoute>
+              <DuplicatesPage />
+            </AdminRoute>
           }
         />
         <Route

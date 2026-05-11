@@ -115,6 +115,7 @@ type LibraryFilters = {
   abridged: string;
   fileType: string;
   listeningStatus: string;
+  duplicates: string;
 };
 
 const emptyFilters = (): LibraryFilters => ({
@@ -136,6 +137,7 @@ const emptyFilters = (): LibraryFilters => ({
   abridged: "all",
   fileType: "all",
   listeningStatus: "all",
+  duplicates: "all",
 });
 
 const emptyFilterOptions = (): FilterOptions => ({
@@ -284,11 +286,12 @@ const Library = () => {
     abridged: filters.abridged !== "all" ? filters.abridged : undefined,
     fileType: filters.fileType !== "all" ? filters.fileType : undefined,
     listeningStatus: filters.listeningStatus !== "all" ? filters.listeningStatus : undefined,
+    duplicatesOnly: filters.duplicates === "true" ? true : undefined,
   });
 
   const activeFilterCount = useMemo(() =>
     Object.entries(filters).filter(([key, value]) => {
-      if (["libraryId", "authorId", "seriesId", "cover", "hasAsin", "hasIsbn", "abridged", "fileType", "listeningStatus"].includes(key)) {
+      if (["libraryId", "authorId", "seriesId", "cover", "hasAsin", "hasIsbn", "abridged", "fileType", "listeningStatus", "duplicates"].includes(key)) {
         return value !== "all";
       }
       return value.trim().length > 0;
@@ -1074,6 +1077,15 @@ const Library = () => {
                 </select>
               </div>
             </label>
+            <label className="filter-field">
+              <span>Potential duplicates</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.duplicates} onChange={(e) => updateFilter("duplicates", e.target.value)}>
+                  <option value="all">Any</option>
+                  <option value="true">Show duplicates only</option>
+                </select>
+              </div>
+            </label>
           </div>
 
         </section>
@@ -1255,6 +1267,9 @@ const Library = () => {
                   setDeleteFiles(false);
                   setConfirmAction("delete");
                 }}
+                onClickOverride={filters.duplicates === "true" ? () => {
+                  navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
+                } : undefined}
               />
             ))}
           </div>
