@@ -771,6 +771,58 @@ export const deleteLibrary = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+export const purgeLibrary = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const libraryId = getSingleParam(req.params.libraryId);
+    if (!libraryId) {
+      res.status(400).json({ error: "Invalid library id" });
+      return;
+    }
+
+    const library = await prisma.library.findUnique({
+      where: { id: libraryId },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            books: true,
+            sources: true,
+          },
+        },
+      },
+    });
+
+    if (!library) {
+      res.status(404).json({ error: "Library not found" });
+      return;
+    }
+
+    const purgeResult = await prisma.book.deleteMany({
+      where: { libraryId },
+    });
+
+    adminLogger.warn("Library purged", {
+      libraryId: library.id,
+      name: library.name,
+      deletedBooks: purgeResult.count,
+      retainedSources: library._count.sources,
+    });
+
+    res.json({
+      message: `Purged ${purgeResult.count} books from ${library.name}`,
+      deletedBooks: purgeResult.count,
+      library: {
+        id: library.id,
+        name: library.name,
+      },
+    });
+  } catch (error) {
+    console.error("Purge library error:", error);
+    res.status(500).json({ error: "Failed to purge library" });
+  }
+};
+
 export const createLibrarySource = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const libraryId = getSingleParam(req.params.libraryId);

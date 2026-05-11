@@ -1096,6 +1096,27 @@ const AdminSettingsModal = ({
     });
   };
 
+  const handlePurgeLibrary = async (library: AdminLibrary) => {
+    await runAction(`purge-library-${library.id}`, async () => {
+      try {
+        const response = await api.delete(`/admin/libraries/${library.id}/purge`);
+        showToast({
+          title: "Library purged",
+          description: response.data?.message || `Purged ${library.name}`,
+          tone: "success",
+        });
+        await loadAll();
+        await onLibraryChanged();
+      } catch (actionError) {
+        showToast({
+          title: "Failed to purge library",
+          description: getErrorMessage(actionError, "Failed to purge library"),
+          tone: "error",
+        });
+      }
+    });
+  };
+
   const handleCreateSource = async (libraryId: string) => {
     const draft = sourceDrafts[libraryId];
     if (!draft?.path.trim()) return;
@@ -2088,6 +2109,27 @@ const AdminSettingsModal = ({
                                     <RefreshCw size={14} />
                                   )}
                                   Scan
+                                </button>
+                                <button
+                                  className="btn admin-danger-btn"
+                                  type="button"
+                                  disabled={actionLoading === `purge-library-${library.id}`}
+                                  onClick={() =>
+                                    setPendingConfirm({
+                                      title: "Purge Library Database",
+                                      message: `Delete all books, audio files, chapters, and progress records from "${library.name}"? The library and source paths will stay in place so you can rescan from scratch.`,
+                                      confirmLabel: "Purge Library",
+                                      tone: "danger",
+                                      onConfirm: () => void handlePurgeLibrary(library),
+                                    })
+                                  }
+                                >
+                                  {actionLoading === `purge-library-${library.id}` ? (
+                                    <Loader2 size={14} className="animate-spin" />
+                                  ) : (
+                                    <Database size={14} />
+                                  )}
+                                  Purge DB
                                 </button>
                                 <button
                                   className="btn admin-danger-btn"

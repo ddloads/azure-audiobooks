@@ -30,6 +30,7 @@ import {
   mergeBookFiles,
   undoMergeBookFiles,
   renameAudibleCliProfileHandler,
+  purgeLibrary,
   rescanLibrary,
   rescanSingleLibrary,
   searchBookMatches,
@@ -61,6 +62,7 @@ router.get("/libraries", listLibraries);
 router.post("/libraries", createLibrary);
 router.patch("/libraries/:libraryId", updateLibrary);
 router.delete("/libraries/:libraryId", deleteLibrary);
+router.delete("/libraries/:libraryId/purge", purgeLibrary);
 router.post("/libraries/:libraryId/sources", createLibrarySource);
 router.patch("/sources/:sourceId", updateLibrarySource);
 router.delete("/sources/:sourceId", deleteLibrarySource);
