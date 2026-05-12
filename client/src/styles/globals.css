@@ -1191,6 +1191,8 @@ select.form-control {
   transform: translateY(-6px);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(124, 58, 237, 0.3);
   border-color: rgba(124, 58, 237, 0.4);
+  position: relative;
+  z-index: 2;
 }
 
 .book-card.selected {

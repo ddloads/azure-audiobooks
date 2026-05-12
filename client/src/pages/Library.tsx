@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -265,8 +266,10 @@ const Library = () => {
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
   const [openContinueMenuBookId, setOpenContinueMenuBookId] = useState<string | null>(null);
+  const [continueMenuPos, setContinueMenuPos] = useState<{ top: number; right: number } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const continueMenuRef = useRef<HTMLDivElement | null>(null);
+  const continuePortalMenuRef = useRef<HTMLDivElement | null>(null);
   const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
   const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
   const activeBatchWriteRef = useRef<{
@@ -478,9 +481,9 @@ const Library = () => {
     if (!openContinueMenuBookId) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (continueMenuRef.current && !continueMenuRef.current.contains(event.target as Node)) {
-        setOpenContinueMenuBookId(null);
-      }
+      const inTrigger = continueMenuRef.current?.contains(event.target as Node);
+      const inMenu = continuePortalMenuRef.current?.contains(event.target as Node);
+      if (!inTrigger && !inMenu) setOpenContinueMenuBookId(null);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -1306,183 +1309,23 @@ const Library = () => {
                     <div
                       className="book-card-menu-wrap"
                       ref={openContinueMenuBookId === record.bookId ? continueMenuRef : null}
-                      onMouseLeave={() => setOpenContinueMenuBookId(null)}
                     >
                       <button
                         className="book-card-menu-trigger"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setOpenContinueMenuBookId((current) => (current === record.bookId ? null : record.bookId));
+                          if (openContinueMenuBookId === record.bookId) {
+                            setOpenContinueMenuBookId(null);
+                          } else {
+                            const rect = event.currentTarget.getBoundingClientRect();
+                            setContinueMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                            setOpenContinueMenuBookId(record.bookId);
+                          }
                         }}
                         aria-label={`Open actions for ${record.book.title}`}
                       >
                         <MoreVertical size={16} />
                       </button>
-
-                      {openContinueMenuBookId === record.bookId && (
-                        <div className="book-card-menu">
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenContinueMenuBookId(null);
-                              void handleMarkBookFinished({
-                                id: record.bookId,
-                                title: record.book.title,
-                                duration: record.book.duration,
-                              });
-                            }}
-                          >
-                            <Check size={14} />
-                            Mark as Finished
-                          </button>
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenContinueMenuBookId(null);
-                              handleQuickMenuPlaceholder("Add to Collection");
-                            }}
-                          >
-                            <BookMarked size={14} />
-                            Add to Collection
-                          </button>
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenContinueMenuBookId(null);
-                              handleQuickMenuPlaceholder("Add to Playlist");
-                            }}
-                          >
-                            <ListPlus size={14} />
-                            Add to Playlist
-                          </button>
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenContinueMenuBookId(null);
-                              void handleShareBook({
-                                id: record.bookId,
-                                title: record.book.title,
-                                author: record.book.author,
-                              });
-                            }}
-                          >
-                            <Share2 size={14} />
-                            Share
-                          </button>
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenContinueMenuBookId(null);
-                              navigate(`/book/${record.bookId}`, { state: { from: returnTo } });
-                            }}
-                          >
-                            <FolderOpen size={14} />
-                            Files
-                          </button>
-                          {user?.role === "ADMIN" && (
-                            <>
-                              <button
-                                className="book-card-menu-item"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenContinueMenuBookId(null);
-                                  setMatchBook({
-                                    id: record.bookId,
-                                    title: record.book.title,
-                                    duration: record.book.duration,
-                                    coverPath: record.book.coverPath ?? undefined,
-                                    author: record.book.author,
-                                    library: { id: "", name: "" },
-                                  });
-                                }}
-                              >
-                                <Search size={14} />
-                                Match
-                              </button>
-                              <button
-                                className="book-card-menu-item"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenContinueMenuBookId(null);
-                                  setActionBook({
-                                    id: record.bookId,
-                                    title: record.book.title,
-                                    duration: record.book.duration,
-                                    coverPath: record.book.coverPath ?? undefined,
-                                    author: record.book.author,
-                                    library: { id: "", name: "" },
-                                  });
-                                  setConfirmAction("rescan");
-                                }}
-                              >
-                                <RefreshCw size={14} />
-                                Re-Scan
-                              </button>
-                              <button
-                                className="book-card-menu-item"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenContinueMenuBookId(null);
-                                  handleFindDuplicates({
-                                    id: record.bookId,
-                                    title: record.book.title,
-                                    duration: record.book.duration,
-                                    coverPath: record.book.coverPath ?? undefined,
-                                    author: record.book.author,
-                                    library: { id: "", name: "" },
-                                  });
-                                }}
-                              >
-                                <FileSearch size={14} />
-                                Find Duplicates
-                              </button>
-                            </>
-                          )}
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleRemoveBookFromContinueListening({
-                                id: record.bookId,
-                                title: record.book.title,
-                              });
-                            }}
-                          >
-                            <EyeOff size={14} />
-                            Remove from Continue Listening
-                          </button>
-                          {user?.role === "ADMIN" && (
-                            <>
-                              <div className="book-card-menu-divider" />
-                              <button
-                                className="book-card-menu-item text-danger"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setOpenContinueMenuBookId(null);
-                                  setActionBook({
-                                    id: record.bookId,
-                                    title: record.book.title,
-                                    duration: record.book.duration,
-                                    coverPath: record.book.coverPath ?? undefined,
-                                    author: record.book.author,
-                                    library: { id: "", name: "" },
-                                  });
-                                  setDeleteFiles(false);
-                                  setConfirmAction("delete");
-                                }}
-                              >
-                                <Trash2 size={14} />
-                                Delete
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     <div className="continue-card-art-frame">
@@ -1755,6 +1598,60 @@ const Library = () => {
         </div>
       )}
     </div>
+
+    {/* Continue-shelf context menu — rendered in a portal to escape overflow:auto clipping */}
+    {(() => {
+      const r = progressRecords.find((rec) => rec.bookId === openContinueMenuBookId);
+      if (!openContinueMenuBookId || !continueMenuPos || !r) return null;
+      return createPortal(
+        <div
+          className="book-card-menu"
+          ref={continuePortalMenuRef}
+          style={{ position: "fixed", top: continueMenuPos.top, right: continueMenuPos.right, zIndex: 1200 }}
+        >
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); void handleMarkBookFinished({ id: r.bookId, title: r.book.title, duration: r.book.duration }); }}>
+            <Check size={14} /> Mark as Finished
+          </button>
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); handleQuickMenuPlaceholder("Add to Collection"); }}>
+            <BookMarked size={14} /> Add to Collection
+          </button>
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); handleQuickMenuPlaceholder("Add to Playlist"); }}>
+            <ListPlus size={14} /> Add to Playlist
+          </button>
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); void handleShareBook({ id: r.bookId, title: r.book.title, author: r.book.author }); }}>
+            <Share2 size={14} /> Share
+          </button>
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); navigate(`/book/${r.bookId}`, { state: { from: returnTo } }); }}>
+            <FolderOpen size={14} /> Files
+          </button>
+          {user?.role === "ADMIN" && (
+            <>
+              <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); setMatchBook({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); }}>
+                <Search size={14} /> Match
+              </button>
+              <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); setActionBook({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); setConfirmAction("rescan"); }}>
+                <RefreshCw size={14} /> Re-Scan
+              </button>
+              <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); handleFindDuplicates({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); }}>
+                <FileSearch size={14} /> Find Duplicates
+              </button>
+            </>
+          )}
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); void handleRemoveBookFromContinueListening({ id: r.bookId, title: r.book.title }); }}>
+            <EyeOff size={14} /> Remove from Continue Listening
+          </button>
+          {user?.role === "ADMIN" && (
+            <>
+              <div className="book-card-menu-divider" />
+              <button className="book-card-menu-item text-danger" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); setActionBook({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); setDeleteFiles(false); setConfirmAction("delete"); }}>
+                <Trash2 size={14} /> Delete
+              </button>
+            </>
+          )}
+        </div>,
+        document.body,
+      );
+    })()}
   );
 };
 

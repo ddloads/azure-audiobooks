@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -73,7 +74,9 @@ const BookCard: React.FC<{
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuPortalRef = useRef<HTMLDivElement | null>(null);
   const returnTo = `${location.pathname}${location.search}`;
 
   const progressPct =
@@ -85,9 +88,9 @@ const BookCard: React.FC<{
     if (!menuOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
+      const inTrigger = menuRef.current?.contains(event.target as Node);
+      const inMenu = menuPortalRef.current?.contains(event.target as Node);
+      if (!inTrigger && !inMenu) setMenuOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -171,6 +174,7 @@ const BookCard: React.FC<{
   };
 
   return (
+    <>
     <div
       className={`book-card ${isSelected ? "selected" : ""} ${selectionControlsActive ? "selection-active" : ""}`}
       onClick={handleClick}
@@ -185,149 +189,21 @@ const BookCard: React.FC<{
         )}
 
         {isAdmin && !selectionControlsActive && (
-          <div
-            className="book-card-menu-wrap"
-            ref={menuRef}
-            onMouseLeave={() => setMenuOpen(false)}
-          >
+          <div className="book-card-menu-wrap" ref={menuRef}>
             <button
               className="book-card-menu-trigger"
               onClick={(event) => {
                 event.stopPropagation();
-                setMenuOpen((current) => !current);
+                if (!menuOpen) {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                }
+                setMenuOpen((v) => !v);
               }}
               aria-label={`Open actions for ${book.title}`}
             >
               <MoreVertical size={16} />
             </button>
-
-            {menuOpen && (
-              <div className="book-card-menu">
-                {hasProgress && (
-                  <button
-                    className="book-card-menu-item"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setMenuOpen(false);
-                      onMarkFinished?.();
-                    }}
-                  >
-                    <CheckCircle2 size={14} />
-                    Mark as Finished
-                  </button>
-                )}
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    handleFeaturePlaceholder("Add to Collection");
-                  }}
-                >
-                  <BookOpen size={14} />
-                  Add to Collection
-                </button>
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    handleFeaturePlaceholder("Add to Playlist");
-                  }}
-                >
-                  <ListPlus size={14} />
-                  Add to Playlist
-                </button>
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    void handleShare();
-                  }}
-                >
-                  <Share2 size={14} />
-                  Share
-                </button>
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    navigate(`/book/${book.id}`, { state: { from: returnTo } });
-                  }}
-                >
-                  <FolderOpen size={14} />
-                  Files
-                </button>
-                {isAdmin && (
-                  <>
-                    <button
-                      className="book-card-menu-item"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setMenuOpen(false);
-                        onMatch?.();
-                      }}
-                    >
-                      <Search size={14} />
-                      Match
-                    </button>
-                    <button
-                      className="book-card-menu-item"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setMenuOpen(false);
-                        onRescan?.();
-                      }}
-                    >
-                      <RefreshCw size={14} />
-                      Re-Scan
-                    </button>
-                    <button
-                      className="book-card-menu-item"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setMenuOpen(false);
-                        onFindDuplicates?.();
-                      }}
-                    >
-                      <FileSearch size={14} />
-                      Find Duplicates
-                    </button>
-                  </>
-                )}
-                {hasProgress && (
-                  <button
-                    className="book-card-menu-item"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setMenuOpen(false);
-                      onRemoveFromContinueListening?.();
-                    }}
-                  >
-                    <EyeOff size={14} />
-                    Remove from Continue Listening
-                  </button>
-                )}
-                {isAdmin && (
-                  <>
-                    <div className="book-card-menu-divider" />
-                    <button
-                      className="book-card-menu-item text-danger"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        setMenuOpen(false);
-                        onDelete?.();
-                      }}
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -369,6 +245,60 @@ const BookCard: React.FC<{
         </div>
       </div>
     </div>
+
+    {menuOpen && menuPos && createPortal(
+      <div
+        className="book-card-menu"
+        ref={menuPortalRef}
+        style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 1200 }}
+      >
+        {hasProgress && (
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMarkFinished?.(); }}>
+            <CheckCircle2 size={14} /> Mark as Finished
+          </button>
+        )}
+        <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); handleFeaturePlaceholder("Add to Collection"); }}>
+          <BookOpen size={14} /> Add to Collection
+        </button>
+        <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); handleFeaturePlaceholder("Add to Playlist"); }}>
+          <ListPlus size={14} /> Add to Playlist
+        </button>
+        <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); void handleShare(); }}>
+          <Share2 size={14} /> Share
+        </button>
+        <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); navigate(`/book/${book.id}`, { state: { from: returnTo } }); }}>
+          <FolderOpen size={14} /> Files
+        </button>
+        {isAdmin && (
+          <>
+            <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMatch?.(); }}>
+              <Search size={14} /> Match
+            </button>
+            <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRescan?.(); }}>
+              <RefreshCw size={14} /> Re-Scan
+            </button>
+            <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onFindDuplicates?.(); }}>
+              <FileSearch size={14} /> Find Duplicates
+            </button>
+          </>
+        )}
+        {hasProgress && (
+          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRemoveFromContinueListening?.(); }}>
+            <EyeOff size={14} /> Remove from Continue Listening
+          </button>
+        )}
+        {isAdmin && (
+          <>
+            <div className="book-card-menu-divider" />
+            <button className="book-card-menu-item text-danger" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onDelete?.(); }}>
+              <Trash2 size={14} /> Delete
+            </button>
+          </>
+        )}
+      </div>,
+      document.body,
+    )}
+    </>
   );
 };
 
