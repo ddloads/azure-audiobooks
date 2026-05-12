@@ -6,7 +6,10 @@ import {
   RefreshCw,
   LogOut,
   BookOpen,
+  Check,
+  ExternalLink,
   Loader2,
+  MoreVertical,
   Settings,
   Save,
   Sparkles,
@@ -254,7 +257,9 @@ const Library = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
+  const [openContinueMenuBookId, setOpenContinueMenuBookId] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const continueMenuRef = useRef<HTMLDivElement | null>(null);
   const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
   const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
   const activeBatchWriteRef = useRef<{
@@ -358,6 +363,81 @@ const Library = () => {
       console.error("Failed to resume playback", error);
     }
   };
+
+  const updateContinueListeningState = (bookId: string, currentTime: number) => {
+    setProgressMap((current) => {
+      const next = new Map(current);
+      if (currentTime > 30) {
+        next.set(bookId, currentTime);
+      } else {
+        next.delete(bookId);
+      }
+      return next;
+    });
+
+    if (currentTime <= 30) {
+      setProgressRecords((current) => current.filter((record) => record.bookId !== bookId));
+    }
+  };
+
+  const handleMarkContinueListeningFinished = async (record: ProgressRecord) => {
+    try {
+      await api.post(`/progress/${record.bookId}`, {
+        currentTime: record.book.duration,
+        isFinished: true,
+      });
+      updateContinueListeningState(record.bookId, record.book.duration);
+      setOpenContinueMenuBookId(null);
+      showToast({
+        title: "Marked as finished",
+        description: `"${record.book.title}" was removed from Continue Listening.`,
+        tone: "success",
+      });
+    } catch (error) {
+      console.error("Failed to mark book as finished", error);
+      showToast({
+        title: "Update failed",
+        description: getErrorMessage(error, "Could not update progress."),
+        tone: "error",
+      });
+    }
+  };
+
+  const handleRemoveFromContinueListening = async (record: ProgressRecord) => {
+    try {
+      await api.post(`/progress/${record.bookId}`, {
+        currentTime: 0,
+        isFinished: false,
+      });
+      updateContinueListeningState(record.bookId, 0);
+      setOpenContinueMenuBookId(null);
+      showToast({
+        title: "Removed from Continue Listening",
+        description: `"${record.book.title}" is no longer on this shelf.`,
+        tone: "success",
+      });
+    } catch (error) {
+      console.error("Failed to remove book from continue listening", error);
+      showToast({
+        title: "Update failed",
+        description: getErrorMessage(error, "Could not update progress."),
+        tone: "error",
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (!openContinueMenuBookId) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (continueMenuRef.current && !continueMenuRef.current.contains(event.target as Node)) {
+        setOpenContinueMenuBookId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openContinueMenuBookId]);
 
   const handleScanProgress = useEffectEvent((data: ScanProgress) => {
     setScanProgress(data);
@@ -1175,6 +1255,56 @@ const Library = () => {
                   title={`Resume ${record.book.title}`}
                 >
                   <div className="continue-card-cover">
+                    <div className="book-card-menu-wrap" ref={openContinueMenuBookId === record.bookId ? continueMenuRef : null}>
+                      <button
+                        className="book-card-menu-trigger"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setOpenContinueMenuBookId((current) => (current === record.bookId ? null : record.bookId));
+                        }}
+                        aria-label={`Open actions for ${record.book.title}`}
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+
+                      {openContinueMenuBookId === record.bookId && (
+                        <div className="book-card-menu">
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenContinueMenuBookId(null);
+                              navigate(`/book/${record.bookId}`, { state: { from: returnTo } });
+                            }}
+                          >
+                            <ExternalLink size={14} />
+                            Open Details
+                          </button>
+                          <div className="book-card-menu-divider" />
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleMarkContinueListeningFinished(record);
+                            }}
+                          >
+                            <Check size={14} />
+                            Mark as Finished
+                          </button>
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleRemoveFromContinueListening(record);
+                            }}
+                          >
+                            <X size={14} />
+                            Remove from Continue Listening
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     {record.book.coverPath ? (
                       <img src={record.book.coverPath} alt={record.book.title} />
                     ) : (
