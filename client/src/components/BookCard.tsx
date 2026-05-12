@@ -185,7 +185,11 @@ const BookCard: React.FC<{
         )}
 
         {isAdmin && !selectionControlsActive && (
-          <div className="book-card-menu-wrap" ref={menuRef}>
+          <div
+            className="book-card-menu-wrap"
+            ref={menuRef}
+            onMouseLeave={() => setMenuOpen(false)}
+          >
             <button
               className="book-card-menu-trigger"
               onClick={(event) => {
@@ -327,23 +331,25 @@ const BookCard: React.FC<{
           </div>
         )}
 
-        {book.coverPath ? (
-          <img className="book-cover-img" src={book.coverPath} alt={book.title} loading="lazy" />
-        ) : (
-          <div className="book-cover-placeholder">
-            <BookOpen size={28} />
-          </div>
-        )}
+        <div className="book-card-art-frame">
+          {book.coverPath ? (
+            <img className="book-cover-img" src={book.coverPath} alt={book.title} loading="lazy" />
+          ) : (
+            <div className="book-cover-placeholder">
+              <BookOpen size={28} />
+            </div>
+          )}
 
-        {progressPct > 0 && (
-          <div className="book-card-progress-bar">
-            <div className="book-card-progress-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-        )}
+          {progressPct > 0 && (
+            <div className="book-card-progress-bar">
+              <div className="book-card-progress-fill" style={{ width: `${progressPct}%` }} />
+            </div>
+          )}
 
-        <div className="book-play-overlay">
-          <div className="book-play-btn" onClick={handlePlay}>
-            <Play size={22} style={{ marginLeft: "3px" }} fill="currentColor" />
+          <div className="book-play-overlay">
+            <div className="book-play-btn" onClick={handlePlay}>
+              <Play size={22} style={{ marginLeft: "3px" }} fill="currentColor" />
+            </div>
           </div>
         </div>
       </div>

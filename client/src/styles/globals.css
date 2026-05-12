@@ -834,14 +834,23 @@ select.form-control {
   width: 158px;
   height: 158px;
   border-radius: var(--radius-lg);
-  overflow: hidden;
   background: var(--surface);
   margin-bottom: 0.6rem;
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   border: 1px solid var(--border);
+  overflow: visible;
+  z-index: 1;
 }
 
-.continue-card-cover img {
+.continue-card-art-frame {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  position: relative;
+}
+
+.continue-card-art-frame img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1194,9 +1203,18 @@ select.form-control {
   aspect-ratio: 1 / 1;
   background-color: var(--surface);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: visible;
   position: relative;
   flex-shrink: 0;
+  z-index: 1;
+}
+
+.book-card-art-frame {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  position: relative;
 }
 
 .book-card-checkbox-wrap {
@@ -1243,7 +1261,7 @@ select.form-control {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
-  z-index: 4;
+  z-index: 8;
 }
 
 .book-card-menu-trigger {
@@ -1269,7 +1287,8 @@ select.form-control {
   position: absolute;
   top: calc(100% + 0.4rem);
   right: 0;
-  min-width: 180px;
+  min-width: 220px;
+  max-width: 260px;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
@@ -1278,6 +1297,7 @@ select.form-control {
   border: 1px solid var(--border);
   background: rgba(15, 23, 42, 0.96);
   box-shadow: var(--shadow-lg);
+  z-index: 20;
 }
 
 .book-card-menu-item {
@@ -1292,6 +1312,7 @@ select.form-control {
   border-radius: calc(var(--radius) - 2px);
   text-align: left;
   font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .book-card-menu-item:hover {
@@ -5511,4 +5532,174 @@ input[type='range']::-moz-range-thumb {
 .btn-danger:disabled {
   background: #f87171;
   cursor: not-allowed;
+}
+
+/* ── Modal overlay (inline modals used for merge/delete confirmations) ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.15s ease;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 540px;
+  background: var(--card-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(124, 58, 237, 0.08) inset;
+  padding: 1.5rem;
+  animation: slideUp 0.22s ease;
+  overflow-y: auto;
+  max-height: 90vh;
+}
+
+.modal-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.modal-body {
+  margin-bottom: 1.25rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-close:hover {
+  color: var(--text);
+}
+
+/* ── Icon-only buttons in library actions ── */
+.library-icon-btn {
+  padding: 0.5rem;
+  width: 38px;
+  justify-content: center;
+}
+
+/* ── Mobile improvements ── */
+
+/* Ensure all interactive elements have a minimum touch target */
+@media (max-width: 720px) {
+  .player-skip-btn,
+  .player-speed-btn,
+  .player-sleep-btn {
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  .player-step-btn {
+    min-height: 44px;
+    min-width: 36px;
+  }
+
+  .book-card-menu-trigger {
+    width: 40px;
+    height: 40px;
+  }
+
+  .library-icon-btn {
+    flex: 0 0 auto !important;
+    width: 42px;
+    min-height: 42px;
+  }
+
+  .modal-content {
+    max-height: 92dvh;
+    padding: 1.25rem;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Allow filter panel to fully expand in single-column mode */
+  .library-filter-panel-wrapper.open {
+    max-height: 3000px;
+  }
+
+  /* Batch progress: remove min-width so it doesn't cause overflow */
+  .library-batch-progress {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* Book details actions: stack buttons vertically */
+  .book-details-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .download-action-btn {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    justify-content: center;
+  }
+
+  /* Modal content: edge-to-edge on very small screens */
+  .modal-overlay {
+    padding: 0.5rem;
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    max-height: 88dvh;
+    padding: 1.1rem;
+  }
+
+  /* Improve continue card sizing */
+  .continue-card {
+    flex: 0 0 130px;
+  }
+
+  .continue-card-cover {
+    width: 130px;
+    height: 130px;
+  }
+
+  /* Hide volume slider on very small screens (keeps right controls compact) */
+  .player-volume-slider {
+    display: none;
+  }
+
+  /* Make player buttons slightly larger for touch */
+  .player-play-btn {
+    width: 46px;
+    height: 46px;
+  }
+
+  /* Remove right-controls left margin since they're now full-width */
+  .player-right-controls {
+    justify-content: center;
+    gap: 1rem;
+  }
 }

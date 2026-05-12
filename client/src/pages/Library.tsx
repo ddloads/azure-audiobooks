@@ -988,7 +988,7 @@ const Library = () => {
               </button>
               <button
                 onClick={() => navigate("/settings", { state: { from: returnTo } })}
-                className="btn btn-secondary"
+                className="btn btn-secondary library-icon-btn"
               >
                 <Settings size={15} />
               </button>
@@ -1303,7 +1303,11 @@ const Library = () => {
                   title={`Resume ${record.book.title}`}
                 >
                   <div className="continue-card-cover">
-                    <div className="book-card-menu-wrap" ref={openContinueMenuBookId === record.bookId ? continueMenuRef : null}>
+                    <div
+                      className="book-card-menu-wrap"
+                      ref={openContinueMenuBookId === record.bookId ? continueMenuRef : null}
+                      onMouseLeave={() => setOpenContinueMenuBookId(null)}
+                    >
                       <button
                         className="book-card-menu-trigger"
                         onClick={(event) => {
@@ -1481,18 +1485,20 @@ const Library = () => {
                       )}
                     </div>
 
-                    {record.book.coverPath ? (
-                      <img src={record.book.coverPath} alt={record.book.title} />
-                    ) : (
-                      <div className="continue-card-cover-placeholder">
-                        <BookOpen size={24} />
+                    <div className="continue-card-art-frame">
+                      {record.book.coverPath ? (
+                        <img src={record.book.coverPath} alt={record.book.title} />
+                      ) : (
+                        <div className="continue-card-cover-placeholder">
+                          <BookOpen size={24} />
+                        </div>
+                      )}
+                      <div className="continue-card-play-overlay">
+                        <Headphones size={18} />
                       </div>
-                    )}
-                    <div className="continue-card-play-overlay">
-                      <Headphones size={18} />
-                    </div>
-                    <div className="continue-card-progress-bar">
-                      <div className="continue-card-progress-fill" style={{ width: `${pct}%` }} />
+                      <div className="continue-card-progress-bar">
+                        <div className="continue-card-progress-fill" style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
                   </div>
                   <div className="continue-card-info">
