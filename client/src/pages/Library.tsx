@@ -2,14 +2,21 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
+  BookMarked,
   Plus,
   RefreshCw,
   LogOut,
   BookOpen,
   Check,
-  ExternalLink,
+  EyeOff,
+  FileSearch,
+  FolderOpen,
   Loader2,
+  ListPlus,
   MoreVertical,
+  Search,
+  Share2,
+  Trash2,
   Settings,
   Save,
   Sparkles,
@@ -364,33 +371,74 @@ const Library = () => {
     }
   };
 
-  const updateContinueListeningState = (bookId: string, currentTime: number) => {
+  const removeBookFromInProgressState = (bookId: string) => {
     setProgressMap((current) => {
       const next = new Map(current);
-      if (currentTime > 30) {
-        next.set(bookId, currentTime);
-      } else {
-        next.delete(bookId);
-      }
+      next.delete(bookId);
       return next;
     });
 
-    if (currentTime <= 30) {
-      setProgressRecords((current) => current.filter((record) => record.bookId !== bookId));
+    setProgressRecords((current) => current.filter((record) => record.bookId !== bookId));
+  };
+
+  const handleQuickMenuPlaceholder = (label: string) => {
+    showToast({
+      title: `${label} not available`,
+      description: `${label} is not wired up in the web app yet.`,
+      tone: "info",
+    });
+  };
+
+  const handleShareBook = async (book: Pick<LibraryBook, "id" | "title" | "author">) => {
+    const shareUrl = `${window.location.origin}/book/${book.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: book.title,
+          text: `Listen to ${book.title} by ${book.author.name}`,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast({
+          title: "Link copied",
+          description: `Copied a share link for "${book.title}".`,
+          tone: "success",
+        });
+        return;
+      }
+
+      showToast({
+        title: "Share unavailable",
+        description: "This browser does not support sharing or clipboard copy.",
+        tone: "error",
+      });
+    } catch (error) {
+      if ((error as { name?: string })?.name === "AbortError") {
+        return;
+      }
+      showToast({
+        title: "Share failed",
+        description: getErrorMessage(error, "Could not share this title."),
+        tone: "error",
+      });
     }
   };
 
-  const handleMarkContinueListeningFinished = async (record: ProgressRecord) => {
+  const handleMarkBookFinished = async (book: Pick<LibraryBook, "id" | "title" | "duration">) => {
     try {
-      await api.post(`/progress/${record.bookId}`, {
-        currentTime: record.book.duration,
+      await api.post(`/progress/${book.id}`, {
+        currentTime: book.duration,
         isFinished: true,
       });
-      updateContinueListeningState(record.bookId, record.book.duration);
+      removeBookFromInProgressState(book.id);
       setOpenContinueMenuBookId(null);
       showToast({
         title: "Marked as finished",
-        description: `"${record.book.title}" was removed from Continue Listening.`,
+        description: `"${book.title}" was removed from Continue Listening.`,
         tone: "success",
       });
     } catch (error) {
@@ -403,17 +451,17 @@ const Library = () => {
     }
   };
 
-  const handleRemoveFromContinueListening = async (record: ProgressRecord) => {
+  const handleRemoveBookFromContinueListening = async (book: Pick<LibraryBook, "id" | "title">) => {
     try {
-      await api.post(`/progress/${record.bookId}`, {
+      await api.post(`/progress/${book.id}`, {
         currentTime: 0,
         isFinished: false,
       });
-      updateContinueListeningState(record.bookId, 0);
+      removeBookFromInProgressState(book.id);
       setOpenContinueMenuBookId(null);
       showToast({
         title: "Removed from Continue Listening",
-        description: `"${record.book.title}" is no longer on this shelf.`,
+        description: `"${book.title}" is no longer on this shelf.`,
         tone: "success",
       });
     } catch (error) {
@@ -1274,18 +1322,11 @@ const Library = () => {
                             onClick={(event) => {
                               event.stopPropagation();
                               setOpenContinueMenuBookId(null);
-                              navigate(`/book/${record.bookId}`, { state: { from: returnTo } });
-                            }}
-                          >
-                            <ExternalLink size={14} />
-                            Open Details
-                          </button>
-                          <div className="book-card-menu-divider" />
-                          <button
-                            className="book-card-menu-item"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void handleMarkContinueListeningFinished(record);
+                              void handleMarkBookFinished({
+                                id: record.bookId,
+                                title: record.book.title,
+                                duration: record.book.duration,
+                              });
                             }}
                           >
                             <Check size={14} />
@@ -1295,12 +1336,147 @@ const Library = () => {
                             className="book-card-menu-item"
                             onClick={(event) => {
                               event.stopPropagation();
-                              void handleRemoveFromContinueListening(record);
+                              setOpenContinueMenuBookId(null);
+                              handleQuickMenuPlaceholder("Add to Collection");
                             }}
                           >
-                            <X size={14} />
+                            <BookMarked size={14} />
+                            Add to Collection
+                          </button>
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenContinueMenuBookId(null);
+                              handleQuickMenuPlaceholder("Add to Playlist");
+                            }}
+                          >
+                            <ListPlus size={14} />
+                            Add to Playlist
+                          </button>
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenContinueMenuBookId(null);
+                              void handleShareBook({
+                                id: record.bookId,
+                                title: record.book.title,
+                                author: record.book.author,
+                              });
+                            }}
+                          >
+                            <Share2 size={14} />
+                            Share
+                          </button>
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenContinueMenuBookId(null);
+                              navigate(`/book/${record.bookId}`, { state: { from: returnTo } });
+                            }}
+                          >
+                            <FolderOpen size={14} />
+                            Files
+                          </button>
+                          {user?.role === "ADMIN" && (
+                            <>
+                              <button
+                                className="book-card-menu-item"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenContinueMenuBookId(null);
+                                  setMatchBook({
+                                    id: record.bookId,
+                                    title: record.book.title,
+                                    duration: record.book.duration,
+                                    coverPath: record.book.coverPath ?? undefined,
+                                    author: record.book.author,
+                                    library: { id: "", name: "" },
+                                  });
+                                }}
+                              >
+                                <Search size={14} />
+                                Match
+                              </button>
+                              <button
+                                className="book-card-menu-item"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenContinueMenuBookId(null);
+                                  setActionBook({
+                                    id: record.bookId,
+                                    title: record.book.title,
+                                    duration: record.book.duration,
+                                    coverPath: record.book.coverPath ?? undefined,
+                                    author: record.book.author,
+                                    library: { id: "", name: "" },
+                                  });
+                                  setConfirmAction("rescan");
+                                }}
+                              >
+                                <RefreshCw size={14} />
+                                Re-Scan
+                              </button>
+                              <button
+                                className="book-card-menu-item"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenContinueMenuBookId(null);
+                                  handleFindDuplicates({
+                                    id: record.bookId,
+                                    title: record.book.title,
+                                    duration: record.book.duration,
+                                    coverPath: record.book.coverPath ?? undefined,
+                                    author: record.book.author,
+                                    library: { id: "", name: "" },
+                                  });
+                                }}
+                              >
+                                <FileSearch size={14} />
+                                Find Duplicates
+                              </button>
+                            </>
+                          )}
+                          <button
+                            className="book-card-menu-item"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleRemoveBookFromContinueListening({
+                                id: record.bookId,
+                                title: record.book.title,
+                              });
+                            }}
+                          >
+                            <EyeOff size={14} />
                             Remove from Continue Listening
                           </button>
+                          {user?.role === "ADMIN" && (
+                            <>
+                              <div className="book-card-menu-divider" />
+                              <button
+                                className="book-card-menu-item text-danger"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenContinueMenuBookId(null);
+                                  setActionBook({
+                                    id: record.bookId,
+                                    title: record.book.title,
+                                    duration: record.book.duration,
+                                    coverPath: record.book.coverPath ?? undefined,
+                                    author: record.book.author,
+                                    library: { id: "", name: "" },
+                                  });
+                                  setDeleteFiles(false);
+                                  setConfirmAction("delete");
+                                }}
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1401,6 +1577,19 @@ const Library = () => {
                   setDeleteFiles(false);
                   setConfirmAction("delete");
                 }}
+                onMarkFinished={() =>
+                  void handleMarkBookFinished({
+                    id: book.id,
+                    title: book.title,
+                    duration: book.duration,
+                  })
+                }
+                onRemoveFromContinueListening={() =>
+                  void handleRemoveBookFromContinueListening({
+                    id: book.id,
+                    title: book.title,
+                  })
+                }
                 onClickOverride={filters.duplicates === "true" ? () => {
                   navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
                 } : undefined}

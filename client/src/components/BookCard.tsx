@@ -1,7 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BookOpen, Check, Clock, User, Play, MoreVertical, Search, ExternalLink, RefreshCw, FileSearch, Trash2 } from "lucide-react";
+import {
+  BookOpen,
+  Check,
+  CheckCircle2,
+  Clock,
+  FileSearch,
+  FolderOpen,
+  ListPlus,
+  MoreVertical,
+  Play,
+  RefreshCw,
+  Search,
+  Share2,
+  Trash2,
+  User,
+  EyeOff,
+} from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
+import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
 
 interface Book {
@@ -32,6 +49,8 @@ const BookCard: React.FC<{
   onRescan?: () => void;
   onFindDuplicates?: () => void;
   onDelete?: () => void;
+  onMarkFinished?: () => void;
+  onRemoveFromContinueListening?: () => void;
   onClickOverride?: () => void;
 }> = ({
   book,
@@ -45,9 +64,12 @@ const BookCard: React.FC<{
   onRescan,
   onFindDuplicates,
   onDelete,
+  onMarkFinished,
+  onRemoveFromContinueListening,
   onClickOverride,
 }) => {
   const { playBook } = usePlayer();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -103,6 +125,51 @@ const BookCard: React.FC<{
     onSelect?.(!isSelected, e.shiftKey);
   };
 
+  const hasProgress = Boolean(progressSeconds && progressSeconds > 30);
+
+  const handleFeaturePlaceholder = (label: string) => {
+    showToast({
+      title: `${label} not available`,
+      description: `${label} is not wired up in the web app yet.`,
+      tone: "info",
+    });
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/book/${book.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: book.title,
+          text: `Listen to ${book.title} by ${book.author.name}`,
+          url: shareUrl,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        showToast({
+          title: "Link copied",
+          description: `Copied a share link for "${book.title}".`,
+          tone: "success",
+        });
+      } else {
+        showToast({
+          title: "Share unavailable",
+          description: "This browser does not support sharing or clipboard copy.",
+          tone: "error",
+        });
+      }
+    } catch (error) {
+      if ((error as { name?: string })?.name === "AbortError") {
+        return;
+      }
+      showToast({
+        title: "Share failed",
+        description: "Could not share this title.",
+        tone: "error",
+      });
+    }
+  };
+
   return (
     <div
       className={`book-card ${isSelected ? "selected" : ""} ${selectionControlsActive ? "selection-active" : ""}`}
@@ -132,6 +199,52 @@ const BookCard: React.FC<{
 
             {menuOpen && (
               <div className="book-card-menu">
+                {hasProgress && (
+                  <button
+                    className="book-card-menu-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuOpen(false);
+                      onMarkFinished?.();
+                    }}
+                  >
+                    <CheckCircle2 size={14} />
+                    Mark as Finished
+                  </button>
+                )}
+                <button
+                  className="book-card-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    handleFeaturePlaceholder("Add to Collection");
+                  }}
+                >
+                  <BookOpen size={14} />
+                  Add to Collection
+                </button>
+                <button
+                  className="book-card-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    handleFeaturePlaceholder("Add to Playlist");
+                  }}
+                >
+                  <ListPlus size={14} />
+                  Add to Playlist
+                </button>
+                <button
+                  className="book-card-menu-item"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setMenuOpen(false);
+                    void handleShare();
+                  }}
+                >
+                  <Share2 size={14} />
+                  Share
+                </button>
                 <button
                   className="book-card-menu-item"
                   onClick={(event) => {
@@ -140,55 +253,75 @@ const BookCard: React.FC<{
                     navigate(`/book/${book.id}`, { state: { from: returnTo } });
                   }}
                 >
-                  <ExternalLink size={14} />
-                  Open Details
+                  <FolderOpen size={14} />
+                  Files
                 </button>
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    onMatch?.();
-                  }}
-                >
-                  <Search size={14} />
-                  Fetch Metadata
-                </button>
-                <div className="book-card-menu-divider" />
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    onRescan?.();
-                  }}
-                >
-                  <RefreshCw size={14} />
-                  Refresh Metadata
-                </button>
-                <button
-                  className="book-card-menu-item"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    onFindDuplicates?.();
-                  }}
-                >
-                  <FileSearch size={14} />
-                  Find Duplicates
-                </button>
-                <div className="book-card-menu-divider" />
-                <button
-                  className="book-card-menu-item text-danger"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setMenuOpen(false);
-                    onDelete?.();
-                  }}
-                >
-                  <Trash2 size={14} />
-                  Remove Title
-                </button>
+                {isAdmin && (
+                  <>
+                    <button
+                      className="book-card-menu-item"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuOpen(false);
+                        onMatch?.();
+                      }}
+                    >
+                      <Search size={14} />
+                      Match
+                    </button>
+                    <button
+                      className="book-card-menu-item"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuOpen(false);
+                        onRescan?.();
+                      }}
+                    >
+                      <RefreshCw size={14} />
+                      Re-Scan
+                    </button>
+                    <button
+                      className="book-card-menu-item"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuOpen(false);
+                        onFindDuplicates?.();
+                      }}
+                    >
+                      <FileSearch size={14} />
+                      Find Duplicates
+                    </button>
+                  </>
+                )}
+                {hasProgress && (
+                  <button
+                    className="book-card-menu-item"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMenuOpen(false);
+                      onRemoveFromContinueListening?.();
+                    }}
+                  >
+                    <EyeOff size={14} />
+                    Remove from Continue Listening
+                  </button>
+                )}
+                {isAdmin && (
+                  <>
+                    <div className="book-card-menu-divider" />
+                    <button
+                      className="book-card-menu-item text-danger"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuOpen(false);
+                        onDelete?.();
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
