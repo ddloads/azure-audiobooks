@@ -6,6 +6,7 @@ import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { findDuplicateGroups } from "../utils/duplicates";
+import { cleanupBookTitle } from "../utils/titleCleanup";
 
 const getSingleParam = (value: string | string[] | undefined): string | null =>
   typeof value === "string" ? value : null;
@@ -13,6 +14,17 @@ const getSingleParam = (value: string | string[] | undefined): string | null =>
 const normalizeBookCover = <T extends { coverPath?: string | null }>(book: T) => ({
   ...book,
   coverPath: normalizeCoverPath(book.coverPath),
+});
+
+const normalizeLibraryBook = <
+  T extends {
+    title: string;
+    folderPath?: string | null;
+    coverPath?: string | null;
+  },
+>(book: T) => ({
+  ...normalizeBookCover(book),
+  title: cleanupBookTitle(book.title, { folderNameOrPath: book.folderPath ?? undefined }),
 });
 
 const hasAvailableCover = (coverPath?: string | null) => !!coverPath;
@@ -30,6 +42,46 @@ const getQueryBoolean = (value: unknown) => {
   if (value === "true") return true;
   if (value === "false") return false;
   return undefined;
+};
+
+const stripDiacritics = (value: string) =>
+  value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+
+const normalizeSearchText = (value: string | null | undefined) =>
+  stripDiacritics(value ?? "")
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u02bc']/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const compactSearchText = (value: string | null | undefined) =>
+  normalizeSearchText(value).replace(/\s+/g, "");
+
+const tokenizeSearchText = (value: string | null | undefined) =>
+  normalizeSearchText(value)
+    .split(" ")
+    .filter((token) => token.length >= 3);
+
+const matchesNormalizedSearch = (value: string | null | undefined, query: string) => {
+  if (!query) return true;
+
+  const normalizedValue = normalizeSearchText(value);
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return true;
+
+  if (normalizedValue.includes(normalizedQuery)) {
+    return true;
+  }
+
+  const compactValue = compactSearchText(value);
+  const compactQuery = compactSearchText(query);
+  if (compactQuery && compactValue.includes(compactQuery)) {
+    return true;
+  }
+
+  const queryTokens = tokenizeSearchText(query);
+  return queryTokens.length > 0 && queryTokens.every((token) => normalizedValue.includes(token));
 };
 
 const splitFacetValues = (values: Array<string | null>) =>
@@ -174,20 +226,6 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
       });
     }
     
-    if (search) {
-      where.AND.push({
-        OR: [
-        { title: { contains: search, mode: "insensitive" } },
-        { subtitle: { contains: search, mode: "insensitive" } },
-        { author: { name: { contains: search, mode: "insensitive" } } },
-        { series: { name: { contains: search, mode: "insensitive" } } },
-        { narrator: { contains: search, mode: "insensitive" } },
-        { publisher: { contains: search, mode: "insensitive" } },
-        { genres: { contains: search, mode: "insensitive" } },
-        { tags: { contains: search, mode: "insensitive" } },
-        ],
-      });
-    }
     if (where.AND.length === 0) delete where.AND;
 
     let orderBy: any = { createdAt: "desc" };
@@ -211,6 +249,16 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         asin: true,
         duration: true,
         coverPath: true,
+        folderPath: true,
+        series: {
+          select: {
+            name: true,
+          },
+        },
+        narrator: true,
+        publisher: true,
+        genres: true,
+        tags: true,
         library: {
           select: {
             id: true,
@@ -225,7 +273,21 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
       },
       orderBy,
     });
-    const normalizedBooks = books.map(normalizeBookCover);
+    const searchFilteredBooks = search
+      ? books.filter((book) =>
+          [
+            book.title,
+            book.subtitle,
+            book.author.name,
+            book.series?.name,
+            book.narrator,
+            book.publisher,
+            book.genres,
+            book.tags,
+          ].some((value) => matchesNormalizedSearch(value, search)),
+        )
+      : books;
+    const normalizedBooks = searchFilteredBooks.map(normalizeLibraryBook);
     const filteredBooks =
       cover === "with"
         ? normalizedBooks.filter((book) => hasAvailableCover(book.coverPath))
@@ -343,7 +405,7 @@ export const getBookDetails = async (req: Request, res: Response) => {
       return;
     }
 
-    res.json(normalizeBookCover(book));
+    res.json(normalizeLibraryBook(book));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch book details" });
   }
@@ -359,41 +421,46 @@ export const getSearchSuggestions = async (req: Request, res: Response) => {
 
     const [books, authors, seriesResults, narratorRows] = await Promise.all([
       prisma.book.findMany({
-        where: {
-          OR: [
-            { title: { contains: q, mode: "insensitive" } },
-            { subtitle: { contains: q, mode: "insensitive" } },
-          ],
+        select: {
+          id: true,
+          title: true,
+          subtitle: true,
+          coverPath: true,
+          folderPath: true,
+          author: { select: { name: true } },
         },
-        select: { id: true, title: true, coverPath: true, author: { select: { name: true } } },
-        take: 5,
         orderBy: { title: "asc" },
       }),
       prisma.author.findMany({
-        where: { name: { contains: q, mode: "insensitive" } },
         select: { id: true, name: true, _count: { select: { books: true } } },
-        take: 3,
         orderBy: { name: "asc" },
       }),
       prisma.series.findMany({
-        where: { name: { contains: q, mode: "insensitive" } },
         select: { id: true, name: true, _count: { select: { books: true } } },
-        take: 3,
         orderBy: { name: "asc" },
       }),
       prisma.book.findMany({
-        where: { narrator: { contains: q, mode: "insensitive" } },
         select: { narrator: true },
         distinct: ["narrator"],
-        take: 3,
       }),
     ]);
 
     res.json({
-      books: books.map(normalizeBookCover),
-      authors,
-      series: seriesResults,
-      narrators: narratorRows.map((b) => b.narrator).filter((n): n is string => n !== null),
+      books: books
+        .filter((book) => [book.title, book.subtitle, book.author.name].some((value) => matchesNormalizedSearch(value, q)))
+        .slice(0, 5)
+        .map(normalizeLibraryBook),
+      authors: authors
+        .filter((author) => matchesNormalizedSearch(author.name, q))
+        .slice(0, 3),
+      series: seriesResults
+        .filter((series) => matchesNormalizedSearch(series.name, q))
+        .slice(0, 3),
+      narrators: narratorRows
+        .map((b) => b.narrator)
+        .filter((n): n is string => n !== null)
+        .filter((narrator) => matchesNormalizedSearch(narrator, q))
+        .slice(0, 3),
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch suggestions" });

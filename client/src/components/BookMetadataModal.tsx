@@ -210,6 +210,20 @@ const buildSelectionFromFields = (fields: EditableFields) =>
 const getErrorMessage = (error: unknown, fallback: string) =>
   isAxiosError<{ error?: string }>(error) ? error.response?.data?.error || fallback : fallback;
 
+const REVIEW_TAG = "review";
+
+const parseTagList = (value: string | null | undefined) =>
+  (value ?? "")
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+const mergeReviewTag = (tags: string, enabled: boolean) => {
+  const normalized = parseTagList(tags);
+  const withoutReview = normalized.filter((tag) => tag.toLowerCase() !== REVIEW_TAG);
+  return enabled ? [...withoutReview, REVIEW_TAG].join(", ") : withoutReview.join(", ");
+};
+
 const formatRelativeSeconds = (value: string | null) => {
   if (!value) return null;
   const elapsedMs = Date.now() - new Date(value).getTime();
@@ -307,15 +321,7 @@ const BookMetadataModal = ({
     setSelectedCandidateId(null);
     setFetchFields(emptyFields());
     setSelectedFields(buildSelectionFromFields(emptyFields()));
-    void runSearch(undefined, nextProvider);
   };
-
-  useEffect(() => {
-    if (activeTab === "fetch" && results.length === 0) {
-      void runSearch();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.id, activeTab]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -406,7 +412,10 @@ const BookMetadataModal = ({
     setError("");
 
     try {
-      await api.patch(`/admin/books/${book.id}/metadata`, editFields);
+      await api.patch(`/admin/books/${book.id}/metadata`, {
+        ...editFields,
+        tags: mergeReviewTag(editFields.tags, markForReview),
+      });
       await onApplied();
       if (closeAfterSave) onClose();
     } catch (saveError) {
@@ -795,7 +804,7 @@ const BookMetadataModal = ({
                       ) : (
                         <Check size={16} />
                       )}
-                      Save Selected Fields
+                      Submit Selected Fields
                     </button>
                   </div>
                 </div>
@@ -854,6 +863,22 @@ const BookMetadataModal = ({
                 </div>
               ))}
             </div>
+
+            <label className="book-match-review-flag">
+              <input
+                type="checkbox"
+                checked={markForReview}
+                onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                  setMarkForReview(event.target.checked)
+                }
+              />
+              <span>
+                Flag for review
+                <small>
+                  Adds the `review` tag so you can filter this title in the library view.
+                </small>
+              </span>
+            </label>
 
             <div className="book-match-actions">
               <div className="metadata-actions-left">

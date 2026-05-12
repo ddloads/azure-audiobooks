@@ -6,6 +6,7 @@ import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import prisma from "../lib/prisma";
 import { extractCover } from "./processor";
 import { getCoverUrl, findCoverInFolder } from "./covers";
+import { cleanupBookTitle } from "./titleCleanup";
 import {
   getConfiguredLibraries,
   normalizeSourcePath,
@@ -38,6 +39,11 @@ export type ScanProgressPayload = {
 type ScanRunContext = {
   emitProgress?: (data: ScanProgressPayload) => void;
   shouldStop?: () => boolean;
+};
+
+const canonicalizeFolderPath = (input: string) => {
+  const normalized = normalizeSourcePath(input);
+  return process.platform === "win32" ? normalized.toLowerCase() : normalized;
 };
 
 const probeFile = (toolPath: string): Promise<any> =>
@@ -83,7 +89,7 @@ const discoverBookFolders = (
   library: LibraryWithSources,
   shouldStop: () => boolean = () => false,
 ): DiscoveredFolder[] => {
-  const folders: DiscoveredFolder[] = [];
+  const foldersByPath = new Map<string, DiscoveredFolder>();
 
   const walk = (dirPath: string) => {
     const stack = [dirPath];
@@ -126,10 +132,12 @@ const discoverBookFolders = (
       }
 
       if (hasAudio) {
-        folders.push({
+        const normalizedFolderPath = normalizeSourcePath(currentDir);
+        const canonicalFolderPath = canonicalizeFolderPath(normalizedFolderPath);
+        foldersByPath.set(canonicalFolderPath, {
           libraryId: library.id,
-          folderName: path.basename(currentDir),
-          folderPath: currentDir,
+          folderName: path.basename(normalizedFolderPath),
+          folderPath: normalizedFolderPath,
           files,
         });
       }
@@ -141,7 +149,7 @@ const discoverBookFolders = (
     walk(sourceRoot);
   }
 
-  return folders;
+  return Array.from(foldersByPath.values());
 };
 
 const removeMissingBooks = async (
@@ -156,7 +164,7 @@ const removeMissingBooks = async (
 
   const missingBookIds = existingBooks
     .filter((book) => {
-      const normalizedBookPath = normalizeSourcePath(book.folderPath);
+      const normalizedBookPath = canonicalizeFolderPath(book.folderPath);
       const belongsToCurrentRoots = sourceRoots.some((root) => {
         const relative = path.relative(root, normalizedBookPath);
         return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
@@ -230,10 +238,15 @@ const pickDescription = (...values: unknown[]): string | null => {
 };
 
 const upsertBookFolder = async (
-  { libraryId, folderName, folderPath, files }: DiscoveredFolder,
+  folder: DiscoveredFolder,
   shouldStop: () => boolean = () => false,
 ) => {
   if (shouldStop()) return;
+
+  const libraryId = folder.libraryId;
+  const folderPath = normalizeSourcePath(folder.folderPath);
+  const folderName = folder.folderName || path.basename(folderPath);
+  const files = folder.files;
 
   const audioFiles = files
     .filter((file) => AUDIO_EXTENSIONS.includes(path.extname(file).toLowerCase()))
@@ -243,8 +256,14 @@ const upsertBookFolder = async (
     return;
   }
 
-  const existingBook = await prisma.book.findUnique({
-    where: { folderPath },
+  const existingBook = await prisma.book.findFirst({
+    where: {
+      libraryId,
+      folderPath: {
+        equals: folderPath,
+        mode: "insensitive",
+      },
+    },
     include: {
       author: {
         select: {
@@ -358,6 +377,8 @@ const upsertBookFolder = async (
     authorName = existingBook.author.name;
   }
 
+  title = cleanupBookTitle(title, { folderNameOrPath: folderName || folderPath });
+
   // Cover art resolution — store directly in the book's folder (persists with the library volume)
   let hasCover = !!findCoverInFolder(folderPath);
 
@@ -448,74 +469,64 @@ const upsertBookFolder = async (
       };
 
   let book;
+  const createData = {
+    title,
+    libraryId,
+    authorId: author.id,
+    folderPath,
+    coverPath,
+    narrator,
+    description,
+    publisher,
+    year,
+    genres,
+    tags: tagsField,
+    language,
+    subtitle,
+    isbn,
+    asin,
+    abridged,
+    seriesId,
+    sequence,
+    metadataVersion: METADATA_VERSION,
+  };
+  const updateData = {
+    title,
+    libraryId,
+    authorId: author.id,
+    folderPath,
+    coverPath,
+    ...richFields,
+  };
+
   try {
-    book = await prisma.book.upsert({
-      where: { folderPath },
-      update: {
-        title,
-        libraryId,
-        authorId: author.id,
-        coverPath,
-        ...richFields,
-      },
-      create: {
-        title,
-        libraryId,
-        authorId: author.id,
-        folderPath,
-        coverPath,
-        narrator,
-        description,
-        publisher,
-        year,
-        genres,
-        tags: tagsField,
-        language,
-        subtitle,
-        isbn,
-        asin,
-        abridged,
-        seriesId,
-        sequence,
-        metadataVersion: METADATA_VERSION,
-      },
-    });
+    book = existingBook
+      ? await prisma.book.update({
+          where: { id: existingBook.id },
+          data: updateData,
+        })
+      : await prisma.book.create({
+          data: createData,
+        });
   } catch (error: any) {
     if (error.code === "P2002" && error.meta?.target?.includes("title")) {
       const disambiguatedTitle = `${title} (${path.basename(folderPath)})`;
       console.log(`Title collision for "${title}". Renaming to "${disambiguatedTitle}"`);
 
-      book = await prisma.book.upsert({
-        where: { folderPath },
-        update: {
-          title: disambiguatedTitle,
-          libraryId,
-          authorId: author.id,
-          coverPath,
-          ...richFields,
-        },
-        create: {
-          title: disambiguatedTitle,
-          libraryId,
-          authorId: author.id,
-          folderPath,
-          coverPath,
-          narrator,
-          description,
-          publisher,
-          year,
-          genres,
-          tags: tagsField,
-          language,
-          subtitle,
-          isbn,
-          asin,
-          abridged,
-          seriesId,
-          sequence,
-          metadataVersion: METADATA_VERSION,
-        },
-      });
+      book = existingBook
+        ? await prisma.book.update({
+            where: { id: existingBook.id },
+            data: {
+              ...updateData,
+              title: disambiguatedTitle,
+            },
+          })
+        : await prisma.book.create({
+            data: {
+              ...createData,
+              title: disambiguatedTitle,
+            },
+          });
     } else {
       throw error;
     }
@@ -632,10 +643,10 @@ export const scanLibrary = async (libraryId?: string, context: ScanRunContext = 
     if (shouldStop()) return;
 
     const sourceRoots = library.sources
-      .map((source) => normalizeSourcePath(source.path))
+      .map((source) => canonicalizeFolderPath(source.path))
       .filter((sourcePath) => fs.existsSync(sourcePath) && fs.statSync(sourcePath).isDirectory());
 
-    const discoveredPaths = new Set(folders.map((entry) => entry.folderPath));
+    const discoveredPaths = new Set(folders.map((entry) => canonicalizeFolderPath(entry.folderPath)));
     await removeMissingBooks(library.id, discoveredPaths, sourceRoots);
 
     for (const folder of folders) {
