@@ -915,6 +915,7 @@ const Library = () => {
   );
 
   return (
+    <>
     <div className="container library-page">
       <header className="library-header">
         <div className="library-brand-section">
@@ -1652,6 +1653,7 @@ const Library = () => {
         document.body,
       );
     })()}
+    </>
   );
 };
 
