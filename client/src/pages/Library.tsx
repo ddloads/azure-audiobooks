@@ -1607,7 +1607,7 @@ const Library = () => {
         <div
           className="book-card-menu"
           ref={continuePortalMenuRef}
-          style={{ position: "fixed", top: continueMenuPos.top, right: continueMenuPos.right, zIndex: 1200 }}
+          style={{ top: continueMenuPos.top, right: continueMenuPos.right }}
         >
           <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); void handleMarkBookFinished({ id: r.bookId, title: r.book.title, duration: r.book.duration }); }}>
             <Check size={14} /> Mark as Finished

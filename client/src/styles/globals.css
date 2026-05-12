@@ -839,7 +839,6 @@ select.form-control {
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   border: 1px solid var(--border);
   overflow: visible;
-  z-index: 1;
 }
 
 .continue-card-art-frame {
@@ -1208,7 +1207,6 @@ select.form-control {
   overflow: visible;
   position: relative;
   flex-shrink: 0;
-  z-index: 1;
 }
 
 .book-card-art-frame {
@@ -1286,9 +1284,7 @@ select.form-control {
 }
 
 .book-card-menu {
-  position: absolute;
-  top: calc(100% + 0.4rem);
-  right: 0;
+  position: fixed;
   min-width: 220px;
   max-width: 260px;
   display: flex;
@@ -1299,7 +1295,7 @@ select.form-control {
   border: 1px solid var(--border);
   background: rgba(15, 23, 42, 0.96);
   box-shadow: var(--shadow-lg);
-  z-index: 20;
+  z-index: 9999;
 }
 
 .book-card-menu-item {

@@ -250,7 +250,7 @@ const BookCard: React.FC<{
       <div
         className="book-card-menu"
         ref={menuPortalRef}
-        style={{ position: "fixed", top: menuPos.top, right: menuPos.right, zIndex: 1200 }}
+        style={{ top: menuPos.top, right: menuPos.right }}
       >
         {hasProgress && (
           <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onMarkFinished?.(); }}>
