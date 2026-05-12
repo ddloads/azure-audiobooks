@@ -1,18 +1,28 @@
 {
-  ".claude/settings.local.json": {
-    "mtime": 1778517456539,
-    "size": 4290,
-    "hash": "f113e1734eeb50ff"
-  },
   ".gitignore": {
     "mtime": 1778379885774,
     "size": 144,
     "hash": "0bc66f27dc3f2a48"
   },
+  ".claude/settings.local.json": {
+    "mtime": 1778517456539,
+    "size": 4290,
+    "hash": "f113e1734eeb50ff"
+  },
   "AUDIBLE_CLI_MIGRATION.md": {
     "mtime": 1778210345433,
     "size": 6801,
     "hash": "3463788d55b91d55"
+  },
+  "client/.gitignore": {
+    "mtime": 1777748831384,
+    "size": 253,
+    "hash": "19e71afbe3a99b82"
+  },
+  "azure-deployment.zip": {
+    "mtime": 1778379615643,
+    "size": 2573523,
+    "hash": "26fa85300145f13d"
   },
   "Capture.PNG": {
     "mtime": 1778516691116,
@@ -24,40 +34,30 @@
     "size": 508791,
     "hash": "80a7f9d27feaa166"
   },
-  "client/.gitignore": {
-    "mtime": 1777748831384,
-    "size": 253,
-    "hash": "19e71afbe3a99b82"
-  },
   "client/.tsbuildinfo/tsconfig.app.tsbuildinfo": {
     "mtime": 1778518415634,
     "size": 762,
     "hash": "c4a330e3cd043649"
-  },
-  "client/.tsbuildinfo/tsconfig.node.tsbuildinfo": {
-    "mtime": 1778092056544,
-    "size": 48,
-    "hash": "90b675315480db75"
   },
   "client/Dockerfile": {
     "mtime": 1778378754233,
     "size": 777,
     "hash": "a7b37193723203fe"
   },
-  "azure-deployment.zip": {
-    "mtime": 1778379615643,
-    "size": 2573523,
-    "hash": "26fa85300145f13d"
-  },
-  "client/eslint.config.js": {
-    "mtime": 1777864104065,
-    "size": 723,
-    "hash": "ee13746f9d35b36d"
+  "client/.tsbuildinfo/tsconfig.node.tsbuildinfo": {
+    "mtime": 1778518416355,
+    "size": 48,
+    "hash": "90b675315480db75"
   },
   "client/index.html": {
     "mtime": 1777877734258,
     "size": 406,
     "hash": "b06edb18e21baa18"
+  },
+  "client/eslint.config.js": {
+    "mtime": 1777864104065,
+    "size": 723,
+    "hash": "ee13746f9d35b36d"
   },
   "client/nginx.conf": {
     "mtime": 1778378754233,
@@ -114,11 +114,6 @@
     "size": 2560,
     "hash": "c3bac2a0d2f88662"
   },
-  "client/src/assets/hero.png": {
-    "mtime": 1777748831870,
-    "size": 13057,
-    "hash": "5af03e7dcf159906"
-  },
   "client/src/assets/react.svg": {
     "mtime": 1777748832070,
     "size": 4126,
@@ -128,6 +123,11 @@
     "mtime": 1777748831437,
     "size": 2891,
     "hash": "b00a2496cae71888"
+  },
+  "client/src/assets/hero.png": {
+    "mtime": 1777748831870,
+    "size": 13057,
+    "hash": "5af03e7dcf159906"
   },
   "client/src/assets/vite.svg": {
     "mtime": 1777748832112,
@@ -139,20 +139,20 @@
     "size": 131638,
     "hash": "48d68b63b5635d1b"
   },
-  "client/src/components/AppLogo.tsx": {
-    "mtime": 1777877695440,
-    "size": 780,
-    "hash": "428e9aa3fa338d4a"
-  },
   "client/src/components/BookCard.tsx": {
     "mtime": 1778495095085,
     "size": 7221,
     "hash": "f7bc79825692f200"
   },
+  "client/src/components/AppLogo.tsx": {
+    "mtime": 1777877695440,
+    "size": 780,
+    "hash": "428e9aa3fa338d4a"
+  },
   "client/src/components/BookMetadataModal.tsx": {
-    "mtime": 1778261510163,
-    "size": 32916,
-    "hash": "468da1210b34342b"
+    "mtime": 1778523405713,
+    "size": 34126,
+    "hash": "ee7e20c6d401412d"
   },
   "client/src/components/ConfirmDialog.tsx": {
     "mtime": 1778254769185,
@@ -184,15 +184,15 @@
     "size": 1724,
     "hash": "6100b8f036a0b927"
   },
-  "client/src/context/TaskContext.tsx": {
-    "mtime": 1778256013389,
-    "size": 1460,
-    "hash": "325a1229d3ee4f2a"
-  },
   "client/src/context/PlayerContext.tsx": {
     "mtime": 1778224267847,
     "size": 10981,
     "hash": "e593caa19b4445fa"
+  },
+  "client/src/context/TaskContext.tsx": {
+    "mtime": 1778256013389,
+    "size": 1460,
+    "hash": "325a1229d3ee4f2a"
   },
   "client/src/context/ToastContext.tsx": {
     "mtime": 1778254769153,
@@ -204,15 +204,15 @@
     "size": 54,
     "hash": "c385403b3cd9854a"
   },
+  "client/src/main.tsx": {
+    "mtime": 1777748832191,
+    "size": 230,
+    "hash": "c45ef8f9d381ddb7"
+  },
   "client/src/pages/AdminSettingsPage.tsx": {
     "mtime": 1777875950475,
     "size": 838,
     "hash": "4fd539f2bccf50eb"
-  },
-  "client/src/pages/BookDetailsPage.tsx": {
-    "mtime": 1778399042407,
-    "size": 38241,
-    "hash": "f5e416da39a95e5a"
   },
   "client/src/pages/DuplicatesPage.tsx": {
     "mtime": 1778518406218,
@@ -220,14 +220,14 @@
     "hash": "7472b2ccc8dde254"
   },
   "client/src/pages/Library.tsx": {
-    "mtime": 1778495058063,
-    "size": 52091,
-    "hash": "4dc576268c373e66"
+    "mtime": 1778523352179,
+    "size": 52205,
+    "hash": "ff95d1bb8abff3f8"
   },
-  "client/src/main.tsx": {
-    "mtime": 1777748832191,
-    "size": 230,
-    "hash": "c45ef8f9d381ddb7"
+  "client/src/pages/BookDetailsPage.tsx": {
+    "mtime": 1778523036980,
+    "size": 38590,
+    "hash": "1c92f7ceb9231060"
   },
   "client/src/pages/Login.tsx": {
     "mtime": 1778077577008,
@@ -240,9 +240,9 @@
     "hash": "5cfbc412183988a1"
   },
   "client/src/styles/globals.css": {
-    "mtime": 1778517729778,
-    "size": 105126,
-    "hash": "93f5554cd5006500"
+    "mtime": 1778523732397,
+    "size": 106278,
+    "hash": "c4ff6f91d9435d2b"
   },
   "client/tsconfig.app.json": {
     "mtime": 1777864108906,
@@ -260,9 +260,9 @@
     "hash": "643992eb20bfe29f"
   },
   "client/vite.config.ts": {
-    "mtime": 1778517569237,
-    "size": 2324,
-    "hash": "fa228e88abafcc5d"
+    "mtime": 1778523734300,
+    "size": 2372,
+    "hash": "f9b41bbae73c7000"
   },
   "docker-compose.yml": {
     "mtime": 1778391843997,
@@ -279,8 +279,13 @@
     "size": 112707,
     "hash": "0f4c5c0432bb410d"
   },
+  "package.json": {
+    "mtime": 1777886817464,
+    "size": 410,
+    "hash": "0bc7eddc887f9cb5"
+  },
   "package-lock.json": {
-    "mtime": 1778087271509,
+    "mtime": 1777749468020,
     "size": 13128,
     "hash": "5cd673a821331682"
   },
@@ -288,11 +293,6 @@
     "mtime": 1778391851492,
     "size": 3241,
     "hash": "a31533a162f6e513"
-  },
-  "package.json": {
-    "mtime": 1777886817464,
-    "size": 410,
-    "hash": "0bc7eddc887f9cb5"
   },
   "scripts/dev-runner.mjs": {
     "mtime": 1777886871776,
@@ -329,17 +329,17 @@
     "size": 5686,
     "hash": "5297c7ffa045167d"
   },
+  "server/data/backups/backup-2026-05-06T06-28-40-292Z.db": {
+    "mtime": 1777748738544,
+    "size": 86016,
+    "hash": "7481a9f59aab09d4"
+  },
   "server/data/backups/backup-2026-05-06T06-27-58-619Z.db": {
     "mtime": 1777748738544,
     "size": 86016,
     "hash": "7481a9f59aab09d4"
   },
   "server/data/backups/backup-2026-05-06T06-28-52-426Z.db": {
-    "mtime": 1777748738544,
-    "size": 86016,
-    "hash": "7481a9f59aab09d4"
-  },
-  "server/data/backups/backup-2026-05-06T06-28-40-292Z.db": {
     "mtime": 1777748738544,
     "size": 86016,
     "hash": "7481a9f59aab09d4"
@@ -369,15 +369,15 @@
     "size": 31418,
     "hash": "979d4e0f9d40b289"
   },
-  "server/data/covers/1995___strange_highways_5c5c6464.jpg": {
-    "mtime": 1735696881619,
-    "size": 24239,
-    "hash": "87bd6a290e568f45"
-  },
   "server/data/covers/1977___gateway__the_heechee_saga_1__5c5c6464.jpg": {
     "mtime": 1735696910015,
     "size": 52998,
     "hash": "f7688527d6cfcef2"
+  },
+  "server/data/covers/1995___strange_highways_5c5c6464.jpg": {
+    "mtime": 1735696881619,
+    "size": 24239,
+    "hash": "87bd6a290e568f45"
   },
   "server/data/covers/1999___the_tower_5c5c6464.jpg": {
     "mtime": 1735696917134,
@@ -404,6 +404,11 @@
     "size": 33945,
     "hash": "837a62b7184dfe83"
   },
+  "server/data/covers/2005___rapid_french_5c5c6464.jpg": {
+    "mtime": 1735696898746,
+    "size": 20747,
+    "hash": "d9fafedf69e95cde"
+  },
   "server/data/covers/2005___rapid_spanish__rapid_spanish_1__5c5c6464.jpg": {
     "mtime": 1735696899353,
     "size": 21726,
@@ -424,11 +429,6 @@
     "size": 33898,
     "hash": "1e9081af21200205"
   },
-  "server/data/covers/2005___rapid_french_5c5c6464.jpg": {
-    "mtime": 1735696898746,
-    "size": 20747,
-    "hash": "d9fafedf69e95cde"
-  },
   "server/data/covers/2006___in_fury_born_5c5c6464.jpg": {
     "mtime": 1735696879123,
     "size": 49166,
@@ -444,15 +444,15 @@
     "size": 40968,
     "hash": "3ab20eb2a4216131"
   },
-  "server/data/covers/2007___mass_effect__mass_effect_1__5c5c6464.jpg": {
-    "mtime": 1776359862071,
-    "size": 557770,
-    "hash": "14ba2ab1c403bad8"
-  },
   "server/data/covers/2007___an_inconvenient_book_5c5c6464.jpg": {
     "mtime": 1735696913767,
     "size": 31687,
     "hash": "5ebc80f90aac3fad"
+  },
+  "server/data/covers/2007___mass_effect__mass_effect_1__5c5c6464.jpg": {
+    "mtime": 1776359862071,
+    "size": 557770,
+    "hash": "14ba2ab1c403bad8"
   },
   "server/data/covers/2007___the_wednesday_wars_5c5c6464.jpg": {
     "mtime": 1735696910385,
@@ -484,15 +484,15 @@
     "size": 20660,
     "hash": "5683ad7ecb10f075"
   },
-  "server/data/covers/2011___robopocalypse_5c5c6464.jpg": {
-    "mtime": 1735696871224,
-    "size": 23057,
-    "hash": "b2597dcdcf202e62"
-  },
   "server/data/covers/2011___ready_player_one__ready_player_one_1__5c5c6464.jpg": {
     "mtime": 1735696905384,
     "size": 35120,
     "hash": "ac5529ed7f6b1f51"
+  },
+  "server/data/covers/2011___robopocalypse_5c5c6464.jpg": {
+    "mtime": 1735696871224,
+    "size": 23057,
+    "hash": "b2597dcdcf202e62"
   },
   "server/data/covers/2011___the_omega_sanction_5c5c6464.jpg": {
     "mtime": 1735696793979,
@@ -524,15 +524,15 @@
     "size": 47017,
     "hash": "42959d71204a7d68"
   },
-  "server/data/covers/2013___spanish_for_the_busy_medical_professional__spanish_for_the_busy_medical_professional_1__5c5c6464.jpg": {
-    "mtime": 1735696878635,
-    "size": 24344,
-    "hash": "4ad556deaafdaf28"
-  },
   "server/data/covers/2014___ambush__sector_64_1__5c5c6464.jpg": {
     "mtime": 1735696885140,
     "size": 39723,
     "hash": "5f33699a2a22f448"
+  },
+  "server/data/covers/2013___spanish_for_the_busy_medical_professional__spanish_for_the_busy_medical_professional_1__5c5c6464.jpg": {
+    "mtime": 1735696878635,
+    "size": 24344,
+    "hash": "4ad556deaafdaf28"
   },
   "server/data/covers/2014___influx_5c5c6464.jpg": {
     "mtime": 1735696875041,
@@ -564,6 +564,11 @@
     "size": 29160,
     "hash": "a8cb0f949d600049"
   },
+  "server/data/covers/2015___the_spaceship_next_door__sorrow_falls_1__5c5c6464.jpg": {
+    "mtime": 1735696911745,
+    "size": 24579,
+    "hash": "8ba02138a6304b34"
+  },
   "server/data/covers/2015___those_girls_5c5c6464.jpg": {
     "mtime": 1735696837391,
     "size": 46011,
@@ -573,11 +578,6 @@
     "mtime": 1735696872066,
     "size": 27449,
     "hash": "082a32e30e26cd53"
-  },
-  "server/data/covers/2015___the_spaceship_next_door__sorrow_falls_1__5c5c6464.jpg": {
-    "mtime": 1735696911745,
-    "size": 24579,
-    "hash": "8ba02138a6304b34"
   },
   "server/data/covers/2016___battle_group_avalon__castle_federation_3__5c5c6464.jpg": {
     "mtime": 1735696914916,
@@ -604,35 +604,35 @@
     "size": 42450,
     "hash": "4db5bd935bb53165"
   },
-  "server/data/covers/2016___we_are_legion__we_are_bob___bobiverse_1__5c5c6464.jpg": {
-    "mtime": 1735696890172,
-    "size": 43748,
-    "hash": "d95b79be30f0b3a8"
-  },
   "server/data/covers/2016___summit_lake_5c5c6464.jpg": {
     "mtime": 1735696836519,
     "size": 22791,
     "hash": "3d8da33188d815fc"
   },
-  "server/data/covers/2017___dungeon_madness__divine_dungeon_series_2__5c5c6464.jpg": {
-    "mtime": 1735696865826,
-    "size": 53394,
-    "hash": "b3f7c41e126cbfc3"
+  "server/data/covers/2016___we_are_legion__we_are_bob___bobiverse_1__5c5c6464.jpg": {
+    "mtime": 1735696890172,
+    "size": 43748,
+    "hash": "d95b79be30f0b3a8"
   },
   "server/data/covers/2017___all_these_worlds__bobiverse_3__5c5c6464.jpg": {
     "mtime": 1735696890677,
     "size": 41678,
     "hash": "4052c15e753a53c1"
   },
-  "server/data/covers/2017___for_we_are_many__bobiverse_2__5c5c6464.jpg": {
-    "mtime": 1735696891069,
-    "size": 44819,
-    "hash": "b12435435c645f91"
+  "server/data/covers/2017___dungeon_madness__divine_dungeon_series_2__5c5c6464.jpg": {
+    "mtime": 1735696865826,
+    "size": 53394,
+    "hash": "b3f7c41e126cbfc3"
   },
   "server/data/covers/2017___fantastic_beasts_and_where_to_find_them_5c5c6464.jpg": {
     "mtime": 1735696929224,
     "size": 46036,
     "hash": "2e5842fbcfba8616"
+  },
+  "server/data/covers/2017___for_we_are_many__bobiverse_2__5c5c6464.jpg": {
+    "mtime": 1735696891069,
+    "size": 44819,
+    "hash": "b12435435c645f91"
   },
   "server/data/covers/2017___level_up_or_die____underworld_1__5c5c6464.jpg": {
     "mtime": 1735696772102,
@@ -644,15 +644,15 @@
     "size": 54533,
     "hash": "34331fc714b27736"
   },
-  "server/data/covers/2017___the_final_mission_of_extortion_17_5c5c6464.jpg": {
-    "mtime": 1735696899690,
-    "size": 23664,
-    "hash": "121147c942e96646"
-  },
   "server/data/covers/2017___solitude__dimension_space_1__5c5c6464.jpg": {
     "mtime": 1735696883687,
     "size": 58136,
     "hash": "2090d7bf8d67ec8b"
+  },
+  "server/data/covers/2017___the_final_mission_of_extortion_17_5c5c6464.jpg": {
+    "mtime": 1735696899690,
+    "size": 23664,
+    "hash": "121147c942e96646"
   },
   "server/data/covers/2017___the_pearl_thief__code_name_verity_1__5c5c6464.jpg": {
     "mtime": 1735696902834,
@@ -724,6 +724,11 @@
     "size": 47816,
     "hash": "a2bc3ebbab457a8a"
   },
+  "server/data/covers/2019___dungeon_eternium__divine_dungeon_series_5__5c5c6464.jpg": {
+    "mtime": 1735696866900,
+    "size": 58833,
+    "hash": "39686eafbbd61429"
+  },
   "server/data/covers/2019___a_grown_up_guide_to_dinosaurs_an_audible_original_5c5c6464.jpg": {
     "mtime": 1735696791359,
     "size": 51702,
@@ -733,11 +738,6 @@
     "mtime": 1735696878035,
     "size": 25009,
     "hash": "2155100e1b681bd5"
-  },
-  "server/data/covers/2019___dungeon_eternium__divine_dungeon_series_5__5c5c6464.jpg": {
-    "mtime": 1735696866900,
-    "size": 58833,
-    "hash": "39686eafbbd61429"
   },
   "server/data/covers/2019___freedom_s_fire_box_set__books_1_6__freedom_s_fire_series___5c5c6464.jpg": {
     "mtime": 1735696794813,
@@ -764,30 +764,30 @@
     "size": 35841,
     "hash": "59d78477c0bb9c6c"
   },
-  "server/data/covers/2020___heaven_s_river_5c5c6464.jpg": {
-    "mtime": 1735696886625,
-    "size": 37506,
-    "hash": "34e6c1ab1986b3ec"
-  },
   "server/data/covers/2020___destiny_rsquo_s_champions__sigma_worlds_1__5c5c6464.jpg": {
     "mtime": 1735696862514,
     "size": 50479,
     "hash": "5d6188ad32e30a4c"
+  },
+  "server/data/covers/2020___heaven_s_river_5c5c6464.jpg": {
+    "mtime": 1735696886625,
+    "size": 37506,
+    "hash": "34e6c1ab1986b3ec"
   },
   "server/data/covers/2020___junkyard_cats__shining_smith_1__5c5c6464.jpg": {
     "mtime": 1735696909099,
     "size": 48203,
     "hash": "834438a974617170"
   },
-  "server/data/covers/2020___phoenix_s_flame__sigma_worlds_3__5c5c6464.jpg": {
-    "mtime": 1735696863034,
-    "size": 40221,
-    "hash": "36b2f754e682d399"
-  },
   "server/data/covers/2020___ready_player_two__ready_player_one_2__5c5c6464.jpg": {
     "mtime": 1735696906920,
     "size": 32121,
     "hash": "f558db9222b3d8e2"
+  },
+  "server/data/covers/2020___phoenix_s_flame__sigma_worlds_3__5c5c6464.jpg": {
+    "mtime": 1735696863034,
+    "size": 40221,
+    "hash": "36b2f754e682d399"
   },
   "server/data/covers/2021_02_02___vesik_5c5c6464.jpg": {
     "mtime": 1735696903718,
@@ -844,15 +844,15 @@
     "size": 46434,
     "hash": "4adc7fb608921e9c"
   },
-  "server/data/covers/2023___nemesis_of_mars__starship_s_mage_13__5c5c6464.jpg": {
-    "mtime": 1735696916361,
-    "size": 47278,
-    "hash": "a298d3bf680f02e1"
-  },
   "server/data/covers/2023___earthside_5c5c6464.jpg": {
     "mtime": 1735696889685,
     "size": 42001,
     "hash": "3caafc3258eaac7c"
+  },
+  "server/data/covers/2023___nemesis_of_mars__starship_s_mage_13__5c5c6464.jpg": {
+    "mtime": 1735696916361,
+    "size": 47278,
+    "hash": "a298d3bf680f02e1"
   },
   "server/data/covers/2023___the_last_town__the_wayward_pines_trilogy_3__5c5c6464.jpg": {
     "mtime": 1735696793314,
@@ -864,6 +864,11 @@
     "size": 490595,
     "hash": "8ecc5fc813419a45"
   },
+  "server/data/covers/after_it_happened__publisher_s_pack_3__after_it_happened__book_5__6_5c5c6464.jpg": {
+    "mtime": 1777398424532,
+    "size": 391553,
+    "hash": "f16beaa2d53ebe3e"
+  },
   "server/data/covers/after_it_happened__publisher_s_pack__after_it_happened__book_1__2_5c5c6464.jpg": {
     "mtime": 1777398067392,
     "size": 439207,
@@ -874,10 +879,10 @@
     "size": 445100,
     "hash": "a934972472ed1872"
   },
-  "server/data/covers/after_it_happened__publisher_s_pack_3__after_it_happened__book_5__6_5c5c6464.jpg": {
-    "mtime": 1777398424532,
-    "size": 391553,
-    "hash": "f16beaa2d53ebe3e"
+  "server/data/covers/All_the_Dust_That_Falls_Two__An_Isekai_LitRPG_Adventure_43a292de.jpg": {
+    "mtime": 1778210207156,
+    "size": 55153,
+    "hash": "65497855075961eb"
   },
   "server/data/covers/All_the_Dust_that_Falls_3__An_Isekai_LitRPG_Adventure_2b407187.jpg": {
     "mtime": 1778089313751,
@@ -889,25 +894,25 @@
     "size": 52233,
     "hash": "f7fd7901af034bc1"
   },
-  "server/data/covers/All_the_Dust_That_Falls_Two__An_Isekai_LitRPG_Adventure_43a292de.jpg": {
-    "mtime": 1778210207156,
-    "size": 55153,
-    "hash": "65497855075961eb"
-  },
   "server/data/covers/All_the_Dust_That_Falls__An_Isekai_LitRPG_Adventure_79a02971.jpg": {
     "mtime": 1778216560974,
     "size": 197535,
     "hash": "32333ffb2313258e"
+  },
+  "server/data/covers/all_the_skills_2__a_deck_building_litrpg_5c5c6464.jpg": {
+    "mtime": 1776650516078,
+    "size": 42274,
+    "hash": "632b81c023f8d4aa"
   },
   "server/data/covers/all_the_skills_3__a_deck_building_litrpg__all_the_skills__book_3_5c5c6464.jpg": {
     "mtime": 1776650518313,
     "size": 42892,
     "hash": "84b7133d42e7eae8"
   },
-  "server/data/covers/all_the_skills_2__a_deck_building_litrpg_5c5c6464.jpg": {
-    "mtime": 1776650516078,
-    "size": 42274,
-    "hash": "632b81c023f8d4aa"
+  "server/data/covers/all_the_skills_4__a_deck_building_litrpg__all_the_skills__book_4_5c5c6464.jpg": {
+    "mtime": 1776650517225,
+    "size": 39042,
+    "hash": "87c002bc80fcc228"
   },
   "server/data/covers/all_the_skills_5__a_deck_building_litrpg__all_the_skills__book_5_5c5c6464.jpg": {
     "mtime": 1776650514932,
@@ -919,25 +924,20 @@
     "size": 43898,
     "hash": "65ac9089c4e8601b"
   },
-  "server/data/covers/all_the_skills_4__a_deck_building_litrpg__all_the_skills__book_4_5c5c6464.jpg": {
-    "mtime": 1776650517225,
-    "size": 39042,
-    "hash": "87c002bc80fcc228"
-  },
   "server/data/covers/ambush__sector_64__book_1_5c5c6464.jpg": {
     "mtime": 1777702928703,
     "size": 43720,
     "hash": "7c112ae3c37fb3aa"
   },
-  "server/data/covers/an_education_in_magical_affairs__an_isekai_litrpg__i_m_not_the_hero__book_3_5c5c6464.jpg": {
-    "mtime": 1776875577016,
-    "size": 427382,
-    "hash": "60be7ecb8cd224c3"
-  },
   "server/data/covers/ascension_games__proving_grounds_5c5c6464.jpg": {
     "mtime": 1777702965130,
     "size": 47792,
     "hash": "1fb6685c0ce51126"
+  },
+  "server/data/covers/an_education_in_magical_affairs__an_isekai_litrpg__i_m_not_the_hero__book_3_5c5c6464.jpg": {
+    "mtime": 1776875577016,
+    "size": 427382,
+    "hash": "60be7ecb8cd224c3"
   },
   "server/data/covers/ascension_series_volume_i_5c5c6464.jpg": {
     "mtime": 1725039822123,
@@ -974,40 +974,40 @@
     "size": 38102,
     "hash": "541113d7fb7d4b1c"
   },
-  "server/data/covers/A_Hero_s_Choice__An_Isekai_LitRPG__I_m_Not_the_Hero__Book_4_f78b81b2.jpg": {
-    "mtime": 1778088294014,
-    "size": 45446,
-    "hash": "1b167689109e3341"
-  },
   "server/data/covers/A_I__Destroyer___The_A_I__Series__Book_1_3bc95a38.jpg": {
     "mtime": 1778260505445,
     "size": 304385,
     "hash": "29cac76c84770638"
+  },
+  "server/data/covers/A_Hero_s_Choice__An_Isekai_LitRPG__I_m_Not_the_Hero__Book_4_f78b81b2.jpg": {
+    "mtime": 1778088294014,
+    "size": 45446,
+    "hash": "1b167689109e3341"
   },
   "server/data/covers/a_new_eden__a_sci_fi_thriller_space_adventure__the_betaverse__book_1_5c5c6464.jpg": {
     "mtime": 1776627054686,
     "size": 25257,
     "hash": "758098f450242fb0"
   },
-  "server/data/covers/Carve_the_Mark_11227b3c.jpg": {
-    "mtime": 1778225049004,
-    "size": 193996,
-    "hash": "0ec02c078763a63d"
+  "server/data/covers/A_Painted_Goddess___A_Fire_Beneath_the_Skin__Book_3_5b472e7c.jpg": {
+    "mtime": 1778090150801,
+    "size": 66895,
+    "hash": "f44ffcdaca2f247f"
   },
   "server/data/covers/brave_the_tempest__cassandra_palmer_series__book_9_5c5c6464.jpg": {
     "mtime": 1777530090006,
     "size": 585920,
     "hash": "77be38e9cfc6d377"
   },
-  "server/data/covers/A_Painted_Goddess___A_Fire_Beneath_the_Skin__Book_3_5b472e7c.jpg": {
-    "mtime": 1778090150801,
-    "size": 66895,
-    "hash": "f44ffcdaca2f247f"
-  },
   "server/data/covers/butcher_and_blackbird__book_1__5c5c6464.jpg": {
     "mtime": 1749535149874,
     "size": 569740,
     "hash": "dcbae092ff7a7615"
+  },
+  "server/data/covers/Carve_the_Mark_11227b3c.jpg": {
+    "mtime": 1778225049004,
+    "size": 193996,
+    "hash": "0ec02c078763a63d"
   },
   "server/data/covers/cast_in_ruin___chronicles_of_elantra__book_7_5c5c6464.jpg": {
     "mtime": 1724868727723,
@@ -1044,6 +1044,11 @@
     "size": 40876,
     "hash": "199b92bb51201658"
   },
+  "server/data/covers/contention__welcome_to_the_multiverse__book_5_5c5c6464.jpg": {
+    "mtime": 1777705628972,
+    "size": 42171,
+    "hash": "7c24cb4e56232961"
+  },
   "server/data/covers/control__welcome_to_the_multiverse__book_6_5c5c6464.jpg": {
     "mtime": 1777706038620,
     "size": 42134,
@@ -1054,25 +1059,20 @@
     "size": 37985,
     "hash": "632af07c4860c1b8"
   },
-  "server/data/covers/contention__welcome_to_the_multiverse__book_5_5c5c6464.jpg": {
-    "mtime": 1777705628972,
-    "size": 42171,
-    "hash": "7c24cb4e56232961"
-  },
   "server/data/covers/critical_dawn_5c5c6464.jpg": {
     "mtime": 1725041216956,
     "size": 705102,
     "hash": "670bd67361a0b39d"
   },
-  "server/data/covers/curse_the_dawn__cassandra_palmer__book_4_5c5c6464.jpg": {
-    "mtime": 1777530073559,
-    "size": 675374,
-    "hash": "1b8c0ce2d0d28a52"
-  },
   "server/data/covers/culmination__a_fantasy_litrpg_adventure__battle_mage_farmer__book_9_5c5c6464.jpg": {
     "mtime": 1776966103170,
     "size": 38221,
     "hash": "3ff491e42ce206a9"
+  },
+  "server/data/covers/curse_the_dawn__cassandra_palmer__book_4_5c5c6464.jpg": {
+    "mtime": 1777530073559,
+    "size": 675374,
+    "hash": "1b8c0ce2d0d28a52"
   },
   "server/data/covers/cyborg_corps_publisher_s_pack_5c5c6464.jpg": {
     "mtime": 1725041116454,
@@ -1089,40 +1089,40 @@
     "size": 30689,
     "hash": "ef3e1edecfd2bdf6"
   },
-  "server/data/covers/defending_elysium_5c5c6464.jpg": {
-    "mtime": 1735696796295,
-    "size": 33657,
-    "hash": "aa76f451a2b3d32c"
-  },
   "server/data/covers/dead_tired_iii_5c5c6464.jpg": {
     "mtime": 1777564993030,
     "size": 34351,
     "hash": "eb9dcfa662a8683d"
+  },
+  "server/data/covers/defending_elysium_5c5c6464.jpg": {
+    "mtime": 1735696796295,
+    "size": 33657,
+    "hash": "aa76f451a2b3d32c"
   },
   "server/data/covers/defiance_of_the_fall_4__a_litrpg_adventure_5c5c6464.jpg": {
     "mtime": 1777565195891,
     "size": 52186,
     "hash": "b4565dd6d7766979"
   },
-  "server/data/covers/Digital_Heretic___The_Game_Is_Life__Book_2_37f497e8.jpg": {
-    "mtime": 1778262746062,
-    "size": 156451,
-    "hash": "f781feb5ad518b9a"
-  },
   "server/data/covers/demon_world__undying_mercenaries__book_24_5c5c6464.jpg": {
     "mtime": 1777901537185,
     "size": 506201,
     "hash": "72d62ec6ff3e1bbe"
   },
-  "server/data/covers/domestication__dramatized_adaptation___battle_mage_farmer__book_1_5c5c6464.jpg": {
-    "mtime": 1776966078793,
-    "size": 42366,
-    "hash": "1351f6837de8509e"
+  "server/data/covers/Digital_Heretic___The_Game_Is_Life__Book_2_37f497e8.jpg": {
+    "mtime": 1778262746062,
+    "size": 156451,
+    "hash": "f781feb5ad518b9a"
   },
   "server/data/covers/does_it_hurt_5c5c6464.jpg": {
     "mtime": 1729060632586,
     "size": 932822,
     "hash": "5ac059663f780319"
+  },
+  "server/data/covers/domestication__dramatized_adaptation___battle_mage_farmer__book_1_5c5c6464.jpg": {
+    "mtime": 1776966078793,
+    "size": 42366,
+    "hash": "1351f6837de8509e"
   },
   "server/data/covers/dunes_of_midnight__beastborne__book_7_5c5c6464.jpg": {
     "mtime": 1777486961900,
@@ -1139,15 +1139,15 @@
     "size": 632999,
     "hash": "4ac04ebe9dd3b006"
   },
-  "server/data/covers/dungeon_life__an_isekai_litrpg__dungeon_life__book_1_5c5c6464.jpg": {
-    "mtime": 1777531599148,
-    "size": 624323,
-    "hash": "c52cf724a68f4767"
-  },
   "server/data/covers/dungeon_life_4__an_isekai_litrpg__dungeon_life__book_4_5c5c6464.jpg": {
     "mtime": 1777531580386,
     "size": 578231,
     "hash": "9c0e52a7f30ea285"
+  },
+  "server/data/covers/dungeon_life__an_isekai_litrpg__dungeon_life__book_1_5c5c6464.jpg": {
+    "mtime": 1777531599148,
+    "size": 624323,
+    "hash": "c52cf724a68f4767"
   },
   "server/data/covers/dungeon_lord_abominable_creatures___the_wraiths_haunt__book_3_5c5c6464.jpg": {
     "mtime": 1724913475998,
@@ -1159,15 +1159,15 @@
     "size": 686291,
     "hash": "d6db524baa41d964"
   },
-  "server/data/covers/dungeon_lord___the_wraiths_haunt_a_litrpg_series__book_1_5c5c6464.jpg": {
-    "mtime": 1724913765596,
-    "size": 625592,
-    "hash": "6bbef2ba78451b3b"
-  },
   "server/data/covers/dungeon_lord_otherworldly_powers___the_wraiths_haunt__book_2_5c5c6464.jpg": {
     "mtime": 1724913459115,
     "size": 620820,
     "hash": "45c36bb522120038"
+  },
+  "server/data/covers/dungeon_lord___the_wraiths_haunt_a_litrpg_series__book_1_5c5c6464.jpg": {
+    "mtime": 1724913765596,
+    "size": 625592,
+    "hash": "6bbef2ba78451b3b"
   },
   "server/data/covers/embrace_the_night__cassandra_palmer__book_3_5c5c6464.jpg": {
     "mtime": 1777530063200,
@@ -1219,11 +1219,6 @@
     "size": 45872,
     "hash": "4fae19e54cd085c4"
   },
-  "server/data/covers/halo__the_fall_of_reach_5c5c6464.jpg": {
-    "mtime": 1777570527261,
-    "size": 31791,
-    "hash": "914aab297255c7ba"
-  },
   "server/data/covers/ground_state__expeditionary_force__book_19_5c5c6464.jpg": {
     "mtime": 1777566647485,
     "size": 33852,
@@ -1233,6 +1228,11 @@
     "mtime": 1777487233398,
     "size": 399259,
     "hash": "8deb02daf2f94d54"
+  },
+  "server/data/covers/halo__the_fall_of_reach_5c5c6464.jpg": {
+    "mtime": 1777570527261,
+    "size": 31791,
+    "hash": "914aab297255c7ba"
   },
   "server/data/covers/hell_s_reach__galactic_liberation_series__book_6_5c5c6464.jpg": {
     "mtime": 1777570055772,
@@ -1254,20 +1254,15 @@
     "size": 37981,
     "hash": "b54708f2596405a3"
   },
-  "server/data/covers/high_druid_of_shannara__tanequil_5c5c6464.jpg": {
-    "mtime": 1777570505265,
-    "size": 30074,
-    "hash": "4c728169c2774710"
-  },
   "server/data/covers/he_who_fights_with_monsters__book_12__5c5c6464.jpg": {
     "mtime": 1750198705507,
     "size": 398583,
     "hash": "b55871a7a8f5ea3c"
   },
-  "server/data/covers/hijack_the_seas__seismic__cassandra_palmer__book_13_5c5c6464.jpg": {
-    "mtime": 1777530053750,
-    "size": 897014,
-    "hash": "aa54e4085676e8b1"
+  "server/data/covers/high_druid_of_shannara__tanequil_5c5c6464.jpg": {
+    "mtime": 1777570505265,
+    "size": 30074,
+    "hash": "4c728169c2774710"
   },
   "server/data/covers/hold_the_line__a_litrpg_dungeon_core_adventure__war_core__book_1__5c5c6464.jpg": {
     "mtime": 1777901371698,
@@ -1278,6 +1273,11 @@
     "mtime": 1778262730225,
     "size": 346939,
     "hash": "bf6d9bee0f6b7523"
+  },
+  "server/data/covers/hijack_the_seas__seismic__cassandra_palmer__book_13_5c5c6464.jpg": {
+    "mtime": 1777530053750,
+    "size": 897014,
+    "hash": "aa54e4085676e8b1"
   },
   "server/data/covers/ignite_the_fire__incendiary__cassandra_palmer__book_11_5c5c6464.jpg": {
     "mtime": 1777530041901,
@@ -1294,15 +1294,15 @@
     "size": 538913,
     "hash": "dd04e942b4636797"
   },
-  "server/data/covers/induction__welcome_to_the_multiverse__book_1_5c5c6464.jpg": {
-    "mtime": 1777707430552,
-    "size": 33058,
-    "hash": "bc66923a452c707e"
-  },
   "server/data/covers/indian_hill_5c5c6464.jpg": {
     "mtime": 1777570654923,
     "size": 39770,
     "hash": "67adb95f4c18aadd"
+  },
+  "server/data/covers/induction__welcome_to_the_multiverse__book_1_5c5c6464.jpg": {
+    "mtime": 1777707430552,
+    "size": 33058,
+    "hash": "bc66923a452c707e"
   },
   "server/data/covers/industrial_strength_magic_5c5c6464.jpg": {
     "mtime": 1777570708212,
@@ -1374,15 +1374,15 @@
     "size": 25284,
     "hash": "3e56442f30339f88"
   },
-  "server/data/covers/morningwood__everybody_loves_large_chests__book_1_5c5c6464.jpg": {
-    "mtime": 1777570052317,
-    "size": 53917,
-    "hash": "42c99bbd53493024"
-  },
   "server/data/covers/murder_interrupted_5c5c6464.jpg": {
     "mtime": 1735661478283,
     "size": 939196,
     "hash": "1ce5b69638d69b46"
+  },
+  "server/data/covers/morningwood__everybody_loves_large_chests__book_1_5c5c6464.jpg": {
+    "mtime": 1777570052317,
+    "size": 53917,
+    "hash": "42c99bbd53493024"
   },
   "server/data/covers/murder_interrupted_5c5c6464.png": {
     "mtime": 1735661478283,
@@ -1394,11 +1394,6 @@
     "size": 537171,
     "hash": "737a4fd827cf7f94"
   },
-  "server/data/covers/outriders_5c5c6464.jpg": {
-    "mtime": 1735661531592,
-    "size": 431348,
-    "hash": "6965bd24bc23c1eb"
-  },
   "server/data/covers/Neuromancer_15ebbd10.jpg": {
     "mtime": 1778089820032,
     "size": 56137,
@@ -1408,6 +1403,11 @@
     "mtime": 1777398482346,
     "size": 50135,
     "hash": "a9bf3c3b9188bce1"
+  },
+  "server/data/covers/outriders_5c5c6464.jpg": {
+    "mtime": 1735661531592,
+    "size": 431348,
+    "hash": "6965bd24bc23c1eb"
   },
   "server/data/covers/outriders_5c5c6464.png": {
     "mtime": 1735661531592,
@@ -1424,30 +1424,30 @@
     "size": 35570,
     "hash": "ccd53111edab572a"
   },
-  "server/data/covers/reap_the_wind__cassandra_palmer_series__7_5c5c6464.jpg": {
-    "mtime": 1777530025400,
-    "size": 665534,
-    "hash": "32e57d1d7b7019fa"
+  "server/data/covers/rebel_world__undying_mercenaries__book_22_5c5c6464.jpg": {
+    "mtime": 1777901549230,
+    "size": 563510,
+    "hash": "f40a6d1e95087f4e"
   },
   "server/data/covers/reforged__a_litrpg_adventure__the_tower_series__book_2__5c5c6464.jpg": {
     "mtime": 1777901396742,
     "size": 487636,
     "hash": "7f627f94b61c9993"
   },
-  "server/data/covers/rebel_world__undying_mercenaries__book_22_5c5c6464.jpg": {
-    "mtime": 1777901549230,
-    "size": 563510,
-    "hash": "f40a6d1e95087f4e"
-  },
-  "server/data/covers/resistance__welcome_to_the_multiverse__book_4_5c5c6464.jpg": {
-    "mtime": 1777707462435,
-    "size": 37839,
-    "hash": "4479a155ada64144"
+  "server/data/covers/reap_the_wind__cassandra_palmer_series__7_5c5c6464.jpg": {
+    "mtime": 1777530025400,
+    "size": 665534,
+    "hash": "32e57d1d7b7019fa"
   },
   "server/data/covers/requirements__a_litrpg_adventure__system_universe__book_7__5c5c6464.jpg": {
     "mtime": 1777562930327,
     "size": 533765,
     "hash": "bfa576af7a6da3c3"
+  },
+  "server/data/covers/resistance__welcome_to_the_multiverse__book_4_5c5c6464.jpg": {
+    "mtime": 1777707462435,
+    "size": 37839,
+    "hash": "4479a155ada64144"
   },
   "server/data/covers/ride_the_storm_5c5c6464.jpg": {
     "mtime": 1777530011790,
@@ -1494,6 +1494,11 @@
     "size": 38106,
     "hash": "1ba1da9fae832e0b"
   },
+  "server/data/covers/shadows_beneath_5c5c6464.jpg": {
+    "mtime": 1724738829597,
+    "size": 539139,
+    "hash": "c0e0f9552dc43d5e"
+  },
   "server/data/covers/shallow_river_5c5c6464.jpg": {
     "mtime": 1729060796068,
     "size": 559177,
@@ -1504,35 +1509,35 @@
     "size": 196150,
     "hash": "bb97a56109d378f0"
   },
-  "server/data/covers/shadows_beneath_5c5c6464.jpg": {
-    "mtime": 1724738829597,
-    "size": 539139,
-    "hash": "c0e0f9552dc43d5e"
-  },
   "server/data/covers/shattered_galaxy__the_complete_after_the_galaxy_series_box_set_5c5c6464.jpg": {
     "mtime": 1777422368236,
     "size": 514593,
     "hash": "88a27d4ff96fafc6"
-  },
-  "server/data/covers/shatter_the_earth__cassandra_palmer_series__book_10_5c5c6464.jpg": {
-    "mtime": 1777529985381,
-    "size": 924957,
-    "hash": "24efeae7aa0ab349"
   },
   "server/data/covers/straker_s_breakers__galactic_liberation__book_5_5c5c6464.jpg": {
     "mtime": 1777570054011,
     "size": 43818,
     "hash": "26036dfab8035f80"
   },
-  "server/data/covers/sungrazer_5c5c6464.jpg": {
-    "mtime": 1735661532041,
-    "size": 494772,
-    "hash": "c221b4fec1ffc1b0"
+  "server/data/covers/shatter_the_earth__cassandra_palmer_series__book_10_5c5c6464.jpg": {
+    "mtime": 1777529985381,
+    "size": 924957,
+    "hash": "24efeae7aa0ab349"
   },
   "server/data/covers/sungrazer_5c5c6464.png": {
     "mtime": 1735661532041,
     "size": 494772,
     "hash": "c221b4fec1ffc1b0"
+  },
+  "server/data/covers/sungrazer_5c5c6464.jpg": {
+    "mtime": 1735661532041,
+    "size": 494772,
+    "hash": "c221b4fec1ffc1b0"
+  },
+  "server/data/covers/Super_Sales_on_Super_Heroes__Book_1__c4c654bb.jpg": {
+    "mtime": 1778090076952,
+    "size": 48644,
+    "hash": "69da068b8abcb596"
   },
   "server/data/covers/Super_Sales_on_Super_Heroes__Book_2__7cd43df8.jpg": {
     "mtime": 1778090060400,
@@ -1543,11 +1548,6 @@
     "mtime": 1778090049664,
     "size": 48971,
     "hash": "62a01be1e731d6e9"
-  },
-  "server/data/covers/Super_Sales_on_Super_Heroes__Book_1__c4c654bb.jpg": {
-    "mtime": 1778090076952,
-    "size": 48644,
-    "hash": "69da068b8abcb596"
   },
   "server/data/covers/Super_Sales_on_Super_Heroes__Book_4__6516197f.jpg": {
     "mtime": 1778090033279,
@@ -1564,15 +1564,15 @@
     "size": 71269,
     "hash": "4b0ce806c00eceff"
   },
-  "server/data/covers/system_clash__a_litrpg_adventure__system_universe__book_8__5c5c6464.jpg": {
-    "mtime": 1777562900507,
-    "size": 422995,
-    "hash": "93983ac436eb5795"
-  },
   "server/data/covers/Tell_Me_I_m_Worthless_3a3a69ec.jpg": {
     "mtime": 1778079161173,
     "size": 40614,
     "hash": "0f8bd36421804c21"
+  },
+  "server/data/covers/system_clash__a_litrpg_adventure__system_universe__book_8__5c5c6464.jpg": {
+    "mtime": 1777562900507,
+    "size": 422995,
+    "hash": "93983ac436eb5795"
   },
   "server/data/covers/the_archemi_online_chronicles_boxset__books_1__2___3__a_litrpg_epic_fantasy_series__the_archemi_online_chronicles__5c5c6464.jpg": {
     "mtime": 1777398944150,
@@ -1639,15 +1639,15 @@
     "size": 292486,
     "hash": "039cad28c92246e5"
   },
-  "server/data/covers/The_Lost_Starship_ad371697.jpg": {
-    "mtime": 1778260429144,
-    "size": 214604,
-    "hash": "e5380e76e603526b"
-  },
   "server/data/covers/the_last_ship__galaxy_in_flames__book_2_5c5c6464.jpg": {
     "mtime": 1777570050648,
     "size": 717732,
     "hash": "08321e8fe9b24da8"
+  },
+  "server/data/covers/The_Lost_Starship_ad371697.jpg": {
+    "mtime": 1778260429144,
+    "size": 214604,
+    "hash": "e5380e76e603526b"
   },
   "server/data/covers/the_pen_is_mightier_5c5c6464.jpg": {
     "mtime": 1735661416556,
@@ -1674,6 +1674,11 @@
     "size": 56949,
     "hash": "4c823d9abf4eaa6f"
   },
+  "server/data/covers/the_sunlit_man_5c5c6464.png": {
+    "mtime": 1735661117103,
+    "size": 444361,
+    "hash": "e8720c78c7d3fa04"
+  },
   "server/data/covers/The_Secret_of_the_Dark_Forest___Way_of_the_Shaman_Series__Book_3_973cd86a.jpg": {
     "mtime": 1778260519130,
     "size": 155355,
@@ -1684,10 +1689,10 @@
     "size": 444361,
     "hash": "e8720c78c7d3fa04"
   },
-  "server/data/covers/the_sunlit_man_5c5c6464.png": {
-    "mtime": 1735661117103,
-    "size": 444361,
-    "hash": "e8720c78c7d3fa04"
+  "server/data/covers/the_swarm_5c5c6464.jpg": {
+    "mtime": 1750265483950,
+    "size": 38796,
+    "hash": "52c146bd2cfe9895"
   },
   "server/data/covers/The_Sympathizer___A_Novel_3064a094.jpg": {
     "mtime": 1778090105309,
@@ -1699,20 +1704,15 @@
     "size": 48674,
     "hash": "69d0a1b3b744efd0"
   },
-  "server/data/covers/the_swarm_5c5c6464.jpg": {
-    "mtime": 1750265483950,
-    "size": 38796,
-    "hash": "52c146bd2cfe9895"
+  "server/data/covers/throne_world__undying_mercenaries__book_21_5c5c6464.jpg": {
+    "mtime": 1777901440267,
+    "size": 441603,
+    "hash": "39ca2db19a4c9b45"
   },
   "server/data/covers/threads_of_fate__ascend_online__book_5_5c5c6464.jpg": {
     "mtime": 1777485366864,
     "size": 33534,
     "hash": "ebcecb8bf798500c"
-  },
-  "server/data/covers/throne_world__undying_mercenaries__book_21_5c5c6464.jpg": {
-    "mtime": 1777901440267,
-    "size": 441603,
-    "hash": "39ca2db19a4c9b45"
   },
   "server/data/covers/Timeless_84df4eaf.jpg": {
     "mtime": 1778260982895,
@@ -1749,25 +1749,25 @@
     "size": 589803,
     "hash": "6d309f50fb50fbb7"
   },
-  "server/data/covers/when_wizards_follow_fools__arcane_ascension__book_5_5c5c6464.jpg": {
-    "mtime": 1777422323451,
-    "size": 537496,
-    "hash": "7213f252077f340a"
-  },
   "server/data/covers/When_7376d5fb.jpg": {
     "mtime": 1778090116450,
     "size": 24714,
     "hash": "22bcdc8e9687afc9"
   },
-  "server/data/covers/where_s_molly_5c5c6464.jpg": {
-    "mtime": 1729269460070,
-    "size": 460137,
-    "hash": "6b8aeb1b743910e5"
+  "server/data/covers/when_wizards_follow_fools__arcane_ascension__book_5_5c5c6464.jpg": {
+    "mtime": 1777422323451,
+    "size": 537496,
+    "hash": "7213f252077f340a"
   },
   "server/data/covers/wild_cards_i__wild_cards__book_1_5c5c6464.jpg": {
     "mtime": 1777901420625,
     "size": 579350,
     "hash": "6dcff7f8f8cc1e92"
+  },
+  "server/data/covers/where_s_molly_5c5c6464.jpg": {
+    "mtime": 1729269460070,
+    "size": 460137,
+    "hash": "6b8aeb1b743910e5"
   },
   "server/data/covers/zee_locked_in__ovr_world_online__book_1_5c5c6464.jpg": {
     "mtime": 1776791222935,
@@ -1784,15 +1784,15 @@
     "size": 575350,
     "hash": "527101ccc1efe540"
   },
-  "server/data/covers/_book_0_0__starship_pandora_5c5c6464.jpg": {
-    "mtime": 1750266612787,
-    "size": 44870,
-    "hash": "2c432299e35d873a"
-  },
   "server/data/covers/_book_0_1__army_of_one_5c5c6464.jpg": {
     "mtime": 1750266599614,
     "size": 194757,
     "hash": "bb284f87f47b057d"
+  },
+  "server/data/covers/_book_0_0__starship_pandora_5c5c6464.jpg": {
+    "mtime": 1750266612787,
+    "size": 44870,
+    "hash": "2c432299e35d873a"
   },
   "server/data/covers/_book_0_3__3_4__3_5__3_7__3_8__stories_of_the_raksura__volume_2___the_dead_city___the_dark_earth_below_5c5c6464.jpg": {
     "mtime": 1759213225934,
@@ -1839,15 +1839,15 @@
     "size": 492692,
     "hash": "021fc2f0bb5c7341"
   },
-  "server/data/covers/_Book_10__Phantom_ee91ddcd.jpg": {
-    "mtime": 1778258389635,
-    "size": 330903,
-    "hash": "81256e68e8f83a65"
-  },
   "server/data/covers/_book_10__the_forgotten_man_5c5c6464.jpg": {
     "mtime": 1753323363959,
     "size": 31987,
     "hash": "bf4008f573e95179"
+  },
+  "server/data/covers/_Book_10__Phantom_ee91ddcd.jpg": {
+    "mtime": 1778258389635,
+    "size": 330903,
+    "hash": "81256e68e8f83a65"
   },
   "server/data/covers/_book_10__the_longest_day___ark_royal__book_10_5c5c6464.jpg": {
     "mtime": 1776985775236,
@@ -1859,25 +1859,25 @@
     "size": 247751,
     "hash": "aadaef66598848a1"
   },
-  "server/data/covers/_book_11__hell_divers_xi_renegades_5c5c6464.jpg": {
-    "mtime": 1749576496559,
-    "size": 467483,
-    "hash": "baab799594372359"
-  },
-  "server/data/covers/_book_11__the_cruel_stars_5c5c6464.jpg": {
-    "mtime": 1776985775923,
-    "size": 34266,
-    "hash": "e422b6a2d794639f"
-  },
   "server/data/covers/_book_11__first_to_fight_5c5c6464.jpg": {
     "mtime": 1776985757010,
     "size": 27494,
     "hash": "4f4b52910605bb80"
   },
+  "server/data/covers/_book_11__hell_divers_xi_renegades_5c5c6464.jpg": {
+    "mtime": 1749576496559,
+    "size": 467483,
+    "hash": "baab799594372359"
+  },
   "server/data/covers/_book_11__the_watchman_5c5c6464.jpg": {
     "mtime": 1753323366987,
     "size": 23791,
     "hash": "ed315994db22b23c"
+  },
+  "server/data/covers/_book_11__the_cruel_stars_5c5c6464.jpg": {
+    "mtime": 1776985775923,
+    "size": 34266,
+    "hash": "e422b6a2d794639f"
   },
   "server/data/covers/_book_12__chasing_darkness_5c5c6464.jpg": {
     "mtime": 1759213294933,
@@ -1904,6 +1904,11 @@
     "size": 295157,
     "hash": "02bebc6ba2f565f1"
   },
+  "server/data/covers/_book_13__culture_shock_5c5c6464.jpg": {
+    "mtime": 1776998230612,
+    "size": 509911,
+    "hash": "c818fa38f17b2aeb"
+  },
   "server/data/covers/_book_13__para_bellum_5c5c6464.jpg": {
     "mtime": 1776985777913,
     "size": 37241,
@@ -1913,11 +1918,6 @@
     "mtime": 1753323368230,
     "size": 32132,
     "hash": "49115cd32d6f93ac"
-  },
-  "server/data/covers/_book_13__culture_shock_5c5c6464.jpg": {
-    "mtime": 1776998230612,
-    "size": 509911,
-    "hash": "c818fa38f17b2aeb"
   },
   "server/data/covers/_Book_13__The_Third_Kingdom_c25416b0.jpg": {
     "mtime": 1778258329790,
@@ -1929,15 +1929,15 @@
     "size": 298816,
     "hash": "db5f0675ca5e4912"
   },
-  "server/data/covers/_book_14__the_right_of_the_line_5c5c6464.jpg": {
-    "mtime": 1776985779363,
-    "size": 35789,
-    "hash": "1185e8d33cf55e92"
-  },
   "server/data/covers/_book_14__the_sentry___a_joe_pike_novel_5c5c6464.jpg": {
     "mtime": 1753323370992,
     "size": 20443,
     "hash": "c89f66de823dc1e3"
+  },
+  "server/data/covers/_book_14__the_right_of_the_line_5c5c6464.jpg": {
+    "mtime": 1776985779363,
+    "size": 35789,
+    "hash": "1185e8d33cf55e92"
   },
   "server/data/covers/_book_14__wolf_s_bane_5c5c6464.jpg": {
     "mtime": 1776998205777,
@@ -1949,15 +1949,15 @@
     "size": 723863,
     "hash": "5e800c1b97f492bf"
   },
-  "server/data/covers/_book_15__the_lion_and_the_unicorn_5c5c6464.jpg": {
-    "mtime": 1776985780131,
-    "size": 42329,
-    "hash": "5ed11957d270ea0c"
-  },
   "server/data/covers/_book_15__taken_5c5c6464.jpg": {
     "mtime": 1759213315454,
     "size": 336706,
     "hash": "88641241ae8b908d"
+  },
+  "server/data/covers/_book_15__the_lion_and_the_unicorn_5c5c6464.jpg": {
+    "mtime": 1776985780131,
+    "size": 42329,
+    "hash": "5ed11957d270ea0c"
   },
   "server/data/covers/_Book_15__Warheart_5eba30b9.jpg": {
     "mtime": 1778258294206,
@@ -1974,15 +1974,20 @@
     "size": 495886,
     "hash": "9ee217b44feaaa9a"
   },
-  "server/data/covers/_book_16__the_promise_5c5c6464.jpg": {
-    "mtime": 1753323369033,
-    "size": 24208,
-    "hash": "d682b0264a87b6f7"
-  },
   "server/data/covers/_book_16__fighting_for_the_crown_5c5c6464.jpg": {
     "mtime": 1776985778578,
     "size": 39870,
     "hash": "3813a88240ceb19f"
+  },
+  "server/data/covers/_book_16__the_swarm_5c5c6464.jpg": {
+    "mtime": 1761081507157,
+    "size": 953649,
+    "hash": "ccb68136778f61cd"
+  },
+  "server/data/covers/_book_16__the_promise_5c5c6464.jpg": {
+    "mtime": 1753323369033,
+    "size": 24208,
+    "hash": "d682b0264a87b6f7"
   },
   "server/data/covers/_book_17__drake_s_drum___ark_royal__book_17_5c5c6464.jpg": {
     "mtime": 1776985780827,
@@ -1993,11 +1998,6 @@
     "mtime": 1776997750973,
     "size": 472694,
     "hash": "eddaebc7d7d0f166"
-  },
-  "server/data/covers/_book_16__the_swarm_5c5c6464.jpg": {
-    "mtime": 1761081507157,
-    "size": 953649,
-    "hash": "ccb68136778f61cd"
   },
   "server/data/covers/_book_17__task_force_hammer_5c5c6464.jpg": {
     "mtime": 1726515706755,
@@ -2034,30 +2034,35 @@
     "size": 441547,
     "hash": "0aae02fe0ead7bb2"
   },
-  "server/data/covers/_book_1_1__1_2__white_sands_and_red_sands_5c5c6464.jpg": {
-    "mtime": 1725042238321,
-    "size": 317866,
-    "hash": "f998d65186cd94f6"
-  },
   "server/data/covers/_book_19__racing_the_light_5c5c6464.jpg": {
     "mtime": 1753323372633,
     "size": 27324,
     "hash": "7ee1ac6a79aa1134"
-  },
-  "server/data/covers/_book_1_2__galaxy_on_fire_5c5c6464.jpg": {
-    "mtime": 1750346629566,
-    "size": 48279,
-    "hash": "9b2c2102c11649ee"
   },
   "server/data/covers/_book_19__the_prince_s_war_5c5c6464.jpg": {
     "mtime": 1776998166426,
     "size": 464744,
     "hash": "281f530a7bb8bb6e"
   },
+  "server/data/covers/_book_1_1__1_2__white_sands_and_red_sands_5c5c6464.jpg": {
+    "mtime": 1725042238321,
+    "size": 317866,
+    "hash": "f998d65186cd94f6"
+  },
+  "server/data/covers/_book_1_2__galaxy_on_fire_5c5c6464.jpg": {
+    "mtime": 1750346629566,
+    "size": 48279,
+    "hash": "9b2c2102c11649ee"
+  },
   "server/data/covers/_book_1_5__mitosis_5c5c6464.jpg": {
     "mtime": 1735696820237,
     "size": 36882,
     "hash": "9586fb1b14184e6b"
+  },
+  "server/data/covers/_Book_1__Advent_11b4f00c.jpg": {
+    "mtime": 1778078744111,
+    "size": 53278,
+    "hash": "9b758f43a1f7e0b1"
   },
   "server/data/covers/_book_1__accidental_champion_5c5c6464.jpg": {
     "mtime": 1724436129326,
@@ -2069,55 +2074,50 @@
     "size": 391378,
     "hash": "64a12cc57bef0af4"
   },
-  "server/data/covers/_Book_1__Advent_11b4f00c.jpg": {
-    "mtime": 1778078744111,
-    "size": 53278,
-    "hash": "9b758f43a1f7e0b1"
-  },
   "server/data/covers/_book_1__an_inheritance_of_monsters_5c5c6464.jpg": {
     "mtime": 1750269829016,
     "size": 42741,
     "hash": "2093f5397d835e59"
-  },
-  "server/data/covers/_book_1__ark_royal_5c5c6464.jpg": {
-    "mtime": 1776985774442,
-    "size": 33761,
-    "hash": "677c971f8ab0b99a"
   },
   "server/data/covers/_book_1__apocalypse_generic_system_5c5c6464.jpg": {
     "mtime": 1725039841650,
     "size": 499314,
     "hash": "f2e8de25b1c5dc23"
   },
+  "server/data/covers/_book_1__ark_royal_5c5c6464.jpg": {
+    "mtime": 1776985774442,
+    "size": 33761,
+    "hash": "677c971f8ab0b99a"
+  },
   "server/data/covers/_book_1__awakened_the_quintessence_5c5c6464.jpg": {
     "mtime": 1735696832776,
     "size": 45136,
     "hash": "e0c453b2466d751c"
-  },
-  "server/data/covers/_book_1__a_game_of_thrones_5c5c6464.jpg": {
-    "mtime": 1777990447871,
-    "size": 47852,
-    "hash": "0d26712ba9d8d265"
   },
   "server/data/covers/_book_1__a_court_of_thorns_and_roses_5c5c6464.jpg": {
     "mtime": 1751723781978,
     "size": 594812,
     "hash": "1790d1203a0d8954"
   },
+  "server/data/covers/_book_1__a_game_of_thrones_5c5c6464.jpg": {
+    "mtime": 1777990447871,
+    "size": 47852,
+    "hash": "0d26712ba9d8d265"
+  },
   "server/data/covers/_book_1__a_history_of_what_comes_next_5c5c6464.png": {
     "mtime": 1759660570452,
     "size": 601137,
     "hash": "e50396375dcc060d"
   },
-  "server/data/covers/_book_1__battle_cruiser_5c5c6464.jpg": {
-    "mtime": 1735696775672,
-    "size": 32223,
-    "hash": "e31c12bf4038c821"
-  },
   "server/data/covers/_book_1__blood_wager_5c5c6464.jpg": {
     "mtime": 1735696844524,
     "size": 33782,
     "hash": "158b15e34cd37e6d"
+  },
+  "server/data/covers/_book_1__battle_cruiser_5c5c6464.jpg": {
+    "mtime": 1735696775672,
+    "size": 32223,
+    "hash": "e31c12bf4038c821"
   },
   "server/data/covers/_book_1__children_of_time_5c5c6464.jpg": {
     "mtime": 1750263376647,
@@ -2134,6 +2134,11 @@
     "size": 515027,
     "hash": "f4309f3085ec7f96"
   },
+  "server/data/covers/_book_1__deathtrap_5c5c6464.jpg": {
+    "mtime": 1735696852876,
+    "size": 44151,
+    "hash": "aa1f9513804d4b4b"
+  },
   "server/data/covers/_book_1__death_s_obsession_5c5c6464.jpg": {
     "mtime": 1729269299740,
     "size": 640681,
@@ -2143,11 +2148,6 @@
     "mtime": 1724436033953,
     "size": 496167,
     "hash": "5a89bd260aafea23"
-  },
-  "server/data/covers/_book_1__deathtrap_5c5c6464.jpg": {
-    "mtime": 1735696852876,
-    "size": 44151,
-    "hash": "aa1f9513804d4b4b"
   },
   "server/data/covers/_book_1__demons_adcent_5c5c6464.jpg": {
     "mtime": 1726243379607,
@@ -2169,25 +2169,25 @@
     "size": 731655,
     "hash": "b9c560996f833b2e"
   },
-  "server/data/covers/_book_1__foreigner_5c5c6464.jpg": {
-    "mtime": 1750269236607,
-    "size": 36864,
-    "hash": "a445985f82c86744"
-  },
   "server/data/covers/_book_1__forge_master_5c5c6464.jpg": {
     "mtime": 1776663363479,
     "size": 344817,
     "hash": "e161502f7285b2f0"
   },
-  "server/data/covers/_book_1__hack__slash___burn_1_5c5c6464.jpg": {
-    "mtime": 1724738807361,
-    "size": 506282,
-    "hash": "acc326e08ebf8707"
+  "server/data/covers/_book_1__foreigner_5c5c6464.jpg": {
+    "mtime": 1750269236607,
+    "size": 36864,
+    "hash": "a445985f82c86744"
   },
   "server/data/covers/_book_1__fourth_wing_5c5c6464.jpg": {
     "mtime": 1777308804744,
     "size": 1181717,
     "hash": "dd2650e1debf2d09"
+  },
+  "server/data/covers/_book_1__hack__slash___burn_1_5c5c6464.jpg": {
+    "mtime": 1724738807361,
+    "size": 506282,
+    "hash": "acc326e08ebf8707"
   },
   "server/data/covers/_book_1__haunting_adeline_5c5c6464.jpg": {
     "mtime": 1729060926544,
@@ -2214,11 +2214,6 @@
     "size": 25162,
     "hash": "b4e46b45561832ef"
   },
-  "server/data/covers/_book_1__manaborn1_5c5c6464.jpg": {
-    "mtime": 1735931516901,
-    "size": 442847,
-    "hash": "0d93f1453e853e46"
-  },
   "server/data/covers/_book_1__mark_of_the_founder_5c5c6464.jpg": {
     "mtime": 1777487012174,
     "size": 490011,
@@ -2233,6 +2228,11 @@
     "mtime": 1735696852008,
     "size": 32982,
     "hash": "04a3bfe262ee4a37"
+  },
+  "server/data/covers/_book_1__manaborn1_5c5c6464.jpg": {
+    "mtime": 1735931516901,
+    "size": 442847,
+    "hash": "0d93f1453e853e46"
   },
   "server/data/covers/_book_1__occupation_5c5c6464.jpg": {
     "mtime": 1725262899358,
@@ -2274,25 +2274,25 @@
     "size": 597880,
     "hash": "484e827822b77549"
   },
-  "server/data/covers/_book_1__save_point_upload_5c5c6464.jpg": {
-    "mtime": 1735661782300,
-    "size": 560177,
-    "hash": "e0a86cdbbf761a60"
-  },
   "server/data/covers/_book_1__savage_awakening_5c5c6464.jpg": {
     "mtime": 1750263701767,
     "size": 55892,
     "hash": "4d5f682f968ea27c"
   },
-  "server/data/covers/_book_1__shattered_dreams_5c5c6464.jpg": {
-    "mtime": 1776846527708,
-    "size": 364153,
-    "hash": "04cce0a9003ceb1d"
+  "server/data/covers/_book_1__save_point_upload_5c5c6464.jpg": {
+    "mtime": 1735661782300,
+    "size": 560177,
+    "hash": "e0a86cdbbf761a60"
   },
   "server/data/covers/_book_1__save_point_upload_5c5c6464.png": {
     "mtime": 1735661782300,
     "size": 560177,
     "hash": "e0a86cdbbf761a60"
+  },
+  "server/data/covers/_book_1__shattered_dreams_5c5c6464.jpg": {
+    "mtime": 1776846527708,
+    "size": 364153,
+    "hash": "04cce0a9003ceb1d"
   },
   "server/data/covers/_book_1__sick_5c5c6464.jpg": {
     "mtime": 1735696829371,
@@ -2329,30 +2329,30 @@
     "size": 34113,
     "hash": "94effb236a47fbb3"
   },
-  "server/data/covers/_book_1__technomancer_5c5c6464.jpg": {
-    "mtime": 1735696790563,
-    "size": 45724,
-    "hash": "d8048557aef6b5f5"
-  },
   "server/data/covers/_book_1__system_change_a_litrpg_adventure_5c5c6464.jpg": {
     "mtime": 1735932468969,
     "size": 35856,
     "hash": "bafb7ee25e9a27fa"
+  },
+  "server/data/covers/_book_1__technomancer_5c5c6464.jpg": {
+    "mtime": 1735696790563,
+    "size": 45724,
+    "hash": "d8048557aef6b5f5"
   },
   "server/data/covers/_book_1__the_aeronaut_s_windlass_5c5c6464.jpg": {
     "mtime": 1751822961480,
     "size": 193612,
     "hash": "eea3c6ebce07e490"
   },
-  "server/data/covers/_book_1__the_awakening_5c5c6464.jpg": {
-    "mtime": 1735696838230,
-    "size": 27935,
-    "hash": "d9024be30f81ea41"
-  },
   "server/data/covers/_book_1__the_android_s_dream_5c5c6464.jpg": {
     "mtime": 1777901346738,
     "size": 298975,
     "hash": "9317c0c3d33f6162"
+  },
+  "server/data/covers/_book_1__the_awakening_5c5c6464.jpg": {
+    "mtime": 1735696838230,
+    "size": 27935,
+    "hash": "d9024be30f81ea41"
   },
   "server/data/covers/_book_1__the_emperors_blades_5c5c6464.jpg": {
     "mtime": 1724740334658,
@@ -2379,30 +2379,35 @@
     "size": 35998,
     "hash": "0eecd5e0a81e13bd"
   },
-  "server/data/covers/_book_1__the_monkey_s_raincoat_5c5c6464.jpg": {
-    "mtime": 1753323366157,
-    "size": 31015,
-    "hash": "d05e415758dbcf77"
-  },
   "server/data/covers/_book_1__the_mage_from_nowhere_5c5c6464.jpg": {
     "mtime": 1750267826647,
     "size": 41386,
     "hash": "a1fc40ad2e33a9ac"
+  },
+  "server/data/covers/_book_1__the_monkey_s_raincoat_5c5c6464.jpg": {
+    "mtime": 1753323366157,
+    "size": 31015,
+    "hash": "d05e415758dbcf77"
   },
   "server/data/covers/_book_1__the_path_of_ascension_5c5c6464.jpg": {
     "mtime": 1750269354820,
     "size": 42374,
     "hash": "23311b3b0fc1654a"
   },
+  "server/data/covers/_book_1__the_ritual_5c5c6464.jpg": {
+    "mtime": 1746597599022,
+    "size": 10259,
+    "hash": "9737c5bf691cc5ca"
+  },
   "server/data/covers/_book_1__the_spy_coast_5c5c6464.jpg": {
     "mtime": 1759212757618,
     "size": 47738,
     "hash": "b9340e58147f183c"
   },
-  "server/data/covers/_book_1__the_ritual_5c5c6464.jpg": {
-    "mtime": 1746597599022,
-    "size": 10259,
-    "hash": "9737c5bf691cc5ca"
+  "server/data/covers/_book_1__tier_one_5c5c6464.jpg": {
+    "mtime": 1750269076664,
+    "size": 31493,
+    "hash": "46e2cadf1b9613be"
   },
   "server/data/covers/_book_1__touched_5c5c6464.jpg": {
     "mtime": 1724740370856,
@@ -2413,11 +2418,6 @@
     "mtime": 1776998286632,
     "size": 484355,
     "hash": "949f3123fe78bd10"
-  },
-  "server/data/covers/_book_1__tier_one_5c5c6464.jpg": {
-    "mtime": 1750269076664,
-    "size": 31493,
-    "hash": "46e2cadf1b9613be"
   },
   "server/data/covers/_Book_1__Wizards_First_Rule_4821841d.jpg": {
     "mtime": 1778258441022,
@@ -2464,15 +2464,15 @@
     "size": 53001,
     "hash": "77456eeb0550c152"
   },
-  "server/data/covers/_book_2__children_of_ruin_5c5c6464.jpg": {
-    "mtime": 1759213184847,
-    "size": 710550,
-    "hash": "c155ae2c28070f22"
-  },
   "server/data/covers/_book_2__dead_tired_ii_5c5c6464.jpg": {
     "mtime": 1725041046036,
     "size": 499937,
     "hash": "9b614b8bd3752e33"
+  },
+  "server/data/covers/_book_2__children_of_ruin_5c5c6464.jpg": {
+    "mtime": 1759213184847,
+    "size": 710550,
+    "hash": "c155ae2c28070f22"
   },
   "server/data/covers/_book_2__dreadnought_5c5c6464.jpg": {
     "mtime": 1735696776011,
@@ -2514,45 +2514,45 @@
     "size": 447870,
     "hash": "8ffce8a8f69c33cc"
   },
-  "server/data/covers/_book_2__haunted_5c5c6464.jpg": {
-    "mtime": 1724740279714,
-    "size": 822260,
-    "hash": "2fb59098b918692e"
-  },
   "server/data/covers/_book_2__how_to_survive_at_the_end_of_the_world_2_5c5c6464.jpg": {
     "mtime": 1724436011703,
     "size": 495692,
     "hash": "2aa5c5904a4b61d8"
   },
-  "server/data/covers/_book_2__iron_flame_5c5c6464.jpg": {
-    "mtime": 1777060567063,
-    "size": 1108976,
-    "hash": "d936f283274ce664"
+  "server/data/covers/_book_2__haunted_5c5c6464.jpg": {
+    "mtime": 1724740279714,
+    "size": 822260,
+    "hash": "2fb59098b918692e"
   },
   "server/data/covers/_book_2__hunting_adeline_5c5c6464.jpg": {
     "mtime": 1729060843103,
     "size": 671577,
     "hash": "5ab93e63bedecb51"
   },
-  "server/data/covers/_book_2__manaborn_2_5c5c6464.jpg": {
-    "mtime": 1735931526585,
-    "size": 574060,
-    "hash": "702ba125603183f9"
+  "server/data/covers/_book_2__iron_flame_5c5c6464.jpg": {
+    "mtime": 1777060567063,
+    "size": 1108976,
+    "hash": "d936f283274ce664"
   },
   "server/data/covers/_book_2__isekai_magus_2_5c5c6464.jpg": {
     "mtime": 1735931080038,
     "size": 671705,
     "hash": "a72998836d2e7b13"
   },
-  "server/data/covers/_book_2__mimic___me_2_5c5c6464.jpg": {
-    "mtime": 1750269698051,
-    "size": 53616,
-    "hash": "1e329164a7e72631"
-  },
   "server/data/covers/_book_2__legion___skin_deep_5c5c6464.jpg": {
     "mtime": 1753328663260,
     "size": 45402,
     "hash": "6617f557c1170a34"
+  },
+  "server/data/covers/_book_2__manaborn_2_5c5c6464.jpg": {
+    "mtime": 1735931526585,
+    "size": 574060,
+    "hash": "702ba125603183f9"
+  },
+  "server/data/covers/_book_2__mimic___me_2_5c5c6464.jpg": {
+    "mtime": 1750269698051,
+    "size": 53616,
+    "hash": "1e329164a7e72631"
   },
   "server/data/covers/_book_2__no_worse_enemy_5c5c6464.jpg": {
     "mtime": 1776998157351,
@@ -2609,15 +2609,15 @@
     "size": 302714,
     "hash": "895a33a6816df9c8"
   },
-  "server/data/covers/_Book_2__Temper_064adb31.jpg": {
-    "mtime": 1778078716587,
-    "size": 51888,
-    "hash": "3229314a323897bf"
-  },
   "server/data/covers/_Book_2__Stone_of_Tears_234b6ff5.jpg": {
     "mtime": 1778258276262,
     "size": 264083,
     "hash": "aa41dc0f7023611c"
+  },
+  "server/data/covers/_Book_2__Temper_064adb31.jpg": {
+    "mtime": 1778078716587,
+    "size": 51888,
+    "hash": "3229314a323897bf"
   },
   "server/data/covers/_book_2__the_bone_triangle_5c5c6464.jpg": {
     "mtime": 1735696790974,
@@ -2634,6 +2634,11 @@
     "size": 35928,
     "hash": "a3475e24e890c56f"
   },
+  "server/data/covers/_book_2__the_providence_of_fire_5c5c6464.jpg": {
+    "mtime": 1724740320984,
+    "size": 536653,
+    "hash": "99f163ad16666bf5"
+  },
   "server/data/covers/_book_2__the_ringworld_engineers_5c5c6464.jpg": {
     "mtime": 1776792286556,
     "size": 49165,
@@ -2643,11 +2648,6 @@
     "mtime": 1724481293558,
     "size": 361672,
     "hash": "fd8eef1e12baef65"
-  },
-  "server/data/covers/_book_2__the_providence_of_fire_5c5c6464.jpg": {
-    "mtime": 1724740320984,
-    "size": 536653,
-    "hash": "99f163ad16666bf5"
   },
   "server/data/covers/_book_2__the_sinner_5c5c6464.jpg": {
     "mtime": 1746597602814,
@@ -2744,15 +2744,15 @@
     "size": 231348,
     "hash": "94eb4ebeff2c9bd0"
   },
-  "server/data/covers/_book_3__dawn_of_the_void_5c5c6464.jpg": {
-    "mtime": 1725041099649,
-    "size": 424393,
-    "hash": "12250be5ab8fa1d6"
-  },
   "server/data/covers/_book_3__convergence_5c5c6464.jpg": {
     "mtime": 1724738819601,
     "size": 560880,
     "hash": "2068e50561aad6cf"
+  },
+  "server/data/covers/_book_3__dawn_of_the_void_5c5c6464.jpg": {
+    "mtime": 1725041099649,
+    "size": 424393,
+    "hash": "12250be5ab8fa1d6"
   },
   "server/data/covers/_book_3__destroyer_5c5c6464.jpg": {
     "mtime": 1724912647511,
@@ -2779,15 +2779,15 @@
     "size": 44133,
     "hash": "65cce7f8ff526b52"
   },
-  "server/data/covers/_book_3__hack__slash___burn_3_5c5c6464.jpg": {
-    "mtime": 1724738795477,
-    "size": 393439,
-    "hash": "0957be056c2fa13e"
-  },
   "server/data/covers/_Book_3__Fracture_ffebc81e.jpg": {
     "mtime": 1778005961748,
     "size": 44133,
     "hash": "65cce7f8ff526b52"
+  },
+  "server/data/covers/_book_3__hack__slash___burn_3_5c5c6464.jpg": {
+    "mtime": 1724738795477,
+    "size": 393439,
+    "hash": "0957be056c2fa13e"
   },
   "server/data/covers/_book_3__heir_of_fire_5c5c6464.jpg": {
     "mtime": 1752486611156,
@@ -2834,6 +2834,11 @@
     "size": 34832,
     "hash": "fc0da53b6388b0e5"
   },
+  "server/data/covers/_book_3__savage_awakening_3_5c5c6464.jpg": {
+    "mtime": 1750254445915,
+    "size": 50606,
+    "hash": "4d0122b139182961"
+  },
   "server/data/covers/_book_3__savannah_5c5c6464.jpg": {
     "mtime": 1735932569673,
     "size": 43206,
@@ -2843,11 +2848,6 @@
     "mtime": 1728973706587,
     "size": 649924,
     "hash": "09c271be6e5e7512"
-  },
-  "server/data/covers/_book_3__savage_awakening_3_5c5c6464.jpg": {
-    "mtime": 1750254445915,
-    "size": 50606,
-    "hash": "4d0122b139182961"
   },
   "server/data/covers/_book_3__shattered_boundaries_5c5c6464.jpg": {
     "mtime": 1776846368273,
@@ -2859,6 +2859,11 @@
     "size": 426080,
     "hash": "f85e921b0897ee30"
   },
+  "server/data/covers/_book_3__the_knights_of_crystallia_5c5c6464.jpg": {
+    "mtime": 1724481277587,
+    "size": 326638,
+    "hash": "93f44b8d3c1d33bd"
+  },
   "server/data/covers/_book_3__the_last_mortal_bond_5c5c6464.jpg": {
     "mtime": 1724740307987,
     "size": 556358,
@@ -2868,11 +2873,6 @@
     "mtime": 1750345380796,
     "size": 32162,
     "hash": "fc836408a905ba24"
-  },
-  "server/data/covers/_book_3__the_knights_of_crystallia_5c5c6464.jpg": {
-    "mtime": 1724481277587,
-    "size": 326638,
-    "hash": "93f44b8d3c1d33bd"
   },
   "server/data/covers/_book_3__the_sacrifice___a_dark_revenge_romance_5c5c6464.jpg": {
     "mtime": 1746597601708,
@@ -2939,30 +2939,30 @@
     "size": 456259,
     "hash": "fcf9c2187514598b"
   },
-  "server/data/covers/_book_4__fallen_academy_year_four_5c5c6464.jpg": {
-    "mtime": 1726243054509,
-    "size": 43705,
-    "hash": "79d07135809478f9"
-  },
   "server/data/covers/_book_4__forged_by_fury_5c5c6464.jpg": {
     "mtime": 1724782886205,
     "size": 630777,
     "hash": "e56032396d487447"
+  },
+  "server/data/covers/_book_4__fallen_academy_year_four_5c5c6464.jpg": {
+    "mtime": 1726243054509,
+    "size": 43705,
+    "hash": "79d07135809478f9"
   },
   "server/data/covers/_book_4__free_fall_5c5c6464.jpg": {
     "mtime": 1753323376230,
     "size": 29537,
     "hash": "3021c4899972c048"
   },
-  "server/data/covers/_book_4__into_the_fire_5c5c6464.jpg": {
-    "mtime": 1724782875700,
-    "size": 511317,
-    "hash": "ce4c9bbba550b1b2"
-  },
   "server/data/covers/_book_4__hive_war_5c5c6464.jpg": {
     "mtime": 1735696775116,
     "size": 47495,
     "hash": "18dec3baf9bd517a"
+  },
+  "server/data/covers/_book_4__into_the_fire_5c5c6464.jpg": {
+    "mtime": 1724782875700,
+    "size": 511317,
+    "hash": "ce4c9bbba550b1b2"
   },
   "server/data/covers/_book_4__isekai_magus_4_5c5c6464.jpg": {
     "mtime": 1735931039537,
@@ -3034,6 +3034,11 @@
     "size": 444361,
     "hash": "e8720c78c7d3fa04"
   },
+  "server/data/covers/_book_4__the_sunlit_man_5c5c6464.png": {
+    "mtime": 1735661112987,
+    "size": 444361,
+    "hash": "e8720c78c7d3fa04"
+  },
   "server/data/covers/_book_4__trials_of_cydaria_5c5c6464.jpg": {
     "mtime": 1740747221130,
     "size": 444522,
@@ -3044,45 +3049,40 @@
     "size": 610677,
     "hash": "f0f81a5a0974e145"
   },
-  "server/data/covers/_book_4__the_sunlit_man_5c5c6464.png": {
-    "mtime": 1735661112987,
-    "size": 444361,
-    "hash": "e8720c78c7d3fa04"
+  "server/data/covers/_book_4__warsinger_5c5c6464.jpg": {
+    "mtime": 1735927221841,
+    "size": 727709,
+    "hash": "6fd2035dbed8b6bc"
   },
   "server/data/covers/_book_5__asabron_5c5c6464.jpg": {
     "mtime": 1724432962859,
     "size": 470426,
     "hash": "3982eec46ebc1c47"
   },
-  "server/data/covers/_book_4__warsinger_5c5c6464.jpg": {
-    "mtime": 1735927221841,
-    "size": 727709,
-    "hash": "6fd2035dbed8b6bc"
+  "server/data/covers/_book_5__bloodline_5c5c6464.jpg": {
+    "mtime": 1725039397566,
+    "size": 645748,
+    "hash": "fbd423275b53ae7e"
   },
   "server/data/covers/_book_5__blue_burn_5c5c6464.jpg": {
     "mtime": 1759213208402,
     "size": 457043,
     "hash": "cd7f37d5eacc1300"
   },
-  "server/data/covers/_book_5__bloodline_5c5c6464.jpg": {
-    "mtime": 1725039397566,
-    "size": 645748,
-    "hash": "fbd423275b53ae7e"
-  },
   "server/data/covers/_book_5__first_drop_of_crimson_5c5c6464.jpg": {
     "mtime": 1726083466069,
     "size": 317213,
     "hash": "a988d7cfc3697152"
   },
-  "server/data/covers/_book_5__isekai_magus_5_5c5c6464.jpg": {
-    "mtime": 1735931048484,
-    "size": 442595,
-    "hash": "43cea43be8d6f598"
-  },
   "server/data/covers/_book_5__new_freedoms_5c5c6464.jpg": {
     "mtime": 1776846510095,
     "size": 427362,
     "hash": "e80f827a0f77ba4f"
+  },
+  "server/data/covers/_book_5__isekai_magus_5_5c5c6464.jpg": {
+    "mtime": 1735931048484,
+    "size": 442595,
+    "hash": "43cea43be8d6f598"
   },
   "server/data/covers/_book_5__not_till_we_are_lost_5c5c6464.jpg": {
     "mtime": 1776343081136,
@@ -3174,15 +3174,20 @@
     "size": 34724,
     "hash": "3c7d584e4736f14a"
   },
+  "server/data/covers/_book_6__indaria_5c5c6464.jpg": {
+    "mtime": 1735932814348,
+    "size": 37525,
+    "hash": "43e3ab617d6f3167"
+  },
   "server/data/covers/_book_6__isekai_magus_6_5c5c6464.jpg": {
     "mtime": 1735931056181,
     "size": 551346,
     "hash": "d83cd65f34b257f4"
   },
-  "server/data/covers/_book_6__indaria_5c5c6464.jpg": {
-    "mtime": 1735932814348,
-    "size": 37525,
-    "hash": "43e3ab617d6f3167"
+  "server/data/covers/_book_6__mists_of_kragdon_ah_5c5c6464.jpg": {
+    "mtime": 1725299676020,
+    "size": 565281,
+    "hash": "75cd98751f158e34"
   },
   "server/data/covers/_book_6__new_potential_5c5c6464.jpg": {
     "mtime": 1776846491822,
@@ -3193,11 +3198,6 @@
     "mtime": 1753323378466,
     "size": 25681,
     "hash": "83c50ddb0180c934"
-  },
-  "server/data/covers/_book_6__mists_of_kragdon_ah_5c5c6464.jpg": {
-    "mtime": 1725299676020,
-    "size": 565281,
-    "hash": "75cd98751f158e34"
   },
   "server/data/covers/_book_6__tamer_6_5c5c6464.jpg": {
     "mtime": 1735697044494,
@@ -3259,15 +3259,15 @@
     "size": 496919,
     "hash": "2fd2721a6e591820"
   },
-  "server/data/covers/_book_8_4__the_squirrel_on_the_train_5c5c6464.jpg": {
-    "mtime": 1733447492289,
-    "size": 46437,
-    "hash": "66f126a1161a2d7f"
-  },
   "server/data/covers/_book_7__vanguard_5c5c6464.jpg": {
     "mtime": 1776985784435,
     "size": 42208,
     "hash": "b605c3e24553e15c"
+  },
+  "server/data/covers/_book_8_4__the_squirrel_on_the_train_5c5c6464.jpg": {
+    "mtime": 1733447492289,
+    "size": 46437,
+    "hash": "66f126a1161a2d7f"
   },
   "server/data/covers/_book_8__asgard_5c5c6464.jpg": {
     "mtime": 1725344940491,
@@ -3374,6 +3374,11 @@
     "size": 16183,
     "hash": "1a6ebee7bfaed365"
   },
+  "server/data/covers/_book___fledgling_5c5c6464.jpg": {
+    "mtime": 1759724038518,
+    "size": 462366,
+    "hash": "9125e75fdb88670b"
+  },
   "server/data/covers/_book___eaters_of_the_dead_5c5c6464.jpg": {
     "mtime": 1777686790029,
     "size": 30844,
@@ -3393,11 +3398,6 @@
     "mtime": 1777059956151,
     "size": 861644,
     "hash": "9531debe3a6f8034"
-  },
-  "server/data/covers/_book___fledgling_5c5c6464.jpg": {
-    "mtime": 1759724038518,
-    "size": 462366,
-    "hash": "9125e75fdb88670b"
   },
   "server/data/covers/_book___pretty_boy_5c5c6464.jpg": {
     "mtime": 1760635744668,
@@ -3429,6 +3429,11 @@
     "size": 704143,
     "hash": "7aa2fa6df3a93a03"
   },
+  "server/data/covers/_book___the_dark_tower_vii___the_dark_tower_5c5c6464.jpg": {
+    "mtime": 1776823586306,
+    "size": 32264,
+    "hash": "3af2edc03a6cd73d"
+  },
   "server/data/covers/_book___the_dark_tower_ii___the_drawing_of_the_three_5c5c6464.jpg": {
     "mtime": 1776823585335,
     "size": 19802,
@@ -3439,40 +3444,35 @@
     "size": 39400,
     "hash": "9d9a51ae19eb368e"
   },
-  "server/data/covers/_book___the_dark_tower_vii___the_dark_tower_5c5c6464.jpg": {
-    "mtime": 1776823586306,
-    "size": 32264,
-    "hash": "3af2edc03a6cd73d"
-  },
   "server/data/covers/_book___the_green_mile_5c5c6464.jpg": {
     "mtime": 1759212754724,
     "size": 17163,
     "hash": "269bf5b29f4e014c"
-  },
-  "server/data/covers/_book___the_sun_down_motel_5c5c6464.jpg": {
-    "mtime": 1776753071235,
-    "size": 379357,
-    "hash": "674a0b2cc99e045e"
   },
   "server/data/covers/_book___the_outsider_5c5c6464.jpg": {
     "mtime": 1760638680611,
     "size": 77310,
     "hash": "2b08565943698e9b"
   },
+  "server/data/covers/_book___the_sun_down_motel_5c5c6464.jpg": {
+    "mtime": 1776753071235,
+    "size": 379357,
+    "hash": "674a0b2cc99e045e"
+  },
   "server/data/covers/_book___wolves_of_the_calla_5c5c6464.jpg": {
     "mtime": 1776823582432,
     "size": 22911,
     "hash": "411c55775a6ef0bc"
   },
-  "server/data/covers/_book___you_like_it_darker___stories_5c5c6464.jpg": {
-    "mtime": 1776752921581,
-    "size": 33892,
-    "hash": "f849c12dc80d5978"
-  },
   "server/data/covers/_book___world_war_z___an_oral_history_of_the_zombie_war_5c5c6464.jpg": {
     "mtime": 1753984027760,
     "size": 527790,
     "hash": "0ea76fef885c6167"
+  },
+  "server/data/covers/_book___you_like_it_darker___stories_5c5c6464.jpg": {
+    "mtime": 1776752921581,
+    "size": 33892,
+    "hash": "f849c12dc80d5978"
   },
   "server/data/temp/audible_state_test.json": {
     "mtime": 1778211940801,
@@ -3489,15 +3489,15 @@
     "size": 2022,
     "hash": "8037080bde9c1a0a"
   },
-  "server/package-lock.json": {
-    "mtime": 1778087316170,
-    "size": 107669,
-    "hash": "9a11f4582f606272"
-  },
   "server/package.json": {
     "mtime": 1778079390002,
     "size": 1084,
     "hash": "8725d36d472c4f33"
+  },
+  "server/package-lock.json": {
+    "mtime": 1778079390091,
+    "size": 107669,
+    "hash": "9a11f4582f606272"
   },
   "server/prisma/dev.db": {
     "mtime": 1778051572963,
@@ -3520,7 +3520,7 @@
     "hash": "8db25af4cd2c7ecf"
   },
   "server/prisma/migrations/migration_lock.toml": {
-    "mtime": 1778053429235,
+    "mtime": 1778261143207,
     "size": 128,
     "hash": "a1dd2ac5437d14fc"
   },
@@ -3529,15 +3529,15 @@
     "size": 3842,
     "hash": "6413a32ca715d55b"
   },
-  "server/prisma.config.ts": {
-    "mtime": 1777900558682,
-    "size": 176,
-    "hash": "e3ad7ab3b3729a02"
-  },
   "server/prisma/seed.ts": {
     "mtime": 1777874320549,
     "size": 20066,
     "hash": "8af563b6890f0e44"
+  },
+  "server/prisma.config.ts": {
+    "mtime": 1777900558682,
+    "size": 176,
+    "hash": "e3ad7ab3b3729a02"
   },
   "server/scripts/audible_auth_get_url.py": {
     "mtime": 1778213630977,
@@ -3555,19 +3555,19 @@
     "hash": "0c5be90f8be994ec"
   },
   "server/src/controllers/adminController.ts": {
-    "mtime": 1778498378768,
-    "size": 79919,
-    "hash": "e3e8900cd0c8ece3"
-  },
-  "server/src/controllers/libraryController.ts": {
-    "mtime": 1778496905753,
-    "size": 16478,
-    "hash": "30e74def9b4c9f29"
+    "mtime": 1778524330345,
+    "size": 81230,
+    "hash": "029769add8c5b6a4"
   },
   "server/src/controllers/authController.ts": {
     "mtime": 1777886230885,
     "size": 3862,
     "hash": "2831f93774ddc638"
+  },
+  "server/src/controllers/libraryController.ts": {
+    "mtime": 1778524326227,
+    "size": 16560,
+    "hash": "fb69849d1dd71ba5"
   },
   "server/src/controllers/logController.ts": {
     "mtime": 1778138325870,
@@ -3629,6 +3629,11 @@
     "size": 3695,
     "hash": "385c689f6722d8ef"
   },
+  "server/src/routes/libraryRoutes.ts": {
+    "mtime": 1778090532481,
+    "size": 858,
+    "hash": "f0a9b42f7b9170af"
+  },
   "server/src/routes/authRoutes.ts": {
     "mtime": 1777863895472,
     "size": 370,
@@ -3643,11 +3648,6 @@
     "mtime": 1777863901852,
     "size": 264,
     "hash": "b9290b670ffb72e9"
-  },
-  "server/src/routes/libraryRoutes.ts": {
-    "mtime": 1778090532481,
-    "size": 858,
-    "hash": "f0a9b42f7b9170af"
   },
   "server/src/routes/uploadRoutes.ts": {
     "mtime": 1777749215189,
@@ -3664,11 +3664,6 @@
     "size": 16769,
     "hash": "1aa0a8e978aa93eb"
   },
-  "server/src/utils/backup.ts": {
-    "mtime": 1777864611779,
-    "size": 1113,
-    "hash": "4d895c7f346acdee"
-  },
   "server/src/utils/audibleCli.ts": {
     "mtime": 1778216425437,
     "size": 19556,
@@ -3678,6 +3673,11 @@
     "mtime": 1778388956328,
     "size": 1653,
     "hash": "16c36bc0f37c7692"
+  },
+  "server/src/utils/backup.ts": {
+    "mtime": 1777864611779,
+    "size": 1113,
+    "hash": "4d895c7f346acdee"
   },
   "server/src/utils/ffmpeg.ts": {
     "mtime": 1778080310250,
@@ -3689,15 +3689,15 @@
     "size": 4739,
     "hash": "1a2fd91d9fac68e7"
   },
-  "server/src/utils/googleBooks.ts": {
-    "mtime": 1778080059556,
-    "size": 2853,
-    "hash": "ab53fb6b3a427833"
-  },
   "server/src/utils/libraryConfig.ts": {
     "mtime": 1778388979267,
     "size": 2018,
     "hash": "75d843238838df23"
+  },
+  "server/src/utils/googleBooks.ts": {
+    "mtime": 1778080059556,
+    "size": 2853,
+    "hash": "ab53fb6b3a427833"
   },
   "server/src/utils/processor.ts": {
     "mtime": 1778276181818,
@@ -3705,9 +3705,9 @@
     "hash": "28dd712e3f81691e"
   },
   "server/src/utils/scanner.ts": {
-    "mtime": 1778395532850,
-    "size": 20780,
-    "hash": "ed035446269d8eed"
+    "mtime": 1778524339106,
+    "size": 20790,
+    "hash": "613fa3ff0166b06a"
   },
   "server/src/utils/usernames.ts": {
     "mtime": 1777886221939,
