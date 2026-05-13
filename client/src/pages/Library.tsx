@@ -32,13 +32,13 @@ import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import AppLogo from "../components/AppLogo";
 import BookCard from "../components/BookCard";
-import BookMetadataModal from "../components/BookMetadataModal";
+import BookMetadataModal, { type MetadataBook } from "../components/BookMetadataModal";
 import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { usePlayer } from "../context/PlayerContext";
 
-interface LibraryBook {
+interface LibraryBook extends MetadataBook {
   id: string;
   title: string;
   subtitle?: string | null;
@@ -246,7 +246,7 @@ const Library = () => {
 
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [matchBook, setMatchBook] = useState<LibraryBook | null>(null);
+  const [matchBook, setMatchBook] = useState<MetadataBook | null>(null);
   const [actionBook, setActionBook] = useState<LibraryBook | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
   const [duplicates, setDuplicates] = useState<LibraryBook[]>([]);
@@ -255,7 +255,7 @@ const Library = () => {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
   const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
-  const [matchQueue, setMatchQueue] = useState<LibraryBook[]>([]);
+  const [matchQueue, setMatchQueue] = useState<MetadataBook[]>([]);
   const [matchQueueIndex, setMatchQueueIndex] = useState(0);
   const [tagWriteProgress, setTagWriteProgress] = useState<{
     current: number;
@@ -787,14 +787,25 @@ const Library = () => {
     setMatchQueueIndex(0);
   };
 
-  const advanceMetadataQueue = async () => {
+  const updateQueuedBook = (updatedBook?: MetadataBook) => {
+    if (!updatedBook) return matchQueue;
+
+    const nextQueue = matchQueue.map((queuedBook) =>
+      queuedBook.id === updatedBook.id ? { ...queuedBook, ...updatedBook } : queuedBook,
+    );
+    setMatchQueue(nextQueue);
+    return nextQueue;
+  };
+
+  const advanceMetadataQueue = async (updatedBook?: MetadataBook) => {
+    const nextQueue = updateQueuedBook(updatedBook);
     const nextIndex = matchQueueIndex + 1;
-    if (matchQueue.length > 0 && nextIndex < matchQueue.length) {
+    if (nextQueue.length > 0 && nextIndex < nextQueue.length) {
       setMatchQueueIndex(nextIndex);
-      setMatchBook(matchQueue[nextIndex]);
+      setMatchBook(nextQueue[nextIndex]);
       setSelectedBookIds((current) => {
         const next = new Set(current);
-        next.delete(matchQueue[matchQueueIndex].id);
+        next.delete(nextQueue[matchQueueIndex].id);
         return next;
       });
       return;

@@ -2170,6 +2170,12 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
     const updatedBook = await prisma.book.update({
       where: { id: bookId },
       data: updateData,
+      include: {
+        author: true,
+        series: true,
+        library: true,
+        audioFiles: { orderBy: { index: "asc" } },
+      },
     });
 
     invalidateFilterOptionsCache();

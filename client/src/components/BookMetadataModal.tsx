@@ -5,11 +5,12 @@ import { io } from "socket.io-client";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 
-type MetadataBook = {
+export type MetadataBook = {
   id: string;
   title: string;
   subtitle?: string | null;
   author: { name: string };
+  library?: { id: string; name: string };
   narrator?: string | null;
   series?: { name: string } | null;
   sequence?: number | null;
@@ -24,6 +25,7 @@ type MetadataBook = {
   abridged?: boolean | null;
   duration: number;
   folderPath?: string | null;
+  coverPath?: string;
 };
 
 type CandidateMetadata = {
@@ -59,7 +61,7 @@ type MatchCandidate = {
 interface BookMetadataModalProps {
   book: MetadataBook;
   onClose: () => void;
-  onApplied: () => Promise<void> | void;
+  onApplied: (updatedBook?: MetadataBook) => Promise<void> | void;
   initialTab?: "edit" | "fetch";
   closeAfterSave?: boolean;
   queuePosition?: {
@@ -241,6 +243,7 @@ const BookMetadataModal = ({
   onQueuePrevious,
   onQueueNext,
 }: BookMetadataModalProps) => {
+  const [currentBook, setCurrentBook] = useState<MetadataBook>(book);
   const [activeTab, setActiveTab] = useState<"edit" | "fetch">(initialTab);
   const [provider, setProvider] = useState<MetadataProvider>("audible");
   const [query, setQuery] = useState(book.asin || book.title);
@@ -283,13 +286,46 @@ const BookMetadataModal = ({
     });
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    setCurrentBook(book);
+    setQuery(book.asin || book.title);
+    setAuthorSearch(book.author.name);
+    setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
+    setEditFields(buildFieldsFromBook(book));
+
+    const loadFullBook = async () => {
+      try {
+        const res = await api.get<MetadataBook>(`/library/${book.id}`);
+        if (cancelled) return;
+
+        setCurrentBook(res.data);
+        setQuery(res.data.asin || res.data.title);
+        setAuthorSearch(res.data.author.name);
+        setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
+        setEditFields(buildFieldsFromBook(res.data));
+      } catch {
+        if (!cancelled) {
+          setError("Failed to load current book metadata");
+        }
+      }
+    };
+
+    void loadFullBook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [book]);
+
   const runSearch = async (event?: FormEvent, providerOverride: MetadataProvider = provider) => {
     event?.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      const res = await api.post(`/admin/books/${book.id}/match/search`, {
+      const res = await api.post(`/admin/books/${currentBook.id}/match/search`, {
         query,
         author: authorSearch,
         provider: providerOverride,
@@ -340,7 +376,7 @@ const BookMetadataModal = ({
     const handleWriteTagsProgress = (job: WriteTagsJob) => {
       writeTagsJobsRef.current.set(job.id, job);
 
-      if (job.bookId === book.id) {
+      if (job.bookId === currentBook.id) {
         setWriteTagsJob(job);
       }
 
@@ -359,7 +395,7 @@ const BookMetadataModal = ({
       socket.off("writeTagsProgress", handleWriteTagsProgress);
       socket.disconnect();
     };
-  }, [book.id]);
+  }, [currentBook.id]);
 
   useEffect(() => {
     if (!writingTags || !writeTagsJob) return;
@@ -393,12 +429,15 @@ const BookMetadataModal = ({
     setError("");
 
     try {
-      await api.post(`/admin/books/${book.id}/match/apply`, {
+      const res = await api.post<MetadataBook>(`/admin/books/${currentBook.id}/match/apply`, {
         selectedFields,
         fields: fetchFields,
         markForReview,
       });
-      await onApplied();
+      setCurrentBook(res.data);
+      setEditFields(buildFieldsFromBook(res.data));
+      setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
+      await onApplied(res.data);
       if (closeAfterSave) onClose();
     } catch (saveError) {
       setError(getErrorMessage(saveError, "Failed to save fetched metadata"));
@@ -412,11 +451,14 @@ const BookMetadataModal = ({
     setError("");
 
     try {
-      await api.patch(`/admin/books/${book.id}/metadata`, {
+      const res = await api.patch<MetadataBook>(`/admin/books/${currentBook.id}/metadata`, {
         ...editFields,
         tags: mergeReviewTag(editFields.tags, markForReview),
       });
-      await onApplied();
+      setCurrentBook(res.data);
+      setEditFields(buildFieldsFromBook(res.data));
+      setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
+      await onApplied(res.data);
       if (closeAfterSave) onClose();
     } catch (saveError) {
       setError(getErrorMessage(saveError, "Failed to update book metadata"));
@@ -432,7 +474,7 @@ const BookMetadataModal = ({
     setError("");
 
     try {
-      const startResponse = await api.post<WriteTagsJob>(`/admin/books/${book.id}/write-tags`);
+      const startResponse = await api.post<WriteTagsJob>(`/admin/books/${currentBook.id}/write-tags`);
       let currentJob = startResponse.data;
       writeTagsJobsRef.current.set(currentJob.id, currentJob);
       setWriteTagsJob(currentJob);
@@ -462,7 +504,7 @@ const BookMetadataModal = ({
         <div className="modal-header">
           <div>
             <h2>Manage Metadata</h2>
-            <p className="book-match-subtitle">{book.title}</p>
+            <p className="book-match-subtitle">{currentBook.title}</p>
             {queuePosition && queuePosition.total > 1 && (
               <p className="book-match-queue-status">
                 Title {queuePosition.current} of {queuePosition.total}
@@ -813,15 +855,15 @@ const BookMetadataModal = ({
           </>
         ) : (
           <div className="metadata-edit-form">
-            {book.folderPath && (
+            {currentBook.folderPath && (
               <div className="metadata-path-row">
                 <div className="metadata-path-label">File Path</div>
                 <input
                   className="form-control metadata-path-input"
-                  value={book.folderPath}
+                  value={currentBook.folderPath}
                   readOnly
                   aria-readonly="true"
-                  title={book.folderPath}
+                  title={currentBook.folderPath}
                 />
               </div>
             )}
