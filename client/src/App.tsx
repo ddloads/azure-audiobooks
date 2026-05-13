@@ -10,47 +10,45 @@ import DuplicatesPage from "./pages/DuplicatesPage";
 import BookDetailsPage from "./pages/BookDetailsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import Player from "./components/Player";
+import InstallPrompt from "./components/InstallPrompt";
+import MobilePrivateShell from "./mobile/MobileLayout";
+import MobileLibrary from "./mobile/MobileLibrary";
+import MobileBookDetails from "./mobile/MobileBookDetails";
+import MobileMenu from "./mobile/MobileMenu";
+import { useIsMobile } from "./hooks/useIsMobile";
 import "./styles/globals.css";
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-
-  if (loading) return (
-    <div className="app-loading">
-      <div className="app-loading-spinner" />
-    </div>
-  );
+  if (loading) return <div className="app-loading"><div className="app-loading-spinner" /></div>;
   if (!user) return <Navigate to="/login" />;
-
   return <>{children}</>;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
-
-  if (loading) return (
-    <div className="app-loading">
-      <div className="app-loading-spinner" />
-    </div>
-  );
+  if (loading) return <div className="app-loading"><div className="app-loading-spinner" /></div>;
   if (!user) return <Navigate to="/login" />;
   if (user.role !== "ADMIN") return <Navigate to="/" replace />;
-
   return <>{children}</>;
 };
 
-function AppRoutes() {
+function MobileRoutes() {
   return (
-    <>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      {/* All private pages share the MobilePrivateShell (bottom nav + player) */}
+      <Route element={<MobilePrivateShell />}>
+        <Route path="/" element={<MobileLibrary />} />
+        <Route path="/book/:bookId" element={<MobileBookDetails />} />
+        <Route path="/menu" element={<MobileMenu />} />
         <Route
-          path="/"
+          path="/settings"
           element={
-            <PrivateRoute>
-              <Library />
-            </PrivateRoute>
+            <AdminRoute>
+              <AdminSettingsPage />
+            </AdminRoute>
           }
         />
         <Route
@@ -61,26 +59,31 @@ function AppRoutes() {
             </AdminRoute>
           }
         />
-        <Route
-          path="/book/:bookId"
-          element={
-            <PrivateRoute>
-              <BookDetailsPage />
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/settings"
-          element={
-            <AdminRoute>
-              <AdminSettingsPage />
-            </AdminRoute>
-          }
-        />
+      </Route>
+    </Routes>
+  );
+}
+
+function DesktopRoutes() {
+  return (
+    <>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/" element={<PrivateRoute><Library /></PrivateRoute>} />
+        <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
+        <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
+        <Route path="/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
       </Routes>
       <Player />
+      <InstallPrompt />
     </>
   );
+}
+
+function AppRoutes() {
+  const isMobile = useIsMobile();
+  return isMobile ? <MobileRoutes /> : <DesktopRoutes />;
 }
 
 function App() {

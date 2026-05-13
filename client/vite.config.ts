@@ -14,13 +14,17 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'azure-logo.png', 'icons.svg'],
+      devOptions: { enabled: true },
       manifest: {
         name: 'Azure Audiobook Server',
         short_name: 'Azure',
         description: 'A premium self-hosted audiobook server',
+        start_url: '/',
+        scope: '/',
         theme_color: '#060914',
         background_color: '#060914',
         display: 'standalone',
+        orientation: 'portrait',
         icons: [
           {
             src: 'azure-logo.png',
