@@ -2,6 +2,7 @@
   "name": "audiobook-server-monorepo",
   "version": "1.0.0",
   "scripts": {
+    "start": "npm run dev",
     "start:server": "cd server && npm run dev",
     "start:client": "cd client && npm run dev",
     "start:client:host": "cd client && npm run dev -- --host 0.0.0.0",

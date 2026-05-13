@@ -94,6 +94,12 @@ const splitFacetValues = (values: Array<string | null>) =>
     ),
   ).sort((a, b) => a.localeCompare(b));
 
+const hasTag = (value: string | null | undefined, tagName: string) =>
+  (value ?? "")
+    .split(",")
+    .map((tag) => tag.trim().toLowerCase())
+    .includes(tagName.toLowerCase());
+
 const FILTER_OPTIONS_CACHE_TTL_MS = 30_000;
 let filterOptionsCache:
   | {
@@ -145,6 +151,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     const hasIsbn = getQueryBoolean(req.query.hasIsbn);
     const fileType = getQueryString(req.query.fileType);
     const listeningStatus = getQueryString(req.query.listeningStatus);
+    const matchStatus = getQueryString(req.query.matchStatus);
     const duplicatesOnly = getQueryBoolean(req.query.duplicatesOnly);
     const search = getQueryString(req.query.search);
     const sortBy = getQueryString(req.query.sortBy) || "newest";
@@ -288,12 +295,18 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         )
       : books;
     const normalizedBooks = searchFilteredBooks.map(normalizeLibraryBook);
+    const matchFilteredBooks =
+      matchStatus === "matched"
+        ? normalizedBooks.filter((book) => hasTag(book.tags, "matched"))
+        : matchStatus === "unmatched"
+          ? normalizedBooks.filter((book) => !hasTag(book.tags, "matched"))
+          : normalizedBooks;
     const filteredBooks =
       cover === "with"
-        ? normalizedBooks.filter((book) => hasAvailableCover(book.coverPath))
+        ? matchFilteredBooks.filter((book) => hasAvailableCover(book.coverPath))
         : cover === "missing"
-          ? normalizedBooks.filter((book) => !hasAvailableCover(book.coverPath))
-          : normalizedBooks;
+          ? matchFilteredBooks.filter((book) => !hasAvailableCover(book.coverPath))
+          : matchFilteredBooks;
 
     res.json(filteredBooks);
   } catch (error) {

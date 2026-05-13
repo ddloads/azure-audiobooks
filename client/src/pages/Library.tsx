@@ -126,6 +126,7 @@ type LibraryFilters = {
   abridged: string;
   fileType: string;
   listeningStatus: string;
+  matchStatus: string;
   duplicates: string;
 };
 
@@ -148,6 +149,7 @@ const emptyFilters = (): LibraryFilters => ({
   abridged: "all",
   fileType: "all",
   listeningStatus: "all",
+  matchStatus: "all",
   duplicates: "all",
 });
 
@@ -301,12 +303,13 @@ const Library = () => {
     abridged: filters.abridged !== "all" ? filters.abridged : undefined,
     fileType: filters.fileType !== "all" ? filters.fileType : undefined,
     listeningStatus: filters.listeningStatus !== "all" ? filters.listeningStatus : undefined,
+    matchStatus: filters.matchStatus !== "all" ? filters.matchStatus : undefined,
     duplicatesOnly: filters.duplicates === "true" ? true : undefined,
   });
 
   const activeFilterCount = useMemo(() =>
     Object.entries(filters).filter(([key, value]) => {
-      if (["libraryId", "authorId", "seriesId", "cover", "hasAsin", "hasIsbn", "abridged", "fileType", "listeningStatus", "duplicates"].includes(key)) {
+      if (["libraryId", "authorId", "seriesId", "cover", "hasAsin", "hasIsbn", "abridged", "fileType", "listeningStatus", "matchStatus", "duplicates"].includes(key)) {
         return value !== "all";
       }
       return value.trim().length > 0;
@@ -1210,6 +1213,16 @@ const Library = () => {
                   <option value="not_started">Not started</option>
                   <option value="in_progress">In progress</option>
                   <option value="finished">Finished</option>
+                </select>
+              </div>
+            </label>
+            <label className="filter-field">
+              <span>Match status</span>
+              <div className="select-wrap">
+                <select className="form-control" value={filters.matchStatus} onChange={(e) => updateFilter("matchStatus", e.target.value)}>
+                  <option value="all">Any match status</option>
+                  <option value="matched">Matched</option>
+                  <option value="unmatched">Unmatched</option>
                 </select>
               </div>
             </label>

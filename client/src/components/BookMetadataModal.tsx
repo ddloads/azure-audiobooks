@@ -804,7 +804,7 @@ const BookMetadataModal = ({
                       ) : (
                         <Check size={16} />
                       )}
-                      Submit Selected Fields
+                      Submit
                     </button>
                   </div>
                 </div>

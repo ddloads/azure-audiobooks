@@ -13,10 +13,11 @@ const normalizeComparableTitle = (value: string | null | undefined) =>
 
 const stripLeadingBookMarker = (value: string) =>
   value
-    .replace(/^\((?:book|ebook|audiobook)\s*\d+\)\s*/i, "")
-    .replace(/^\((?:book|ebook|audiobook)\)\s*/i, "")
-    .replace(/^(?:book|ebook|audiobook)\s*\d+\s*[:\-)\]]\s*/i, "")
-    .replace(/^(?:book|ebook|audiobook)\s*[:\-]\s*/i, "");
+    .replace(/^\((?:book|block|ebook|audiobook)\s*\d+\)\s*/i, "")
+    .replace(/^\((?:book|block|ebook|audiobook)\)\s*/i, "")
+    .replace(/^(?:book|block|ebook|audiobook)\s*\d+\s*[:\-)\]]\s*/i, "")
+    .replace(/^(?:book|block|ebook|audiobook)\s*\d+\s+/i, "")
+    .replace(/^(?:book|block|ebook|audiobook)\s*[:\-]\s*/i, "");
 
 const stripTrackPrefix = (value: string) =>
   value

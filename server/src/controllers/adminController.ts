@@ -265,6 +265,7 @@ const toNullableNumber = (value: unknown) => {
 };
 
 const REVIEW_TAG = "review";
+const MATCHED_TAG = "matched";
 
 const normalizeTagList = (value: unknown) => {
   if (typeof value !== "string") return [];
@@ -288,12 +289,13 @@ const normalizeTagList = (value: unknown) => {
 
 const serializeTagList = (tags: string[]) => (tags.length > 0 ? tags.join(", ") : null);
 
-const mergeReviewTag = (baseTags: unknown, includeReviewTag: boolean) => {
+const mergeManagedTags = (baseTags: unknown, managedTags: string[]) => {
   const tags = normalizeTagList(baseTags);
-  if (!includeReviewTag) return tags;
 
-  if (!tags.some((tag) => tag.toLowerCase() === REVIEW_TAG)) {
-    tags.push(REVIEW_TAG);
+  for (const managedTag of managedTags) {
+    if (!tags.some((tag) => tag.toLowerCase() === managedTag)) {
+      tags.push(managedTag);
+    }
   }
 
   return tags;
@@ -2002,9 +2004,10 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
     const bookHasReviewTag = normalizeTagList(book.tags).some((tag) => tag.toLowerCase() === REVIEW_TAG);
     const keepReviewTag = markForReview || bookHasReviewTag;
 
-    if (selectedFields.tags || keepReviewTag) {
+    const managedTags = [MATCHED_TAG, ...(keepReviewTag ? [REVIEW_TAG] : [])];
+    if (selectedFields.tags || managedTags.length > 0) {
       const baseTags = selectedFields.tags ? sourceFields.tags : book.tags;
-      updateData.tags = serializeTagList(mergeReviewTag(baseTags, keepReviewTag));
+      updateData.tags = serializeTagList(mergeManagedTags(baseTags, managedTags));
     }
 
     if (selectedFields.imageUrl) {

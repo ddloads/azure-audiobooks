@@ -49,7 +49,9 @@
       "Bash(cat postcss.config.mjs)",
       "Bash(cat vite.config.ts)",
       "Bash(cat vite.config.js)",
-      "PowerShell(Get-ChildItem \"E:\\\\Software Dev\\\\Azure\\\\client\\\\node_modules\" -Directory | Where-Object { $_.Name -match \"tailwind|wind|unocss|atomic\" } | Select-Object Name; Get-ChildItem \"E:\\\\Software Dev\\\\Azure\\\\client\\\\node_modules\\\\@tailwindcss\" -ErrorAction SilentlyContinue | Select-Object Name)"
+      "PowerShell(Get-ChildItem \"E:\\\\Software Dev\\\\Azure\\\\client\\\\node_modules\" -Directory | Where-Object { $_.Name -match \"tailwind|wind|unocss|atomic\" } | Select-Object Name; Get-ChildItem \"E:\\\\Software Dev\\\\Azure\\\\client\\\\node_modules\\\\@tailwindcss\" -ErrorAction SilentlyContinue | Select-Object Name)",
+      "Bash(grep -r \"Book.*seriesSequence\\\\|Book\\\\s*\\\\$\\\\|Book\\\\s*{\\\\|sequence\" --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.jsx\" --include=\"*.js\" -n)",
+      "Bash(grep -r \"Book\\\\s*\\\\${.*sequence\\\\|Book.*sequence\\\\|\\\\`Book\" --include=\"*.tsx\" --include=\"*.ts\" -A 2 -B 2)"
     ]
   }
 }
