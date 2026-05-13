@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Headphones, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { BookOpen, Headphones, LayoutGrid, LayoutList, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
@@ -82,7 +82,15 @@ const MobileLibrary = () => {
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
+    (localStorage.getItem('mobile-view-mode') as 'grid' | 'list') || 'grid'
+  );
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const setView = (mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('mobile-view-mode', mode);
+  };
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -350,38 +358,88 @@ const MobileLibrary = () => {
                 {books.length} {books.length === 1 ? 'audiobook' : 'audiobooks'}
                 {(search || activeFilterCount > 0) && ' found'}
               </span>
+              <div className="mobile-view-toggle">
+                <button
+                  className={`mobile-view-toggle-btn${viewMode === 'grid' ? ' active' : ''}`}
+                  onClick={() => setView('grid')}
+                  aria-label="Grid view"
+                >
+                  <LayoutGrid size={14} />
+                </button>
+                <button
+                  className={`mobile-view-toggle-btn${viewMode === 'list' ? ' active' : ''}`}
+                  onClick={() => setView('list')}
+                  aria-label="List view"
+                >
+                  <LayoutList size={14} />
+                </button>
+              </div>
             </div>
-            <div className="mobile-book-grid">
-              {visibleBooks.map(book => {
-                const progress = progressMap.get(book.id);
-                const pct = (progress && book.duration > 0)
-                  ? Math.min(100, Math.round((progress / book.duration) * 100))
-                  : 0;
-                return (
-                  <div
-                    key={book.id}
-                    className="mobile-book-card"
-                    onClick={() => navigate(`/book/${book.id}`)}
-                  >
-                    <div className="mobile-book-cover-wrap">
-                      {book.coverPath
-                        ? <img src={book.coverPath} alt={book.title} loading="lazy" />
-                        : <div className="mobile-book-cover-placeholder"><BookOpen size={28} /></div>
-                      }
-                      {pct > 0 && (
-                        <div className="mobile-book-progress-bar">
-                          <div className="mobile-book-progress-fill" style={{ width: `${pct}%` }} />
-                        </div>
-                      )}
+            {viewMode === 'grid' ? (
+              <div className="mobile-book-grid">
+                {visibleBooks.map(book => {
+                  const progress = progressMap.get(book.id);
+                  const pct = (progress && book.duration > 0)
+                    ? Math.min(100, Math.round((progress / book.duration) * 100))
+                    : 0;
+                  return (
+                    <div
+                      key={book.id}
+                      className="mobile-book-card"
+                      onClick={() => navigate(`/book/${book.id}`)}
+                    >
+                      <div className="mobile-book-cover-wrap">
+                        {book.coverPath
+                          ? <img src={book.coverPath} alt={book.title} loading="lazy" />
+                          : <div className="mobile-book-cover-placeholder"><BookOpen size={28} /></div>
+                        }
+                        {pct > 0 && (
+                          <div className="mobile-book-progress-bar">
+                            <div className="mobile-book-progress-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="mobile-book-meta">
+                        <div className="mobile-book-title">{book.title}</div>
+                        <div className="mobile-book-author">{book.author.name}</div>
+                      </div>
                     </div>
-                    <div className="mobile-book-meta">
-                      <div className="mobile-book-title">{book.title}</div>
-                      <div className="mobile-book-author">{book.author.name}</div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mobile-book-list">
+                {visibleBooks.map(book => {
+                  const progress = progressMap.get(book.id);
+                  const pct = (progress && book.duration > 0)
+                    ? Math.min(100, Math.round((progress / book.duration) * 100))
+                    : 0;
+                  return (
+                    <div
+                      key={book.id}
+                      className="mobile-book-list-item"
+                      onClick={() => navigate(`/book/${book.id}`)}
+                    >
+                      <div className="mobile-book-list-cover">
+                        {book.coverPath
+                          ? <img src={book.coverPath} alt={book.title} loading="lazy" />
+                          : <BookOpen size={22} color="var(--text-subtle)" />
+                        }
+                      </div>
+                      <div className="mobile-book-list-info">
+                        <div className="mobile-book-list-title">{book.title}</div>
+                        <div className="mobile-book-list-author">{book.author.name}</div>
+                        {pct > 0 && (
+                          <div className="mobile-book-list-progress-bar">
+                            <div className="mobile-book-list-progress-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
             {visibleCount < books.length && (
               <div ref={loadMoreRef} className="mobile-load-more">
                 <Loader2 size={20} className="animate-spin" color="var(--text-subtle)" />

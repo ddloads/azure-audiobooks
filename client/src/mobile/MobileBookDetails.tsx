@@ -81,6 +81,7 @@ const MobileBookDetails = () => {
   const [downloading, setDownloading] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [detailsCollapsed, setDetailsCollapsed] = useState(false);
   const [chaptersCollapsed, setChaptersCollapsed] = useState(false);
   const [tracksCollapsed, setTracksCollapsed] = useState(true);
   const [showToolsSheet, setShowToolsSheet] = useState(false);
@@ -389,40 +390,53 @@ const MobileBookDetails = () => {
           </button>
         </div>
 
-        {/* Metadata */}
-        <div className="mobile-details-meta">
-          {book.narrator && (
-            <div className="mobile-details-meta-item">
-              <div className="mobile-details-meta-label">Narrator</div>
-              <div className="mobile-details-meta-value">{book.narrator}</div>
+        {/* Details — collapsible */}
+        <div className="mobile-details-section">
+          <div
+            className="mobile-details-track-header"
+            onClick={() => setDetailsCollapsed(v => !v)}
+          >
+            <div className="mobile-details-section-title" style={{ marginBottom: 0 }}>Details</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {detailsCollapsed ? <ChevronDown size={16} color="var(--text-muted)" /> : <ChevronUp size={16} color="var(--text-muted)" />}
             </div>
-          )}
-          {book.year && (
-            <div className="mobile-details-meta-item">
-              <div className="mobile-details-meta-label">Year</div>
-              <div className="mobile-details-meta-value">{book.year}</div>
-            </div>
-          )}
-          {book.genres && (
-            <div className="mobile-details-meta-item">
-              <div className="mobile-details-meta-label">Genre</div>
-              <div className="mobile-details-meta-value">{book.genres}</div>
-            </div>
-          )}
-          <div className="mobile-details-meta-item">
-            <div className="mobile-details-meta-label">Duration</div>
-            <div className="mobile-details-meta-value">{formatDuration(book.duration)}</div>
           </div>
-          {book.language && (
-            <div className="mobile-details-meta-item">
-              <div className="mobile-details-meta-label">Language</div>
-              <div className="mobile-details-meta-value">{book.language.toUpperCase()}</div>
-            </div>
-          )}
-          {book.publisher && (
-            <div className="mobile-details-meta-item">
-              <div className="mobile-details-meta-label">Publisher</div>
-              <div className="mobile-details-meta-value">{book.publisher}</div>
+          {!detailsCollapsed && (
+            <div className="mobile-details-meta" style={{ marginTop: 12, marginBottom: 0 }}>
+              {book.narrator && (
+                <div className="mobile-details-meta-item">
+                  <div className="mobile-details-meta-label">Narrator</div>
+                  <div className="mobile-details-meta-value">{book.narrator}</div>
+                </div>
+              )}
+              {book.year && (
+                <div className="mobile-details-meta-item">
+                  <div className="mobile-details-meta-label">Year</div>
+                  <div className="mobile-details-meta-value">{book.year}</div>
+                </div>
+              )}
+              {book.genres && (
+                <div className="mobile-details-meta-item">
+                  <div className="mobile-details-meta-label">Genre</div>
+                  <div className="mobile-details-meta-value">{book.genres}</div>
+                </div>
+              )}
+              <div className="mobile-details-meta-item">
+                <div className="mobile-details-meta-label">Duration</div>
+                <div className="mobile-details-meta-value">{formatDuration(book.duration)}</div>
+              </div>
+              {book.language && (
+                <div className="mobile-details-meta-item">
+                  <div className="mobile-details-meta-label">Language</div>
+                  <div className="mobile-details-meta-value">{book.language.toUpperCase()}</div>
+                </div>
+              )}
+              {book.publisher && (
+                <div className="mobile-details-meta-item">
+                  <div className="mobile-details-meta-label">Publisher</div>
+                  <div className="mobile-details-meta-value">{book.publisher}</div>
+                </div>
+              )}
             </div>
           )}
         </div>
