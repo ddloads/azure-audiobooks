@@ -904,7 +904,7 @@ const Library = () => {
         disabled={Boolean(tagWriteProgress)}
       >
         <Sparkles size={15} />
-        Fetch Metadata
+        Match
       </button>
       <button
         className="btn btn-secondary"

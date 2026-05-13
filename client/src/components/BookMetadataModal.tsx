@@ -1,9 +1,10 @@
 import { isAxiosError } from "axios";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, Pencil, Save, Search, Sparkles, X } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Pencil, Save, Search, Sparkles, X } from "lucide-react";
 import { io } from "socket.io-client";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
+import { useIsMobile } from "../hooks/useIsMobile";
 
 export type MetadataBook = {
   id: string;
@@ -243,8 +244,10 @@ const BookMetadataModal = ({
   onQueuePrevious,
   onQueueNext,
 }: BookMetadataModalProps) => {
+  const isMobile = useIsMobile();
   const [currentBook, setCurrentBook] = useState<MetadataBook>(book);
   const [activeTab, setActiveTab] = useState<"edit" | "fetch">(initialTab);
+  const [searchCollapsed, setSearchCollapsed] = useState(false);
   const [provider, setProvider] = useState<MetadataProvider>("audible");
   const [query, setQuery] = useState(book.asin || book.title);
   const [authorSearch, setAuthorSearch] = useState(book.author.name);
@@ -333,6 +336,7 @@ const BookMetadataModal = ({
 
       const candidates: MatchCandidate[] = res.data.candidates ?? [];
       setResults(candidates);
+      if (candidates.length > 0 && isMobile) setSearchCollapsed(true);
 
       if (candidates[0]) {
         const nextFields = buildFieldsFromCandidate(candidates[0]);
@@ -544,14 +548,14 @@ const BookMetadataModal = ({
             onClick={() => setActiveTab("edit")}
           >
             <Pencil size={16} />
-            Edit Metadata
+            Edit
           </button>
           <button
             className={`metadata-tab ${activeTab === "fetch" ? "active" : ""}`}
             onClick={() => setActiveTab("fetch")}
           >
             <Sparkles size={16} />
-            Fetch Metadata
+            Match
           </button>
         </div>
 
@@ -607,6 +611,17 @@ const BookMetadataModal = ({
         {activeTab === "fetch" ? (
           <>
             <form className="book-match-search" onSubmit={runSearch}>
+              {isMobile && (
+                <button
+                  type="button"
+                  className="mobile-search-collapse-btn"
+                  onClick={() => setSearchCollapsed(v => !v)}
+                >
+                  {searchCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                  {searchCollapsed ? 'Search options' : 'Hide options'}
+                </button>
+              )}
+              {(!isMobile || !searchCollapsed) && (
               <div className="book-match-search-grid">
                 <div className="form-group">
                   <label>Provider</label>
@@ -641,6 +656,7 @@ const BookMetadataModal = ({
                   />
                 </div>
               </div>
+              )}
 
               <button className="btn btn-primary book-match-search-btn" type="submit" disabled={loading}>
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
