@@ -4779,6 +4779,17 @@ input[type='range']::-moz-range-thumb {
     max-height: 100%;
   }
 
+  .metadata-modal {
+    max-height: calc(100dvh - 1.5rem);
+    overflow: hidden;
+  }
+
+  .metadata-modal .book-match-results {
+    overflow: auto;
+    min-height: 0;
+    padding-bottom: 0.75rem;
+  }
+
   .book-match-search {
     flex-direction: column;
     align-items: stretch;
@@ -4790,8 +4801,31 @@ input[type='range']::-moz-range-thumb {
     grid-template-columns: 1fr;
   }
 
+  .book-match-results {
+    min-height: 0;
+  }
+
+  .book-match-results-list {
+    max-height: min(42vh, 360px);
+  }
+
+  .book-match-fields,
+  .book-match-field-list {
+    overflow: visible;
+  }
+
   .book-match-select {
     padding-top: 0;
+  }
+
+  .book-match-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    flex-wrap: wrap;
+    background: rgba(15, 23, 42, 0.96);
+    border-top-color: rgba(51, 65, 85, 0.9);
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
   .book-details-container {
