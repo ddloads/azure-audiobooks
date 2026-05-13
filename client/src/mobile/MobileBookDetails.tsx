@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { io } from 'socket.io-client';
 import {
   ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ChevronUp,
-  Database, Download, FileSearch, Loader2, MoreVertical, Pause,
-  Pencil, Play, RefreshCw, Settings, Trash2, Undo,
+  Database, Download, Loader2, MoreVertical, Pause,
+  Pencil, Play, RefreshCw, Trash2, Undo,
 } from 'lucide-react';
 import api from '../api/axios';
 import { getApiBaseUrl, getSocketBaseUrl } from '../api/backend';
