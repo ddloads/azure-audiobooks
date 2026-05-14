@@ -5,6 +5,7 @@ import { isAxiosError } from "axios";
 import {
   BookMarked,
   Boxes,
+  LayoutList,
   Plus,
   RefreshCw,
   LogOut,
@@ -52,7 +53,7 @@ interface LibraryBook extends MetadataBook {
   sequence?: number | null;
 }
 
-type DesktopViewMode = "books" | "series";
+type DesktopViewMode = "books" | "list" | "series";
 
 interface ProgressRecord {
   bookId: string;
@@ -1039,13 +1040,13 @@ const Library = () => {
                 Add Book
               </button>
               <button
-              <button
                 onClick={() => navigate("/files", { state: { from: returnTo } })}
                 className="btn btn-secondary"
               >
                 <FolderOpen size={15} />
                 Files
               </button>
+              <button
                 onClick={() => navigate("/settings", { state: { from: returnTo } })}
                 className="btn btn-secondary library-icon-btn"
               >
@@ -1474,7 +1475,15 @@ const Library = () => {
                   onClick={() => setViewMode("books")}
                 >
                   <BookMarked size={15} />
-                  Books
+                  Grid
+                </button>
+                <button
+                  className={`library-view-toggle-btn${viewMode === "list" ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setViewMode("list")}
+                >
+                  <LayoutList size={15} />
+                  List
                 </button>
                 <button
                   className={`library-view-toggle-btn${viewMode === "series" ? " active" : ""}`}
@@ -1517,6 +1526,68 @@ const Library = () => {
                   </div>
                 </button>
               ))}
+            </div>
+          ) : viewMode === "list" ? (
+            <div className="library-list-view">
+              {visibleBooks.map((book) => {
+                const progress = progressMap.get(book.id);
+                const pct = progress && book.duration > 0
+                  ? Math.min(100, Math.round((progress / book.duration) * 100))
+                  : 0;
+                return (
+                  <div
+                    key={book.id}
+                    className="library-list-row"
+                    onClick={() => {
+                      if (filters.duplicates === "true") {
+                        navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
+                      } else {
+                        navigate(`/book/${book.id}`, { state: { from: returnTo } });
+                      }
+                    }}
+                  >
+                    {user?.role === "ADMIN" && (
+                      <div className="library-list-select" onClick={(event) => event.stopPropagation()}>
+                        <label className="library-list-checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={selectedBookIds.has(book.id)}
+                            onChange={(event) => updateBookSelection(book.id, event.target.checked, false)}
+                            aria-label={`Select ${book.title}`}
+                          />
+                        </label>
+                      </div>
+                    )}
+                    <div className="library-list-cover">
+                      {book.coverPath ? <img src={book.coverPath} alt="" loading="lazy" /> : <BookOpen size={24} />}
+                    </div>
+                    <div className="library-list-main">
+                      <div className="library-list-title">{book.title}</div>
+                      {book.subtitle && <div className="library-list-subtitle">{book.subtitle}</div>}
+                      <div className="library-list-meta">
+                        <span>{book.author.name}</span>
+                        {book.series?.name && <span>{book.series.name}{book.sequence != null ? ` #${book.sequence}` : ""}</span>}
+                        <span>{formatTimeLeft(book.duration).replace(" left", "")}</span>
+                      </div>
+                      {pct > 0 && (
+                        <div className="library-list-progress">
+                          <div className="library-list-progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
+                      {user?.role === "ADMIN" && (
+                        <>
+                          <button className="btn btn-secondary library-list-action-btn" onClick={() => setMatchBook(book)}>Match</button>
+                          <button className="btn btn-secondary library-list-action-btn" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}>Re-Scan</button>
+                          <button className="btn btn-secondary library-list-action-btn" onClick={() => handleFindDuplicates(book)}>Duplicates</button>
+                          <button className="btn btn-danger library-list-action-btn" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}>Delete</button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="library-grid">
@@ -1561,7 +1632,7 @@ const Library = () => {
               ))}
             </div>
           )}
-          {viewMode === "books" && visibleBookCount < books.length && (
+          {viewMode !== "series" && visibleBookCount < books.length && (
             <div className="library-load-more-wrap" ref={loadMoreRef}>
               <button
                 className="btn btn-secondary"
