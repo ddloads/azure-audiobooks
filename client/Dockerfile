@@ -16,7 +16,7 @@ COPY client/ .
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN npx vite build
+RUN npx vite build 2>&1 || (echo "=== VITE BUILD ERROR ABOVE ===" && exit 1)
 
 # Stage 2: Serve with Nginx
 FROM nginx:stable-alpine
