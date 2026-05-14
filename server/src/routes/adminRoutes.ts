@@ -44,6 +44,19 @@ import {
   writeBookMetadataToFile,
 } from "../controllers/adminController";
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
+import {
+  browseFilesystemTree,
+  createFilesystemFolder,
+  deleteFilesystemItems,
+  listFilesystemRoots,
+  listFilesystemTrash,
+  moveFilesystemItems,
+  permanentlyDeleteFilesystemTrash,
+  previewFilesystemOperation,
+  renameFilesystemItem,
+  rescanFilesystemRoot,
+  restoreFilesystemTrash,
+} from "../controllers/filesystemController";
 import { authenticate, authorizeAdmin } from "../middleware/authMiddleware";
 
 const router = Router();
@@ -53,6 +66,17 @@ router.use(authenticate, authorizeAdmin);
 router.get("/dashboard", getAdminDashboard);
 router.get("/tasks", listAdminTasks);
 router.get("/filesystem", browseLibraryFolders);
+router.get("/filesystem/roots", listFilesystemRoots);
+router.get("/filesystem/tree", browseFilesystemTree);
+router.post("/filesystem/preview", previewFilesystemOperation);
+router.post("/filesystem/folder", createFilesystemFolder);
+router.post("/filesystem/rename", renameFilesystemItem);
+router.post("/filesystem/move", moveFilesystemItems);
+router.post("/filesystem/delete", deleteFilesystemItems);
+router.get("/filesystem/trash", listFilesystemTrash);
+router.post("/filesystem/restore", restoreFilesystemTrash);
+router.post("/filesystem/delete-permanently", permanentlyDeleteFilesystemTrash);
+router.post("/filesystem/rescan", rescanFilesystemRoot);
 router.get("/users", listUsers);
 router.post("/users", createUser);
 router.patch("/users/:userId", updateUser);

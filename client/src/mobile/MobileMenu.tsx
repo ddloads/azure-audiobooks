@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { LogOut, RefreshCw, Settings, Upload } from 'lucide-react';
+import { FolderOpen, LogOut, RefreshCw, Settings, Upload } from 'lucide-react';
 import { useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +60,10 @@ const MobileMenu = () => {
       {isAdmin && (
         <div className="mobile-menu-section">
           <span className="mobile-menu-section-label">Admin</span>
+          <button className="mobile-menu-item" onClick={() => navigate('/files', { state: { from: '/' } })}>
+            <FolderOpen size={18} className="mobile-menu-item-icon" />
+            File Manager
+          </button>
           <button className="mobile-menu-item" onClick={() => navigate('/settings', { state: { from: '/' } })}>
             <Settings size={18} className="mobile-menu-item-icon" />
             Admin Settings

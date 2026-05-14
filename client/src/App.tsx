@@ -9,6 +9,7 @@ import Library from "./pages/Library";
 import DuplicatesPage from "./pages/DuplicatesPage";
 import BookDetailsPage from "./pages/BookDetailsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
+import AdminFileManagerPage from "./pages/AdminFileManagerPage";
 import Player from "./components/Player";
 import InstallPrompt from "./components/InstallPrompt";
 import MobilePrivateShell from "./mobile/MobileLayout";
@@ -52,6 +53,14 @@ function MobileRoutes() {
           }
         />
         <Route
+          path="/files"
+          element={
+            <AdminRoute>
+              <AdminFileManagerPage />
+            </AdminRoute>
+          }
+        />
+        <Route
           path="/duplicates"
           element={
             <AdminRoute>
@@ -74,6 +83,7 @@ function DesktopRoutes() {
         <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
         <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
         <Route path="/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+        <Route path="/files" element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
       </Routes>
       <Player />
       <InstallPrompt />

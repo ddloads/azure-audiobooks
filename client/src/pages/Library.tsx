@@ -1039,6 +1039,13 @@ const Library = () => {
                 Add Book
               </button>
               <button
+              <button
+                onClick={() => navigate("/files", { state: { from: returnTo } })}
+                className="btn btn-secondary"
+              >
+                <FolderOpen size={15} />
+                Files
+              </button>
                 onClick={() => navigate("/settings", { state: { from: returnTo } })}
                 className="btn btn-secondary library-icon-btn"
               >
