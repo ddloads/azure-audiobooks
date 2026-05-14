@@ -1,13 +1,12 @@
 # Stage 1: Build React app
-FROM node:22 AS builder
+FROM node:24 AS builder
 
 WORKDIR /app/client
 
-# Copy package files
-COPY client/package.json client/package-lock.json ./
+# Copy only package.json — no lock file so npm resolves native bindings
+# (e.g. rolldown) fresh for the Linux platform instead of using Windows-generated locks
+COPY client/package.json ./
 
-# Install with npm install (not npm ci) to correctly resolve platform-specific
-# native bindings (e.g. rolldown) regardless of what OS generated the lock file
 RUN npm install
 
 # Copy source
@@ -16,7 +15,7 @@ COPY client/ .
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN npx vite build 2>&1 || (echo "=== VITE BUILD ERROR ABOVE ===" && exit 1)
+RUN npx vite build
 
 # Stage 2: Serve with Nginx
 FROM nginx:stable-alpine
