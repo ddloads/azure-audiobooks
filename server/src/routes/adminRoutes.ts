@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   applyBookMatch,
   browseLibraryFolders,
+  checkLibraryStructure,
   completeAudibleCliAuth,
   createBackup,
   createLibrary,
@@ -88,6 +89,7 @@ router.patch("/libraries/:libraryId", updateLibrary);
 router.delete("/libraries/:libraryId", deleteLibrary);
 router.delete("/libraries/:libraryId/purge", purgeLibrary);
 router.post("/libraries/:libraryId/sources", createLibrarySource);
+router.get("/libraries/:libraryId/structure-check", checkLibraryStructure);
 router.patch("/sources/:sourceId", updateLibrarySource);
 router.delete("/sources/:sourceId", deleteLibrarySource);
 

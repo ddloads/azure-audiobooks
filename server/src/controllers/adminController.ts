@@ -728,6 +728,8 @@ export const updateLibrary = async (req: AuthRequest, res: Response): Promise<vo
     const description =
       typeof req.body.description === "string" ? req.body.description.trim() : undefined;
     const isActive = isBoolean(req.body.isActive) ? req.body.isActive : undefined;
+    const folderPatternRaw =
+      typeof req.body.folderPattern === "string" ? req.body.folderPattern.trim() : undefined;
 
     if (name && name !== existingLibrary.name) {
       const duplicate = await prisma.library.findUnique({ where: { name } });
@@ -743,6 +745,7 @@ export const updateLibrary = async (req: AuthRequest, res: Response): Promise<vo
         name: name || undefined,
         description: description === undefined ? undefined : description || null,
         isActive,
+        folderPattern: folderPatternRaw === undefined ? undefined : folderPatternRaw || null,
       },
       include: {
         sources: true,
@@ -2648,5 +2651,108 @@ export const createBackup = async (_req: AuthRequest, res: Response): Promise<vo
   } catch (error) {
     console.error("Create backup error:", error);
     res.status(500).json({ error: "Failed to create backup" });
+  }
+};
+
+// ── Library structure check ──────────────────────────────────────────────────
+
+const checkSegmentMatch = (actual: string, patternSeg: string): boolean => {
+  const literals = patternSeg.split(/\{[^}]+\}/).filter((s) => s.length > 0);
+  if (literals.length === 0) return true;
+  let pos = 0;
+  for (const literal of literals) {
+    const idx = actual.toLowerCase().indexOf(literal.toLowerCase(), pos);
+    if (idx === -1) return false;
+    pos = idx + literal.length;
+  }
+  return true;
+};
+
+const matchesPattern = (
+  folderPath: string,
+  sourceRoots: string[],
+  pattern: string,
+): boolean => {
+  const normFolder = folderPath.replace(/\\/g, "/");
+  const normFolderLower = normFolder.toLowerCase();
+
+  let relPath: string | null = null;
+  for (const root of sourceRoots) {
+    const normRoot = root.replace(/\\/g, "/").replace(/\/$/, "");
+    const normRootLower = normRoot.toLowerCase();
+    if (normFolderLower.startsWith(normRootLower + "/")) {
+      relPath = normFolder.slice(normRoot.length + 1);
+      break;
+    } else if (normFolderLower === normRootLower) {
+      relPath = "";
+      break;
+    }
+  }
+
+  if (relPath === null) return false;
+
+  const relSegs = relPath.split("/").filter(Boolean);
+  const patSegs = pattern.replace(/\\/g, "/").split("/");
+
+  if (relSegs.length !== patSegs.length) return false;
+
+  return relSegs.every((seg, i) => checkSegmentMatch(seg, patSegs[i]));
+};
+
+export const checkLibraryStructure = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const libraryId = getSingleParam(req.params.libraryId);
+    if (!libraryId) {
+      res.status(400).json({ error: "Invalid library id" });
+      return;
+    }
+
+    const library = await prisma.library.findUnique({
+      where: { id: libraryId },
+      include: { sources: { select: { path: true } } },
+    });
+
+    if (!library) {
+      res.status(404).json({ error: "Library not found" });
+      return;
+    }
+
+    if (!library.folderPattern) {
+      res.status(400).json({ error: "No folder pattern configured for this library" });
+      return;
+    }
+
+    const books = await prisma.book.findMany({
+      where: { libraryId },
+      select: {
+        id: true,
+        title: true,
+        folderPath: true,
+        author: { select: { name: true } },
+      },
+      orderBy: { title: "asc" },
+    });
+
+    const sourceRoots = library.sources.map((s) => s.path);
+    const { folderPattern } = library;
+
+    const nonConforming = books
+      .filter((book) => !matchesPattern(book.folderPath, sourceRoots, folderPattern))
+      .map((book) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author.name,
+        folderPath: book.folderPath,
+      }));
+
+    res.json({
+      pattern: folderPattern,
+      total: books.length,
+      conforming: books.length - nonConforming.length,
+      nonConforming,
+    });
+  } catch (error) {
+    console.error("Check library structure error:", error);
+    res.status(500).json({ error: "Failed to check library structure" });
   }
 };

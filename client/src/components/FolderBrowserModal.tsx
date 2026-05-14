@@ -1,6 +1,6 @@
 import { isAxiosError } from "axios";
 import { useEffect, useState } from "react";
-import { ChevronRight, Folder, HardDrive, Loader2, RefreshCw, X } from "lucide-react";
+import { ChevronRight, Folder, HardDrive, Loader2, RefreshCw, Search, X } from "lucide-react";
 import api from "../api/axios";
 
 interface FolderEntry {
@@ -35,10 +35,12 @@ const FolderBrowserModal = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pathInput, setPathInput] = useState(initialPath);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const loadFolders = async (targetPath?: string) => {
     setLoading(true);
     setError("");
+    setSearchQuery("");
 
     try {
       const response = await api.get<FolderBrowserResponse>("/admin/filesystem", {
@@ -123,32 +125,61 @@ const FolderBrowserModal = ({
           <code>{browserData?.currentPath ?? "Select a drive or enter a path to begin browsing."}</code>
         </div>
 
+        {browserData && browserData.directories.length > 0 && (
+          <div className="folder-browser-search">
+            <Search size={14} className="folder-browser-search-icon" />
+            <input
+              className="form-control"
+              placeholder="Filter folders..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                className="folder-browser-search-clear"
+                type="button"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear filter"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="folder-browser-list">
           {loading ? (
             <div className="folder-browser-empty">
               <Loader2 size={18} className="animate-spin" />
               Loading folders...
             </div>
-          ) : browserData?.directories.length ? (
-            browserData.directories.map((directory) => (
-              <button
-                key={directory.path}
-                className="folder-browser-entry"
-                type="button"
-                onClick={() => void loadFolders(directory.path)}
-              >
-                <div className="folder-browser-entry-main">
-                  <Folder size={16} />
-                  <span>{directory.name}</span>
-                </div>
-                <ChevronRight size={16} />
-              </button>
-            ))
-          ) : (
-            <div className="folder-browser-empty">
-              No subfolders found in this location.
-            </div>
-          )}
+          ) : (() => {
+            const filtered = browserData?.directories.filter((d) =>
+              d.name.toLowerCase().includes(searchQuery.toLowerCase()),
+            ) ?? [];
+            return filtered.length > 0 ? (
+              filtered.map((directory) => (
+                <button
+                  key={directory.path}
+                  className="folder-browser-entry"
+                  type="button"
+                  onClick={() => void loadFolders(directory.path)}
+                >
+                  <div className="folder-browser-entry-main">
+                    <Folder size={16} />
+                    <span>{directory.name}</span>
+                  </div>
+                  <ChevronRight size={16} />
+                </button>
+              ))
+            ) : (
+              <div className="folder-browser-empty">
+                {searchQuery
+                  ? `No folders match "${searchQuery}".`
+                  : "No subfolders found in this location."}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

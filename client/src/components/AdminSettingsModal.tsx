@@ -9,6 +9,7 @@ import {
   BookOpen,
   Bug,
   Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
@@ -27,6 +28,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ScanLine,
   Server,
   Settings,
   Shield,
@@ -127,10 +129,25 @@ interface AdminLibrary {
   name: string;
   description?: string | null;
   isActive: boolean;
+  folderPattern?: string | null;
   sources: AdminLibrarySource[];
   _count: {
     books: number;
   };
+}
+
+interface StructureCheckItem {
+  id: string;
+  title: string;
+  author: string;
+  folderPath: string;
+}
+
+interface StructureCheckResult {
+  pattern: string;
+  total: number;
+  conforming: number;
+  nonConforming: StructureCheckItem[];
 }
 
 interface AdminLogEntry {
@@ -343,6 +360,14 @@ const loadOverviewPreferences = (): OverviewPreferences => {
   }
 };
 
+const FOLDER_PATTERNS: Array<{ value: string; label: string }> = [
+  { value: "", label: "None — no structure check" },
+  { value: "{author} - {title}", label: "{Author} - {Title}  (e.g. Douglas Adams - Hitchhiker's Guide)" },
+  { value: "{title}", label: "{Title} only  (e.g. Hitchhiker's Guide)" },
+  { value: "{author}/{title}", label: "{Author}/{Title}  (nested 2 levels)" },
+  { value: "{author}/{series}/{title}", label: "{Author}/{Series}/{Title}  (nested 3 levels)" },
+];
+
 const detectKind = (path: string): string => {
   if (path.startsWith("\\\\") || path.startsWith("//")) return "NETWORK";
   return "LOCAL";
@@ -499,8 +524,12 @@ const AdminSettingsModal = ({
   const [copiedLogKey, setCopiedLogKey] = useState<string | null>(null);
   const [expandedLogKeys, setExpandedLogKeys] = useState<Set<string>>(new Set());
   const [libraryEditDrafts, setLibraryEditDrafts] = useState<
-    Record<string, { name: string; description: string; isActive: boolean }>
+    Record<string, { name: string; description: string; isActive: boolean; folderPattern: string }>
   >({});
+  const [structureCheckResults, setStructureCheckResults] = useState<
+    Record<string, StructureCheckResult | null>
+  >({});
+  const [structureCheckLoading, setStructureCheckLoading] = useState<string | null>(null);
   const [overviewPreferences, setOverviewPreferences] = useState<OverviewPreferences>(() =>
     loadOverviewPreferences(),
   );
@@ -1057,6 +1086,7 @@ const AdminSettingsModal = ({
           name: draft.name.trim(),
           description: draft.description.trim(),
           isActive: draft.isActive,
+          folderPattern: draft.folderPattern,
         });
         showToast({
           title: "Library updated",
@@ -1115,6 +1145,24 @@ const AdminSettingsModal = ({
         });
       }
     });
+  };
+
+  const handleCheckStructure = async (library: AdminLibrary) => {
+    setStructureCheckLoading(library.id);
+    try {
+      const response = await api.get<StructureCheckResult>(
+        `/admin/libraries/${library.id}/structure-check`,
+      );
+      setStructureCheckResults((c) => ({ ...c, [library.id]: response.data }));
+    } catch (checkError) {
+      showToast({
+        title: "Structure check failed",
+        description: getErrorMessage(checkError, "Failed to check library structure"),
+        tone: "error",
+      });
+    } finally {
+      setStructureCheckLoading(null);
+    }
   };
 
   const handleCreateSource = async (libraryId: string) => {
@@ -2072,6 +2120,9 @@ const AdminSettingsModal = ({
                                 <p className="admin-library-meta-text">
                                   {library._count.books} books · {library.sources.length} source paths
                                   {!library.isActive && <span className="admin-inactive-badge"> · Inactive</span>}
+                                  {library.folderPattern && (
+                                    <span className="admin-pattern-badge"> · <code>{library.folderPattern}</code></span>
+                                  )}
                                 </p>
                               </div>
                               <div className="admin-library-card-actions">
@@ -2088,6 +2139,7 @@ const AdminSettingsModal = ({
                                           name: library.name,
                                           description: library.description ?? "",
                                           isActive: library.isActive,
+                                          folderPattern: library.folderPattern ?? "",
                                         },
                                       }));
                                       setEditingLibraryId(library.id);
@@ -2110,6 +2162,21 @@ const AdminSettingsModal = ({
                                   )}
                                   Scan
                                 </button>
+                                {library.folderPattern && (
+                                  <button
+                                    className="btn btn-secondary"
+                                    type="button"
+                                    disabled={structureCheckLoading === library.id}
+                                    onClick={() => void handleCheckStructure(library)}
+                                  >
+                                    {structureCheckLoading === library.id ? (
+                                      <Loader2 size={14} className="animate-spin" />
+                                    ) : (
+                                      <ScanLine size={14} />
+                                    )}
+                                    Check Structure
+                                  </button>
+                                )}
                                 <button
                                   className="btn admin-danger-btn"
                                   type="button"
@@ -2174,6 +2241,28 @@ const AdminSettingsModal = ({
                                     }))
                                   }
                                 />
+                                <div className="admin-library-pattern-row">
+                                  <label className="admin-field-label">
+                                    Folder structure model
+                                    <small className="admin-field-hint">Expected naming pattern for book folders</small>
+                                  </label>
+                                  <select
+                                    className="form-control"
+                                    value={libraryEditDrafts[library.id].folderPattern}
+                                    onChange={(e) =>
+                                      setLibraryEditDrafts((c) => ({
+                                        ...c,
+                                        [library.id]: { ...c[library.id], folderPattern: e.target.value },
+                                      }))
+                                    }
+                                  >
+                                    {FOLDER_PATTERNS.map((p) => (
+                                      <option key={p.value} value={p.value}>
+                                        {p.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
                                 <div className="admin-library-edit-footer">
                                   <label className="admin-checkbox">
                                     <input
@@ -2353,6 +2442,44 @@ const AdminSettingsModal = ({
                                 </button>
                               </div>
                             </div>
+
+                            {structureCheckResults[library.id] !== undefined && (
+                              <div className="structure-check-panel">
+                                {(() => {
+                                  const result = structureCheckResults[library.id];
+                                  if (!result) return null;
+                                  return (
+                                    <>
+                                      <div className="structure-check-summary">
+                                        {result.nonConforming.length === 0 ? (
+                                          <span className="structure-check-ok">
+                                            <CheckCircle2 size={15} />
+                                            All {result.total} folders match <code>{result.pattern}</code>
+                                          </span>
+                                        ) : (
+                                          <span className="structure-check-issues">
+                                            <ScanLine size={15} />
+                                            {result.conforming} of {result.total} conform · <strong>{result.nonConforming.length} don&apos;t match</strong> <code>{result.pattern}</code>
+                                          </span>
+                                        )}
+                                      </div>
+                                      {result.nonConforming.length > 0 && (
+                                        <div className="structure-check-list">
+                                          {result.nonConforming.map((item) => (
+                                            <div key={item.id} className="structure-check-item">
+                                              <div className="structure-check-item-title">
+                                                {item.title} <span className="structure-check-item-author">— {item.author}</span>
+                                              </div>
+                                              <div className="structure-check-item-path">{item.folderPath}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
                           </div>
                         );
                       })}
