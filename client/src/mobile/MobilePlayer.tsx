@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Moon, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Moon, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 
 interface Props {
@@ -112,7 +112,7 @@ const MobilePlayer = ({ onClose }: Props) => {
           <ChevronLeft size={30} />
         </button>
         <button className="mobile-player-ctrl-btn" onClick={() => skipBackward(30)} aria-label="Skip back 30s">
-          <SkipBack size={26} />
+          <RotateCcw size={26} />
           <span className="mobile-player-ctrl-label">30</span>
         </button>
         <button className="mobile-player-play-btn" onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Play'}>
@@ -122,7 +122,7 @@ const MobilePlayer = ({ onClose }: Props) => {
           }
         </button>
         <button className="mobile-player-ctrl-btn" onClick={() => skipForward(30)} aria-label="Skip forward 30s">
-          <SkipForward size={26} />
+          <RotateCw size={26} />
           <span className="mobile-player-ctrl-label">30</span>
         </button>
         <button className="mobile-player-ctrl-btn" onClick={nextTrack} aria-label="Next track">

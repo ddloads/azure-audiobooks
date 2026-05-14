@@ -1,4 +1,4 @@
-import { BookOpen, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
+import { BookOpen, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 
 interface Props {
@@ -33,7 +33,7 @@ const MobileMiniPlayer = ({ onExpand }: Props) => {
           onClick={(e) => { e.stopPropagation(); skipBackward(30); }}
           aria-label="Skip back 30s"
         >
-          <SkipBack size={18} />
+          <RotateCcw size={18} />
         </button>
         <button
           className="mobile-mini-player-btn"
@@ -50,7 +50,7 @@ const MobileMiniPlayer = ({ onExpand }: Props) => {
           onClick={(e) => { e.stopPropagation(); skipForward(30); }}
           aria-label="Skip forward 30s"
         >
-          <SkipForward size={18} />
+          <RotateCw size={18} />
         </button>
       </div>
 

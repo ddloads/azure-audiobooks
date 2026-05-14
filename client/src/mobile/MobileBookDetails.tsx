@@ -338,7 +338,7 @@ const MobileBookDetails = () => {
 
         <button
           className="mobile-details-author-btn"
-          onClick={() => navigate(`/?search=${encodeURIComponent(book.author.name)}`)}
+          onClick={() => navigate(`/?authorId=${book.author.id}&authorName=${encodeURIComponent(book.author.name)}`)}
         >
           {book.author.name}
         </button>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, Boxes, Headphones, LayoutGrid, LayoutList, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
@@ -51,6 +51,16 @@ const emptyFilters = (): MobileFilters => ({
   sortBy: 'newest',
 });
 
+const getFiltersFromParams = (params: URLSearchParams): MobileFilters => {
+  const base = emptyFilters();
+  const keys = Object.keys(base) as Array<keyof MobileFilters>;
+  keys.forEach((key) => {
+    const value = params.get(key);
+    if (value !== null) base[key] = value;
+  });
+  return base;
+};
+
 const emptyFilterOptions = (): MobileFilterOptions => ({
   libraries: [],
   authors: [],
@@ -72,6 +82,7 @@ const CHUNK_SIZE = 40;
 
 const MobileLibrary = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { playBook } = usePlayer();
   const { showToast } = useToast();
@@ -80,8 +91,8 @@ const MobileLibrary = () => {
   const [filterOptions, setFilterOptions] = useState<MobileFilterOptions>(emptyFilterOptions);
   const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
-  const [filters, setFilters] = useState<MobileFilters>(emptyFilters);
-  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState<MobileFilters>(() => getFiltersFromParams(searchParams));
+  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
@@ -96,6 +107,11 @@ const MobileLibrary = () => {
     setViewMode(mode);
     localStorage.setItem('mobile-view-mode', mode);
   };
+
+  useEffect(() => {
+    setFilters(getFiltersFromParams(searchParams));
+    setSearch(searchParams.get('search') || '');
+  }, [searchParams]);
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -225,12 +241,17 @@ const MobileLibrary = () => {
   };
 
   const updateFilter = (key: keyof MobileFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    const next = new URLSearchParams(searchParams);
+    if (search.trim()) next.set('search', search.trim());
+    if (value && value !== emptyFilters()[key]) next.set(key, value);
+    else next.delete(key);
+    if (key === 'authorId') next.delete('authorName');
+    if (key === 'seriesId') next.delete('seriesName');
+    setSearchParams(next);
   };
 
   const clearFilters = () => {
-    setFilters(emptyFilters());
-    setSearch('');
+    setSearchParams(new URLSearchParams());
   };
 
   const visibleBooks = books.slice(0, visibleCount);
@@ -255,7 +276,10 @@ const MobileLibrary = () => {
 
   const openSeries = (series: { id?: string; name: string }) => {
     if (!series.id) return;
-    setFilters(prev => ({ ...prev, seriesId: series.id ?? 'all' }));
+    const next = new URLSearchParams(searchParams);
+    next.set('seriesId', series.id);
+    next.set('seriesName', series.name);
+    setSearchParams(next);
     setView('grid');
   };
 
