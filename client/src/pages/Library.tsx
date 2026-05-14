@@ -1537,7 +1537,7 @@ const Library = () => {
                 return (
                   <div
                     key={book.id}
-                    className="library-list-row"
+                    className={`library-list-row${user?.role === "ADMIN" ? " library-list-row--admin" : ""}`}
                     onClick={() => {
                       if (filters.duplicates === "true") {
                         navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
@@ -1575,16 +1575,14 @@ const Library = () => {
                         </div>
                       )}
                     </div>
-                    <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
-                      {user?.role === "ADMIN" && (
-                        <>
-                          <button className="btn btn-secondary library-list-icon-btn" title="Match metadata" onClick={() => setMatchBook(book)}><Sparkles size={14} /></button>
-                          <button className="btn btn-secondary library-list-icon-btn" title="Re-scan folder" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}><RefreshCw size={14} /></button>
-                          <button className="btn btn-secondary library-list-icon-btn" title="Find duplicates" onClick={() => handleFindDuplicates(book)}><FileSearch size={14} /></button>
-                          <button className="btn btn-danger library-list-icon-btn" title="Delete" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}><Trash2 size={14} /></button>
-                        </>
-                      )}
-                    </div>
+                    {user?.role === "ADMIN" && (
+                      <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
+                        <button className="btn btn-secondary library-list-icon-btn" title="Match metadata" onClick={() => setMatchBook(book)}><Sparkles size={14} /></button>
+                        <button className="btn btn-secondary library-list-icon-btn" title="Re-scan folder" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}><RefreshCw size={14} /></button>
+                        <button className="btn btn-secondary library-list-icon-btn" title="Find duplicates" onClick={() => handleFindDuplicates(book)}><FileSearch size={14} /></button>
+                        <button className="btn btn-danger library-list-icon-btn" title="Delete" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}><Trash2 size={14} /></button>
+                      </div>
+                    )}
                   </div>
                 );
               })}

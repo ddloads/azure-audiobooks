@@ -5977,7 +5977,7 @@ input[type='range']::-moz-range-thumb {
 
 .library-list-row {
   display: grid;
-  grid-template-columns: auto 54px minmax(0, 1fr) auto;
+  grid-template-columns: 54px minmax(0, 1fr);
   align-items: center;
   gap: 0.875rem;
   min-width: 0;
@@ -5986,6 +5986,10 @@ input[type='range']::-moz-range-thumb {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   cursor: pointer;
+}
+
+.library-list-row--admin {
+  grid-template-columns: auto 54px minmax(0, 1fr) auto;
 }
 
 .library-list-row:hover {
