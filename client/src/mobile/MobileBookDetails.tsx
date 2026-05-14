@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 import {
   ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ChevronUp,
   Database, Download, Loader2, MoreVertical, Pause,
-  Pencil, Play, RefreshCw, Trash2, Undo,
+  Pencil, Play, RefreshCw, Search, Trash2, Undo,
 } from 'lucide-react';
 import api from '../api/axios';
 import { getApiBaseUrl, getSocketBaseUrl } from '../api/backend';
@@ -86,6 +86,7 @@ const MobileBookDetails = () => {
   const [tracksCollapsed, setTracksCollapsed] = useState(true);
   const [showToolsSheet, setShowToolsSheet] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [metadataInitialTab, setMetadataInitialTab] = useState<'edit' | 'fetch'>('edit');
   const [confirmAction, setConfirmAction] = useState<null | 'merge' | 'undo' | 'rescan' | 'cleanup' | 'delete'>(null);
   const [merging, setMerging] = useState(false);
   const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
@@ -284,7 +285,7 @@ const MobileBookDetails = () => {
   return (
     <div className="mobile-book-details">
       {/* Full-width cover with floating topbar */}
-      <div style={{ position: 'relative' }}>
+      <div className="mobile-details-hero">
         {book.coverPath ? (
           <div className="mobile-details-cover-section">
             <img src={book.coverPath} alt={book.title} />
@@ -298,23 +299,26 @@ const MobileBookDetails = () => {
           </div>
         )}
 
-        {/* Topbar floats over cover */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
-          <div className="mobile-details-topbar">
-            <button className="mobile-details-back-btn" onClick={() => navigate(backTarget)}>
-              <ArrowLeft size={18} />
-              Library
+        <div className="mobile-details-topbar">
+          <button
+            className="mobile-details-back-btn"
+            onClick={() => navigate(backTarget)}
+            aria-label="Back to library"
+          >
+            <ArrowLeft size={18} />
+            <span>Library</span>
+          </button>
+          {isAdmin && (
+            <button
+              className="mobile-details-tools-btn"
+              onClick={() => setShowToolsSheet(true)}
+              aria-label="Book tools"
+              aria-haspopup="dialog"
+              aria-expanded={showToolsSheet}
+            >
+              <MoreVertical size={18} />
             </button>
-            {isAdmin && (
-              <button
-                className="mobile-details-tools-btn"
-                onClick={() => setShowToolsSheet(true)}
-                aria-label="Book tools"
-              >
-                <MoreVertical size={18} />
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -519,8 +523,11 @@ const MobileBookDetails = () => {
               <div className="mobile-filter-sheet-handle-bar" />
             </div>
             <div className="mobile-tools-sheet-title">Book Tools</div>
-            <button className="mobile-tools-sheet-item" onClick={() => { setShowToolsSheet(false); setShowMetadataModal(true); }}>
+            <button className="mobile-tools-sheet-item" onClick={() => { setMetadataInitialTab('edit'); setShowToolsSheet(false); setShowMetadataModal(true); }}>
               <Pencil size={18} color="var(--text-muted)" /> Edit Metadata
+            </button>
+            <button className="mobile-tools-sheet-item" onClick={() => { setMetadataInitialTab('fetch'); setShowToolsSheet(false); setShowMetadataModal(true); }}>
+              <Search size={18} color="var(--text-muted)" /> Match Metadata
             </button>
             <button className="mobile-tools-sheet-item" onClick={() => { setShowToolsSheet(false); setConfirmAction('rescan'); }} disabled={merging}>
               <RefreshCw size={18} color="var(--text-muted)" className={merging ? 'animate-spin' : ''} /> Refresh Metadata
@@ -553,7 +560,7 @@ const MobileBookDetails = () => {
           book={book}
           onClose={() => setShowMetadataModal(false)}
           onApplied={() => fetchBookDetails()}
-          initialTab="edit"
+          initialTab={metadataInitialTab}
         />
       )}
 
