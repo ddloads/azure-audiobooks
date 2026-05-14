@@ -1510,7 +1510,7 @@ const Library = () => {
                   type="button"
                   onClick={() => openSeries(series)}
                 >
-                  <div className="series-view-covers">
+                  <div className={`series-view-covers series-view-covers--${Math.min(series.books.length, 4)}`}>
                     {series.books.slice(0, 4).map((book) => (
                       <div key={book.id} className="series-view-cover">
                         {book.coverPath ? <img src={book.coverPath} alt="" /> : <BookOpen size={22} />}
@@ -1578,10 +1578,10 @@ const Library = () => {
                     <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
                       {user?.role === "ADMIN" && (
                         <>
-                          <button className="btn btn-secondary library-list-action-btn" onClick={() => setMatchBook(book)}>Match</button>
-                          <button className="btn btn-secondary library-list-action-btn" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}>Re-Scan</button>
-                          <button className="btn btn-secondary library-list-action-btn" onClick={() => handleFindDuplicates(book)}>Duplicates</button>
-                          <button className="btn btn-danger library-list-action-btn" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}>Delete</button>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Match metadata" onClick={() => setMatchBook(book)}><Sparkles size={14} /></button>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Re-scan folder" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}><RefreshCw size={14} /></button>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Find duplicates" onClick={() => handleFindDuplicates(book)}><FileSearch size={14} /></button>
+                          <button className="btn btn-danger library-list-icon-btn" title="Delete" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}><Trash2 size={14} /></button>
                         </>
                       )}
                     </div>
