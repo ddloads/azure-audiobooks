@@ -148,6 +148,10 @@ const AdminFileManagerPage = () => {
   );
   const singleSelectedEntry = selectedEntries.length === 1 ? selectedEntries[0] : null;
   const isReadOnlyRoot = currentRoot ? !currentRoot.isWritable : true;
+  const currentDirectoryCount = treeData?.directories.length ?? 0;
+  const currentFileCount = treeData?.files.length ?? 0;
+  const protectedEntryCount = treeData?.entries.filter((entry) => entry.isProtected).length ?? 0;
+  const currentTrashCount = trashData?.items.length ?? 0;
 
   const loadRoots = async () => {
     const response = await api.get<{ roots: ManagedRoot[] }>("/admin/filesystem/roots");
@@ -423,24 +427,27 @@ const AdminFileManagerPage = () => {
   })();
 
   return (
-    <div className="admin-settings-page">
-      <div className="card admin-settings-page-shell">
-        <header className="admin-settings-header">
-          <div className="admin-settings-header-copy">
-            <div className="admin-settings-kicker">Admin</div>
-            <h2>File Manager</h2>
-            <p>Manage files only inside configured library roots. Deletes go to managed trash first, and every mutation queues a library rescan.</p>
-            <div className="admin-header-pills">
-              <div className="admin-header-pill">
+    <div className="admin-settings-page file-manager-brand-page">
+      <div className="card admin-settings-page-shell file-manager-brand-shell">
+        <header className="admin-settings-header file-manager-brand-header">
+          <div className="admin-settings-header-copy file-manager-brand-copy">
+            <div className="file-manager-brand-kicker">Admin / Filesystem</div>
+            <h2 className="file-manager-brand-title">Your library, your server, your files.</h2>
+            <p className="file-manager-brand-tagline">
+              Manage configured library roots without stepping outside them. Delete goes to managed trash first.
+              The scanner catches up after every write.
+            </p>
+            <div className="admin-header-pills file-manager-brand-pills">
+              <div className="admin-header-pill file-manager-brand-pill">
                 <HardDrive size={14} />
                 {roots.length} source{roots.length === 1 ? "" : "s"}
               </div>
-              <div className="admin-header-pill">
+              <div className="admin-header-pill file-manager-brand-pill">
                 <ShieldAlert size={14} />
                 Root-bound protection
               </div>
               {currentRoot && (
-                <div className="admin-header-pill">
+                <div className="admin-header-pill file-manager-brand-pill">
                   {currentRoot.isWritable ? "Writable" : "Read-only"}
                 </div>
               )}
@@ -459,16 +466,16 @@ const AdminFileManagerPage = () => {
         </header>
 
         <div className="admin-settings-layout">
-          <aside className="admin-settings-sidebar">
-            <div className="admin-sidebar-card">
-              <div className="admin-sidebar-title">Roots</div>
-              <p>Only configured library sources are visible here. Read-only roots can be browsed but not changed.</p>
+          <aside className="admin-settings-sidebar file-manager-brand-sidebar">
+            <div className="admin-sidebar-card file-manager-brand-sidebar-card">
+              <div className="admin-sidebar-title file-manager-brand-sidebar-title">Source Roots</div>
+              <p>Browse only configured library paths. Read-only roots stay visible, but write actions remain disabled.</p>
             </div>
             <div className="admin-sidebar-nav-label">Source Paths</div>
             {roots.map((root) => (
               <button
                 key={root.sourceId}
-                className={`admin-nav-btn ${root.sourceId === currentRootId ? "admin-nav-btn-active" : ""}`}
+                className={`admin-nav-btn file-manager-root-card ${root.sourceId === currentRootId ? "admin-nav-btn-active" : ""}`}
                 onClick={() => {
                   setCurrentRootId(root.sourceId);
                   setCurrentPath(root.resolvedPath);
@@ -478,10 +485,11 @@ const AdminFileManagerPage = () => {
                 <div>
                   <strong>{getRootLabel(root)}</strong>
                   <small>{root.libraryName}</small>
+                  <small className="file-manager-root-card-meta">{root.isWritable ? "Writable source" : "Read-only source"}</small>
                 </div>
               </button>
             ))}
-            <div className="admin-sidebar-metrics">
+            <div className="admin-sidebar-metrics file-manager-brand-metrics">
               <div>
                 <span>Current mode</span>
                 <strong>{viewMode === "browse" ? "Browse" : "Trash"}</strong>
@@ -494,8 +502,34 @@ const AdminFileManagerPage = () => {
           </aside>
 
           <section className="admin-settings-content">
-            <div className="admin-content-topbar">
-              <div className="admin-content-kicker">Library Root</div>
+            <div className="admin-content-topbar file-manager-brand-topbar">
+              <div className="admin-content-kicker file-manager-brand-topbar-kicker">Library Root</div>
+              <h3 className="file-manager-section-title">
+                {currentRoot ? getRootLabel(currentRoot) : "No source selected"}
+              </h3>
+              <p className="file-manager-section-copy">
+                {viewMode === "browse"
+                  ? "Quietly manage folders and files inside the active root."
+                  : "Restore first. Permanently delete only when the library is settled."}
+              </p>
+              <div className="file-manager-stat-strip">
+                <div className="file-manager-stat-chip">
+                  <span>Folders</span>
+                  <strong>{currentDirectoryCount}</strong>
+                </div>
+                <div className="file-manager-stat-chip">
+                  <span>Files</span>
+                  <strong>{currentFileCount}</strong>
+                </div>
+                <div className="file-manager-stat-chip">
+                  <span>Protected</span>
+                  <strong>{protectedEntryCount}</strong>
+                </div>
+                <div className="file-manager-stat-chip">
+                  <span>Trash</span>
+                  <strong>{currentTrashCount}</strong>
+                </div>
+              </div>
               <div className="file-manager-toolbar">
                 <div className="file-manager-root-picker">
                   <label className="filter-field">
@@ -523,14 +557,14 @@ const AdminFileManagerPage = () => {
 
                 <div className="file-manager-mode-tabs" role="tablist" aria-label="File manager view">
                   <button
-                    className={`btn ${viewMode === "browse" ? "btn-primary" : "btn-secondary"}`}
+                    className={`btn ${viewMode === "browse" ? "btn-primary" : "btn-secondary"} file-manager-mode-btn`}
                     onClick={() => setViewMode("browse")}
                   >
                     <FolderOpen size={15} />
                     Browse
                   </button>
                   <button
-                    className={`btn ${viewMode === "trash" ? "btn-primary" : "btn-secondary"}`}
+                    className={`btn ${viewMode === "trash" ? "btn-primary" : "btn-secondary"} file-manager-mode-btn`}
                     onClick={() => setViewMode("trash")}
                   >
                     <Trash2 size={15} />
@@ -538,12 +572,12 @@ const AdminFileManagerPage = () => {
                   </button>
                 </div>
               </div>
-              {currentRoot && <p>{currentRoot.path}</p>}
+              {currentRoot && <p className="file-manager-root-path">{currentRoot.path}</p>}
             </div>
 
             {viewMode === "browse" && treeData && (
               <>
-                <div className="file-manager-breadcrumbs">
+                <div className="file-manager-breadcrumbs file-manager-brand-breadcrumbs">
                   <button className="btn btn-secondary" onClick={handleNavigateUp} disabled={!treeData.parentPath}>
                     <ChevronUp size={14} />
                     Up
@@ -561,7 +595,7 @@ const AdminFileManagerPage = () => {
                   ))}
                 </div>
 
-                <div className="file-manager-action-bar">
+                <div className="file-manager-action-bar file-manager-brand-action-bar">
                   <div className="file-manager-selection-copy">
                     <strong>{selectedPaths.length}</strong>
                     <span>selected</span>
@@ -595,7 +629,7 @@ const AdminFileManagerPage = () => {
                   </div>
                 </div>
 
-                <div className="file-manager-table">
+                <div className="file-manager-table file-manager-brand-table">
                   <div className="file-manager-table-head">
                     <div />
                     <div>Name</div>
@@ -632,7 +666,7 @@ const AdminFileManagerPage = () => {
 
             {viewMode === "trash" && trashData && (
               <>
-                <div className="file-manager-action-bar">
+                <div className="file-manager-action-bar file-manager-brand-action-bar">
                   <div className="file-manager-selection-copy">
                     <strong>{selectedTrashIds.length}</strong>
                     <span>selected</span>
@@ -654,7 +688,7 @@ const AdminFileManagerPage = () => {
                   </div>
                 </div>
 
-                <div className="file-manager-table">
+                <div className="file-manager-table file-manager-brand-table">
                   <div className="file-manager-table-head file-manager-trash-head">
                     <div />
                     <div>Name</div>
@@ -689,7 +723,9 @@ const AdminFileManagerPage = () => {
             )}
 
             {!loading && roots.length === 0 && (
-              <div className="admin-empty-state">No configured library source roots are available yet.</div>
+              <div className="admin-empty-state file-manager-empty-state">
+                Nothing here yet. Add a library source in settings, then come back to manage it.
+              </div>
             )}
           </section>
         </div>
