@@ -4,9 +4,10 @@ FROM node:22 AS builder
 WORKDIR /app/client
 
 # Copy package files
-COPY client/package.json ./
+COPY client/package.json client/package-lock.json ./
 
-# Fresh install — avoids cross-platform optional dependency issues with rolldown
+# Install with npm install (not npm ci) to correctly resolve platform-specific
+# native bindings (e.g. rolldown) regardless of what OS generated the lock file
 RUN npm install
 
 # Copy source
@@ -15,7 +16,9 @@ COPY client/ .
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
-RUN npx tsc -b
+# tsc -b (build mode) requires composite:true in referenced tsconfigs — use
+# direct project type-check instead, which works without composite
+RUN npx tsc -p tsconfig.app.json --noEmit
 RUN npx vite build
 
 # Stage 2: Serve with Nginx
