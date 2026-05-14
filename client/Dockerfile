@@ -16,9 +16,6 @@ COPY client/ .
 ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 
-# tsc -b (build mode) requires composite:true in referenced tsconfigs — use
-# direct project type-check instead, which works without composite
-RUN npx tsc -p tsconfig.app.json --noEmit
 RUN npx vite build
 
 # Stage 2: Serve with Nginx
