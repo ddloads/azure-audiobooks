@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+**/.tsbuildinfo
+**/.turbo
+**/.vite
+**/.cache
+**/.DS_Store
+**/Thumbs.db
+.git
+.gitignore
+.scratch-*
+.sync
+*.log
+Capture*.PNG
+Screenshot*.jpg
+brand-identity.html
+samsung-Galaxy-S24.jpeg

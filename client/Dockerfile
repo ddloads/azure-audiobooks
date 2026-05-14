@@ -8,8 +8,8 @@ COPY package*.json ./
 COPY client/package*.json ./client/
 
 # Install dependencies
-RUN npm install
-RUN cd client && npm install
+RUN npm ci
+RUN cd client && npm ci
 
 # Copy client source
 COPY client/ ./client/
