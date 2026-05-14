@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
   BookMarked,
+  Boxes,
   Plus,
   RefreshCw,
   LogOut,
@@ -47,7 +48,11 @@ interface LibraryBook extends MetadataBook {
   coverPath?: string;
   library: { id: string; name: string };
   author: { name: string };
+  series?: { id?: string; name: string } | null;
+  sequence?: number | null;
 }
+
+type DesktopViewMode = "books" | "series";
 
 interface ProgressRecord {
   bookId: string;
@@ -254,6 +259,7 @@ const Library = () => {
   const [isActionBusy, setIsActionBusy] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<DesktopViewMode>("books");
   const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
   const [matchQueue, setMatchQueue] = useState<MetadataBook[]>([]);
   const [matchQueueIndex, setMatchQueueIndex] = useState(0);
@@ -730,6 +736,34 @@ const Library = () => {
     () => books.slice(0, visibleBookCount),
     [books, visibleBookCount],
   );
+  const seriesGroups = useMemo(() => {
+    const groups = new Map<string, { id?: string; name: string; books: LibraryBook[] }>();
+    books.forEach((book) => {
+      if (!book.series?.name) return;
+      const key = book.series.id ?? book.series.name;
+      const current = groups.get(key) ?? { id: book.series.id, name: book.series.name, books: [] };
+      current.books.push(book);
+      groups.set(key, current);
+    });
+
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        books: group.books
+          .slice()
+          .sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER) || a.title.localeCompare(b.title)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [books]);
+
+  const openSeries = (series: { id?: string; name: string }) => {
+    if (!series.id) return;
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set("seriesId", series.id);
+    newParams.set("seriesName", series.name);
+    setSearchParams(newParams);
+    setViewMode("books");
+  };
 
   useEffect(() => {
     setVisibleBookCount(INITIAL_BOOK_RENDER_COUNT);
@@ -1420,57 +1454,107 @@ const Library = () => {
         <>
           <div className="library-grid-header">
             <span className="library-grid-count">
-              {books.length} {books.length === 1 ? "audiobook" : "audiobooks"}
+              {viewMode === "series"
+                ? `${seriesGroups.length} ${seriesGroups.length === 1 ? "series" : "series"}`
+                : `${books.length} ${books.length === 1 ? "audiobook" : "audiobooks"}`}
               {search && <span className="library-grid-filter-note"> matching "{search}"</span>}
             </span>
-            {user?.role === "ADMIN" && selectedBooks.length > 0 && (
-              <div className="library-batch-actions">
-                {batchActions}
+            <div className="library-view-actions">
+              <div className="library-view-toggle" aria-label="Library view mode">
+                <button
+                  className={`library-view-toggle-btn${viewMode === "books" ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setViewMode("books")}
+                >
+                  <BookMarked size={15} />
+                  Books
+                </button>
+                <button
+                  className={`library-view-toggle-btn${viewMode === "series" ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setViewMode("series")}
+                >
+                  <Boxes size={15} />
+                  Series
+                </button>
               </div>
-            )}
+              {user?.role === "ADMIN" && selectedBooks.length > 0 && (
+                <div className="library-batch-actions">
+                  {batchActions}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="library-grid">
-            {visibleBooks.map((book) => (
-              <BookCard
-                key={book.id}
-                book={book}
-                progressSeconds={progressMap.get(book.id)}
-                isAdmin={user?.role === "ADMIN"}
-                isSelectable={user?.role === "ADMIN"}
-                isSelected={selectedBookIds.has(book.id)}
-                selectionControlsActive={selectedBookIds.size > 0}
-                onSelect={(selected, shiftKey) => updateBookSelection(book.id, selected, shiftKey)}
-                onMatch={() => setMatchBook(book)}
-                onRescan={() => {
-                  setActionBook(book);
-                  setConfirmAction("rescan");
-                }}
-                onFindDuplicates={() => handleFindDuplicates(book)}
-                onDelete={() => {
-                  setActionBook(book);
-                  setDeleteFiles(false);
-                  setConfirmAction("delete");
-                }}
-                onMarkFinished={() =>
-                  void handleMarkBookFinished({
-                    id: book.id,
-                    title: book.title,
-                    duration: book.duration,
-                  })
-                }
-                onRemoveFromContinueListening={() =>
-                  void handleRemoveBookFromContinueListening({
-                    id: book.id,
-                    title: book.title,
-                  })
-                }
-                onClickOverride={filters.duplicates === "true" ? () => {
-                  navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
-                } : undefined}
-              />
-            ))}
-          </div>
-          {visibleBookCount < books.length && (
+          {viewMode === "series" ? (
+            <div className="series-view-grid">
+              {seriesGroups.map((series) => (
+                <button
+                  key={series.id ?? series.name}
+                  className="series-view-card"
+                  type="button"
+                  onClick={() => openSeries(series)}
+                >
+                  <div className="series-view-covers">
+                    {series.books.slice(0, 4).map((book) => (
+                      <div key={book.id} className="series-view-cover">
+                        {book.coverPath ? <img src={book.coverPath} alt="" /> : <BookOpen size={22} />}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="series-view-info">
+                    <div className="series-view-title">{series.name}</div>
+                    <div className="series-view-count">{series.books.length} {series.books.length === 1 ? "book" : "books"}</div>
+                    <div className="series-view-preview">
+                      {series.books.slice(0, 3).map((book) => book.title).join(" / ")}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="library-grid">
+              {visibleBooks.map((book) => (
+                <BookCard
+                  key={book.id}
+                  book={book}
+                  progressSeconds={progressMap.get(book.id)}
+                  isAdmin={user?.role === "ADMIN"}
+                  isSelectable={user?.role === "ADMIN"}
+                  isSelected={selectedBookIds.has(book.id)}
+                  selectionControlsActive={selectedBookIds.size > 0}
+                  onSelect={(selected, shiftKey) => updateBookSelection(book.id, selected, shiftKey)}
+                  onMatch={() => setMatchBook(book)}
+                  onRescan={() => {
+                    setActionBook(book);
+                    setConfirmAction("rescan");
+                  }}
+                  onFindDuplicates={() => handleFindDuplicates(book)}
+                  onDelete={() => {
+                    setActionBook(book);
+                    setDeleteFiles(false);
+                    setConfirmAction("delete");
+                  }}
+                  onMarkFinished={() =>
+                    void handleMarkBookFinished({
+                      id: book.id,
+                      title: book.title,
+                      duration: book.duration,
+                    })
+                  }
+                  onRemoveFromContinueListening={() =>
+                    void handleRemoveBookFromContinueListening({
+                      id: book.id,
+                      title: book.title,
+                    })
+                  }
+                  onClickOverride={filters.duplicates === "true" ? () => {
+                    navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
+                  } : undefined}
+                />
+              ))}
+            </div>
+          )}
+          {viewMode === "books" && visibleBookCount < books.length && (
             <div className="library-load-more-wrap" ref={loadMoreRef}>
               <button
                 className="btn btn-secondary"

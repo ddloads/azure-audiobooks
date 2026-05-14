@@ -259,9 +259,11 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         folderPath: true,
         series: {
           select: {
+            id: true,
             name: true,
           },
         },
+        sequence: true,
         narrator: true,
         publisher: true,
         genres: true,

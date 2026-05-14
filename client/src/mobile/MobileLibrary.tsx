@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Headphones, LayoutGrid, LayoutList, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { BookOpen, Boxes, Headphones, LayoutGrid, LayoutList, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
@@ -15,6 +15,8 @@ interface Book {
   author: { name: string };
   coverPath?: string;
   duration: number;
+  series?: { id?: string; name: string } | null;
+  sequence?: number | null;
 }
 
 interface ProgressRecord {
@@ -40,16 +42,19 @@ interface ScanProgress {
 const emptyFilters = (): MobileFilters => ({
   libraryId: 'all',
   authorId: 'all',
+  seriesId: 'all',
   genre: '',
   narrator: '',
   yearFrom: '',
   listeningStatus: 'all',
+  cover: 'all',
   sortBy: 'newest',
 });
 
 const emptyFilterOptions = (): MobileFilterOptions => ({
   libraries: [],
   authors: [],
+  series: [],
   genres: [],
   narrators: [],
   years: [],
@@ -82,12 +87,12 @@ const MobileLibrary = () => {
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() =>
-    (localStorage.getItem('mobile-view-mode') as 'grid' | 'list') || 'grid'
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'series'>(() =>
+    (localStorage.getItem('mobile-view-mode') as 'grid' | 'list' | 'series') || 'grid'
   );
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const setView = (mode: 'grid' | 'list') => {
+  const setView = (mode: 'grid' | 'list' | 'series') => {
     setViewMode(mode);
     localStorage.setItem('mobile-view-mode', mode);
   };
@@ -96,10 +101,12 @@ const MobileLibrary = () => {
     let n = 0;
     if (filters.libraryId !== 'all') n++;
     if (filters.authorId !== 'all') n++;
+    if (filters.seriesId !== 'all') n++;
     if (filters.genre) n++;
     if (filters.narrator) n++;
     if (filters.yearFrom) n++;
     if (filters.listeningStatus !== 'all') n++;
+    if (filters.cover !== 'all') n++;
     return n;
   }, [filters]);
 
@@ -108,10 +115,12 @@ const MobileLibrary = () => {
     sortBy: filters.sortBy,
     libraryId: filters.libraryId !== 'all' ? filters.libraryId : undefined,
     authorId: filters.authorId !== 'all' ? filters.authorId : undefined,
+    seriesId: filters.seriesId !== 'all' ? filters.seriesId : undefined,
     genre: filters.genre || undefined,
     narrator: filters.narrator || undefined,
     yearFrom: filters.yearFrom || undefined,
     listeningStatus: filters.listeningStatus !== 'all' ? filters.listeningStatus : undefined,
+    cover: filters.cover !== 'all' ? filters.cover : undefined,
   });
 
   const fetchBooks = async () => {
@@ -134,6 +143,7 @@ const MobileLibrary = () => {
       setFilterOptions({
         libraries: data.libraries ?? [],
         authors: data.authors ?? [],
+        series: data.series ?? [],
         genres: data.genres ?? [],
         narrators: data.narrators ?? [],
         years: data.years ?? [],
@@ -224,6 +234,30 @@ const MobileLibrary = () => {
   };
 
   const visibleBooks = books.slice(0, visibleCount);
+  const seriesGroups = useMemo(() => {
+    const groups = new Map<string, { id?: string; name: string; books: Book[] }>();
+    books.forEach((book) => {
+      if (!book.series?.name) return;
+      const key = book.series.id ?? book.series.name;
+      const current = groups.get(key) ?? { id: book.series.id, name: book.series.name, books: [] };
+      current.books.push(book);
+      groups.set(key, current);
+    });
+    return Array.from(groups.values())
+      .map((group) => ({
+        ...group,
+        books: group.books
+          .slice()
+          .sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER) || a.title.localeCompare(b.title)),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [books]);
+
+  const openSeries = (series: { id?: string; name: string }) => {
+    if (!series.id) return;
+    setFilters(prev => ({ ...prev, seriesId: series.id ?? 'all' }));
+    setView('grid');
+  };
 
   return (
     <div className="mobile-library">
@@ -355,7 +389,9 @@ const MobileLibrary = () => {
           <>
             <div className="mobile-grid-header">
               <span className="mobile-grid-count">
-                {books.length} {books.length === 1 ? 'audiobook' : 'audiobooks'}
+                {viewMode === 'series'
+                  ? `${seriesGroups.length} series`
+                  : `${books.length} ${books.length === 1 ? 'audiobook' : 'audiobooks'}`}
                 {(search || activeFilterCount > 0) && ' found'}
               </span>
               <div className="mobile-view-toggle">
@@ -373,9 +409,44 @@ const MobileLibrary = () => {
                 >
                   <LayoutList size={14} />
                 </button>
+                <button
+                  className={`mobile-view-toggle-btn${viewMode === 'series' ? ' active' : ''}`}
+                  onClick={() => setView('series')}
+                  aria-label="Series view"
+                >
+                  <Boxes size={14} />
+                </button>
               </div>
             </div>
-            {viewMode === 'grid' ? (
+            {viewMode === 'series' ? (
+              <div className="mobile-series-list">
+                {seriesGroups.map(series => (
+                  <button
+                    key={series.id ?? series.name}
+                    className="mobile-series-card"
+                    onClick={() => openSeries(series)}
+                  >
+                    <div className="mobile-series-covers">
+                      {series.books.slice(0, 3).map(book => (
+                        <div key={book.id} className="mobile-series-cover">
+                          {book.coverPath
+                            ? <img src={book.coverPath} alt="" loading="lazy" />
+                            : <BookOpen size={18} color="var(--text-subtle)" />
+                          }
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mobile-series-info">
+                      <div className="mobile-series-title">{series.name}</div>
+                      <div className="mobile-series-count">{series.books.length} {series.books.length === 1 ? 'book' : 'books'}</div>
+                      <div className="mobile-series-preview">
+                        {series.books.slice(0, 2).map(book => book.title).join(' / ')}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : viewMode === 'grid' ? (
               <div className="mobile-book-grid">
                 {visibleBooks.map(book => {
                   const progress = progressMap.get(book.id);
@@ -440,7 +511,7 @@ const MobileLibrary = () => {
                 })}
               </div>
             )}
-            {visibleCount < books.length && (
+            {viewMode !== 'series' && visibleCount < books.length && (
               <div ref={loadMoreRef} className="mobile-load-more">
                 <Loader2 size={20} className="animate-spin" color="var(--text-subtle)" />
               </div>

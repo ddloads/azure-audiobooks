@@ -13,7 +13,7 @@ export type MetadataBook = {
   author: { name: string };
   library?: { id: string; name: string };
   narrator?: string | null;
-  series?: { name: string } | null;
+  series?: { id?: string; name: string } | null;
   sequence?: number | null;
   description?: string | null;
   publisher?: string | null;
