@@ -9,7 +9,7 @@ COPY client/package*.json ./client/
 
 # Install dependencies
 RUN npm install
-RUN cd client && npm install
+RUN cd client && npm install --os=linux --cpu=x64
 
 # Copy client source
 COPY client/ ./client/
