@@ -625,12 +625,37 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
 .mobile-grid-count {
   font-size: 0.78rem;
   color: var(--text-muted);
+  min-width: 0;
+}
+
+.mobile-grid-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mobile-select-toggle {
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.mobile-select-toggle.active {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .mobile-book-grid {
@@ -641,6 +666,7 @@
 }
 
 .mobile-book-card {
+  position: relative;
   background: var(--card-bg);
   border-radius: 12px;
   overflow: hidden;
@@ -651,6 +677,37 @@
 }
 
 .mobile-book-card:active { transform: scale(0.96); }
+
+.mobile-book-card.is-selecting {
+  transform: none;
+}
+
+.mobile-book-card.is-selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.mobile-book-select-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--background) 84%, transparent);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+}
+
+.mobile-book-card.is-selected .mobile-book-select-indicator {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
 
 .mobile-book-cover-wrap {
   position: relative;
@@ -1575,6 +1632,7 @@
 }
 
 .mobile-book-list-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1589,6 +1647,29 @@
 }
 
 .mobile-book-list-item:active { background: var(--surface); }
+
+.mobile-book-list-item.is-selected {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+}
+
+.mobile-book-list-check {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.mobile-book-list-item.is-selected .mobile-book-list-check {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
 
 .mobile-book-list-cover {
   width: 56px;
@@ -1645,6 +1726,44 @@
 .mobile-book-list-progress-fill {
   height: 100%;
   background: var(--primary);
+}
+
+.mobile-selection-bar {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  z-index: 90;
+  min-height: 58px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--card-bg) 96%, transparent);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(14px);
+}
+
+.mobile-selection-bar > div {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+}
+
+.mobile-selection-bar strong {
+  font-size: 1rem;
+}
+
+.mobile-selection-bar span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.mobile-selection-bar .btn {
+  min-height: 38px;
+  padding: 0 12px;
 }
 
 .mobile-series-list {
