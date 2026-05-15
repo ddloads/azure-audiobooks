@@ -7,6 +7,7 @@ import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { findDuplicateGroups } from "../utils/duplicates";
 import { cleanupBookTitle } from "../utils/titleCleanup";
+import { getAppearanceSettings } from "../utils/appSettings";
 
 const getSingleParam = (value: string | string[] | undefined): string | null =>
   typeof value === "string" ? value : null;
@@ -100,6 +101,8 @@ const hasTag = (value: string | null | undefined, tagName: string) =>
     .map((tag) => tag.trim().toLowerCase())
     .includes(tagName.toLowerCase());
 
+const isReviewBook = (value: string | null | undefined) => hasTag(value, "review");
+
 const FILTER_OPTIONS_CACHE_TTL_MS = 30_000;
 let filterOptionsCache:
   | {
@@ -155,6 +158,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     const duplicatesOnly = getQueryBoolean(req.query.duplicatesOnly);
     const search = getQueryString(req.query.search);
     const sortBy = getQueryString(req.query.sortBy) || "newest";
+    const appearanceSettings = await getAppearanceSettings();
 
     const where: any = { AND: [] };
 
@@ -296,7 +300,9 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
           ].some((value) => matchesNormalizedSearch(value, search)),
         )
       : books;
-    const normalizedBooks = searchFilteredBooks.map(normalizeLibraryBook);
+    const normalizedBooks = searchFilteredBooks
+      .map(normalizeLibraryBook)
+      .filter((book) => appearanceSettings.showReviewBooks || !isReviewBook(book.tags));
     const matchFilteredBooks =
       matchStatus === "matched"
         ? normalizedBooks.filter((book) => hasTag(book.tags, "matched"))
@@ -318,6 +324,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
 
 export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
   try {
+    const appearanceSettings = await getAppearanceSettings();
     const now = Date.now();
     if (filterOptionsCache && now - filterOptionsCache.createdAt < FILTER_OPTIONS_CACHE_TTL_MS) {
       res.json(filterOptionsCache.value);
@@ -366,22 +373,26 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
       ),
     ).sort();
 
+    const visibleMetadataRows = appearanceSettings.showReviewBooks
+      ? metadataRows
+      : metadataRows.filter((row) => !isReviewBook(row.tags));
+
     const response = {
       libraries,
       authors,
       series,
       narrators: narratorRows.map((row) => row.narrator).filter((value): value is string => Boolean(value)),
       publishers: Array.from(
-        new Set(metadataRows.map((row) => row.publisher).filter((value): value is string => Boolean(value))),
+        new Set(visibleMetadataRows.map((row) => row.publisher).filter((value): value is string => Boolean(value))),
       ).sort(),
       languages: Array.from(
-        new Set(metadataRows.map((row) => row.language).filter((value): value is string => Boolean(value))),
+        new Set(visibleMetadataRows.map((row) => row.language).filter((value): value is string => Boolean(value))),
       ).sort(),
       years: Array.from(
-        new Set(metadataRows.map((row) => row.year).filter((value): value is string => Boolean(value))),
+        new Set(visibleMetadataRows.map((row) => row.year).filter((value): value is string => Boolean(value))),
       ).sort(),
-      genres: splitFacetValues(metadataRows.map((row) => row.genres)),
-      tags: splitFacetValues(metadataRows.map((row) => row.tags)),
+      genres: splitFacetValues(visibleMetadataRows.map((row) => row.genres)),
+      tags: splitFacetValues(visibleMetadataRows.map((row) => row.tags)),
       fileTypes,
     };
 
@@ -434,7 +445,8 @@ export const getSearchSuggestions = async (req: Request, res: Response) => {
       return;
     }
 
-    const [books, authors, seriesResults, narratorRows] = await Promise.all([
+    const [appearanceSettings, books, authors, seriesResults, narratorRows] = await Promise.all([
+      getAppearanceSettings(),
       prisma.book.findMany({
         select: {
           id: true,
@@ -442,6 +454,7 @@ export const getSearchSuggestions = async (req: Request, res: Response) => {
           subtitle: true,
           coverPath: true,
           folderPath: true,
+          tags: true,
           author: { select: { name: true } },
         },
         orderBy: { title: "asc" },
@@ -460,8 +473,12 @@ export const getSearchSuggestions = async (req: Request, res: Response) => {
       }),
     ]);
 
+    const visibleBooks = appearanceSettings.showReviewBooks
+      ? books
+      : books.filter((book) => !isReviewBook(book.tags));
+
     res.json({
-      books: books
+      books: visibleBooks
         .filter((book) => [book.title, book.subtitle, book.author.name].some((value) => matchesNormalizedSearch(value, q)))
         .slice(0, 5)
         .map(normalizeLibraryBook),

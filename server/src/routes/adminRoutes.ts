@@ -45,6 +45,8 @@ import {
   writeBookMetadataToFile,
 } from "../controllers/adminController";
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
+import { updateAppearanceSettingsHandler } from "../controllers/settingsController";
+import { listAdminScriptsHandler, runAdminScriptHandler } from "../controllers/scriptController";
 import {
   browseFilesystemTree,
   createFilesystemFolder,
@@ -66,6 +68,9 @@ router.use(authenticate, authorizeAdmin);
 
 router.get("/dashboard", getAdminDashboard);
 router.get("/tasks", listAdminTasks);
+router.patch("/settings/appearance", updateAppearanceSettingsHandler);
+router.get("/scripts", listAdminScriptsHandler);
+router.post("/scripts/run", runAdminScriptHandler);
 router.get("/filesystem", browseLibraryFolders);
 router.get("/filesystem/roots", listFilesystemRoots);
 router.get("/filesystem/tree", browseFilesystemTree);

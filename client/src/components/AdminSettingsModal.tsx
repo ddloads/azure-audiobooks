@@ -24,6 +24,7 @@ import {
   Info,
   Loader2,
   Network,
+  Palette,
   Pencil,
   Plus,
   RefreshCw,
@@ -33,6 +34,8 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Play,
+  Terminal,
   Trash2,
   Upload,
   UserPlus,
@@ -46,12 +49,16 @@ import { useToast } from "../context/ToastContext";
 import ConfirmDialog from "./ConfirmDialog";
 import FolderBrowserModal from "./FolderBrowserModal";
 
-type TabKey = "overview" | "users" | "library" | "system" | "logs";
+type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "logs";
 type OverviewSectionKey = "libraries" | "recentBooks" | "recentUsers" | "storage" | "tasks";
 interface OverviewPreferences {
   showStats: boolean;
   visibleSections: Record<OverviewSectionKey, boolean>;
   collapsedSections: Record<OverviewSectionKey, boolean>;
+}
+
+interface AppearanceSettings {
+  showReviewBooks: boolean;
 }
 
 interface DashboardStats {
@@ -182,6 +189,22 @@ interface AdminLogsResponse {
   logDirectory: string;
 }
 
+interface AdminScriptOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
+interface AdminScriptResult {
+  script: AdminScriptOption;
+  exitCode: number | null;
+  timedOut: boolean;
+  stdout: string;
+  stderr: string;
+  startedAt: string;
+  finishedAt: string;
+}
+
 interface AdminWriteTagsJob {
   id: string;
   bookId: string;
@@ -288,6 +311,18 @@ const tabs: Array<{ key: TabKey; label: string; icon: typeof Settings; descripti
     label: "Libraries",
     icon: FolderTree,
     description: "Libraries, mapped drives, network paths, and scanned inventory.",
+  },
+  {
+    key: "appearance",
+    label: "Appearance",
+    icon: Palette,
+    description: "Control which library items are visible in the catalog.",
+  },
+  {
+    key: "scripts",
+    label: "Scripts",
+    icon: Terminal,
+    description: "Run approved maintenance scripts from the server.",
   },
   {
     key: "system",
@@ -493,6 +528,12 @@ const AdminSettingsModal = ({
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [libraries, setLibraries] = useState<AdminLibrary[]>([]);
+  const [appearanceSettings, setAppearanceSettings] = useState<AppearanceSettings>({
+    showReviewBooks: true,
+  });
+  const [adminScripts, setAdminScripts] = useState<AdminScriptOption[]>([]);
+  const [selectedScriptId, setSelectedScriptId] = useState("");
+  const [scriptResult, setScriptResult] = useState<AdminScriptResult | null>(null);
   const [logsData, setLogsData] = useState<AdminLogsResponse | null>(null);
   const [runtimeTasks, setRuntimeTasks] = useState<AdminRuntimeTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -628,10 +669,47 @@ const AdminSettingsModal = ({
     }
   };
 
+  const loadAppearanceSettings = async () => {
+    try {
+      const response = await api.get<AppearanceSettings>("/settings/appearance");
+      setAppearanceSettings(response.data);
+      return true;
+    } catch (error) {
+      showToast({
+        title: "Failed to load appearance",
+        description: getErrorMessage(error, "Failed to load appearance settings"),
+        tone: "error",
+      });
+      return false;
+    }
+  };
+
+  const loadAdminScripts = async () => {
+    try {
+      const response = await api.get<{ scripts: AdminScriptOption[] }>("/admin/scripts");
+      setAdminScripts(response.data.scripts);
+      setSelectedScriptId((current) => current || response.data.scripts[0]?.id || "");
+      return true;
+    } catch (error) {
+      showToast({
+        title: "Failed to load scripts",
+        description: getErrorMessage(error, "Failed to load script list"),
+        tone: "error",
+      });
+      return false;
+    }
+  };
+
   const loadAll = async () => {
     setLoading(true);
 
-    await Promise.allSettled([loadDashboard(), loadUsersData(), loadLibrariesData()]);
+    await Promise.allSettled([
+      loadDashboard(),
+      loadUsersData(),
+      loadLibrariesData(),
+      loadAppearanceSettings(),
+      loadAdminScripts(),
+    ]);
     setLoading(false);
   };
 
@@ -977,6 +1055,58 @@ const AdminSettingsModal = ({
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const handleToggleReviewBooks = async () => {
+    const nextShowReviewBooks = !appearanceSettings.showReviewBooks;
+
+    await runAction("appearance-review-books", async () => {
+      try {
+        const response = await api.patch<AppearanceSettings>("/admin/settings/appearance", {
+          showReviewBooks: nextShowReviewBooks,
+        });
+        setAppearanceSettings(response.data);
+        await onLibraryChanged();
+        showToast({
+          title: "Appearance updated",
+          description: response.data.showReviewBooks
+            ? "Books marked for review are visible in the library."
+            : "Books marked for review are hidden from the library.",
+          tone: "success",
+        });
+      } catch (actionError) {
+        showToast({
+          title: "Failed to update appearance",
+          description: getErrorMessage(actionError, "Failed to update appearance settings"),
+          tone: "error",
+        });
+      }
+    });
+  };
+
+  const handleRunAdminScript = async () => {
+    if (!selectedScriptId) return;
+
+    await runAction("run-admin-script", async () => {
+      setScriptResult(null);
+      try {
+        const response = await api.post<AdminScriptResult>("/admin/scripts/run", {
+          scriptId: selectedScriptId,
+        });
+        setScriptResult(response.data);
+        showToast({
+          title: response.data.exitCode === 0 && !response.data.timedOut ? "Script completed" : "Script finished with issues",
+          description: `${response.data.script.label} exited with code ${response.data.exitCode ?? "unknown"}.`,
+          tone: response.data.exitCode === 0 && !response.data.timedOut ? "success" : "error",
+        });
+      } catch (actionError) {
+        showToast({
+          title: "Script failed",
+          description: getErrorMessage(actionError, "Failed to run script"),
+          tone: "error",
+        });
+      }
+    });
   };
 
   const handleCreateUser = async () => {
@@ -2485,6 +2615,153 @@ const AdminSettingsModal = ({
                       })}
                     </div>
 
+                  </div>
+                )}
+
+                {activeTab === "appearance" && (
+                  <div className="admin-panel-stack">
+                    <div className="card admin-section-card">
+                      <div className="admin-section-head">
+                        <div>
+                          <h3>Catalog visibility</h3>
+                          <p className="admin-library-meta-text">
+                            Choose whether titles tagged review appear in the main library views.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className={`admin-overview-toggle ${appearanceSettings.showReviewBooks ? "is-enabled" : ""}`}
+                        onClick={() => void handleToggleReviewBooks()}
+                        disabled={actionLoading === "appearance-review-books"}
+                        aria-pressed={appearanceSettings.showReviewBooks}
+                      >
+                        <div className="admin-overview-toggle-copy">
+                          <strong>Books marked for review</strong>
+                          <small>
+                            {appearanceSettings.showReviewBooks
+                              ? "Visible in the library, mobile library, and filter results."
+                              : "Hidden from the library, mobile library, and filter results."}
+                          </small>
+                        </div>
+                        {actionLoading === "appearance-review-books" ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : appearanceSettings.showReviewBooks ? (
+                          <Eye size={16} />
+                        ) : (
+                          <EyeOff size={16} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "scripts" && (
+                  <div className="admin-panel-stack">
+                    <div className="card admin-section-card">
+                      <div className="admin-section-head">
+                        <div>
+                          <h3>Maintenance scripts</h3>
+                          <p className="admin-library-meta-text">
+                            Select an approved server-side script and run it from the admin console.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="admin-toolbar">
+                        <select
+                          className="form-control"
+                          value={selectedScriptId}
+                          onChange={(event) => {
+                            setSelectedScriptId(event.target.value);
+                            setScriptResult(null);
+                          }}
+                        >
+                          {adminScripts.map((script) => (
+                            <option key={script.id} value={script.id}>
+                              {script.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="btn btn-primary"
+                          type="button"
+                          disabled={!selectedScriptId || actionLoading === "run-admin-script"}
+                          onClick={() => void handleRunAdminScript()}
+                        >
+                          {actionLoading === "run-admin-script" ? (
+                            <Loader2 size={15} className="animate-spin" />
+                          ) : (
+                            <Play size={15} />
+                          )}
+                          Run
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          type="button"
+                          disabled={actionLoading === "run-admin-script"}
+                          onClick={() => void loadAdminScripts()}
+                        >
+                          <RefreshCw size={15} />
+                          Refresh
+                        </button>
+                      </div>
+
+                      {adminScripts.find((script) => script.id === selectedScriptId) && (
+                        <div className="admin-meta-list">
+                          <div>
+                            <span>Selected script</span>
+                            <strong>{adminScripts.find((script) => script.id === selectedScriptId)?.label}</strong>
+                          </div>
+                          <div>
+                            <span>Description</span>
+                            <small>{adminScripts.find((script) => script.id === selectedScriptId)?.description}</small>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {scriptResult && (
+                      <div className="card admin-section-card">
+                        <div className="admin-section-head">
+                          <div>
+                            <h3>Last run</h3>
+                            <p className="admin-library-meta-text">
+                              {scriptResult.script.label} finished with exit code {scriptResult.exitCode ?? "unknown"}.
+                            </p>
+                          </div>
+                          <div className={`admin-pill ${scriptResult.exitCode === 0 && !scriptResult.timedOut ? "" : "admin-inactive-badge"}`}>
+                            {scriptResult.timedOut ? "Timed out" : scriptResult.exitCode === 0 ? "Success" : "Failed"}
+                          </div>
+                        </div>
+
+                        <div className="admin-meta-list">
+                          <div>
+                            <span>Started</span>
+                            <small>{formatDate(scriptResult.startedAt)}</small>
+                          </div>
+                          <div>
+                            <span>Finished</span>
+                            <small>{formatDate(scriptResult.finishedAt)}</small>
+                          </div>
+                        </div>
+
+                        {scriptResult.stdout && (
+                          <div className="admin-log-details">
+                            <strong>Output</strong>
+                            <pre className="admin-log-block">{scriptResult.stdout}</pre>
+                          </div>
+                        )}
+
+                        {scriptResult.stderr && (
+                          <div className="admin-log-details">
+                            <strong>Errors</strong>
+                            <pre className="admin-log-block">{scriptResult.stderr}</pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -5,6 +5,7 @@ import libraryRoutes from "./routes/libraryRoutes";
 import uploadRoutes from "./routes/uploadRoutes";
 import streamRoutes from "./routes/streamRoutes";
 import progressRoutes from "./routes/progressRoutes";
+import settingsRoutes from "./routes/settingsRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import {
   errorLoggingMiddleware,
@@ -45,6 +46,7 @@ app.use("/api/library", libraryRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/stream", streamRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
 
 app.get("/health", (req, res) => {
