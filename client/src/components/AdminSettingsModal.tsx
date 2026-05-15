@@ -533,6 +533,8 @@ const AdminSettingsModal = ({
   });
   const [adminScripts, setAdminScripts] = useState<AdminScriptOption[]>([]);
   const [selectedScriptId, setSelectedScriptId] = useState("");
+  const [scriptsLoading, setScriptsLoading] = useState(false);
+  const [scriptsError, setScriptsError] = useState("");
   const [scriptResult, setScriptResult] = useState<AdminScriptResult | null>(null);
   const [logsData, setLogsData] = useState<AdminLogsResponse | null>(null);
   const [runtimeTasks, setRuntimeTasks] = useState<AdminRuntimeTask[]>([]);
@@ -685,18 +687,25 @@ const AdminSettingsModal = ({
   };
 
   const loadAdminScripts = async () => {
+    setScriptsLoading(true);
+    setScriptsError("");
     try {
       const response = await api.get<{ scripts: AdminScriptOption[] }>("/admin/scripts");
-      setAdminScripts(response.data.scripts);
-      setSelectedScriptId((current) => current || response.data.scripts[0]?.id || "");
+      const scripts = response.data.scripts ?? [];
+      setAdminScripts(scripts);
+      setSelectedScriptId((current) => scripts.some((script) => script.id === current) ? current : scripts[0]?.id || "");
       return true;
     } catch (error) {
+      const message = getErrorMessage(error, "Failed to load script list");
+      setScriptsError(message);
       showToast({
         title: "Failed to load scripts",
-        description: getErrorMessage(error, "Failed to load script list"),
+        description: message,
         tone: "error",
       });
       return false;
+    } finally {
+      setScriptsLoading(false);
     }
   };
 
@@ -906,6 +915,14 @@ const AdminSettingsModal = ({
   useEffect(() => {
     if (activeTab === "system" && !audibleCliStatus) {
       void loadAudibleCliStatus();
+    }
+
+    if (activeTab === "appearance") {
+      void loadAppearanceSettings();
+    }
+
+    if (activeTab === "scripts" && adminScripts.length === 0 && !scriptsLoading) {
+      void loadAdminScripts();
     }
   }, [activeTab]);
 
@@ -2673,21 +2690,28 @@ const AdminSettingsModal = ({
                         <select
                           className="form-control"
                           value={selectedScriptId}
+                          disabled={scriptsLoading || adminScripts.length === 0}
                           onChange={(event) => {
                             setSelectedScriptId(event.target.value);
                             setScriptResult(null);
                           }}
                         >
-                          {adminScripts.map((script) => (
-                            <option key={script.id} value={script.id}>
-                              {script.label}
+                          {adminScripts.length === 0 ? (
+                            <option value="">
+                              {scriptsLoading ? "Loading scripts..." : "No scripts available"}
                             </option>
-                          ))}
+                          ) : (
+                            adminScripts.map((script) => (
+                              <option key={script.id} value={script.id}>
+                                {script.label}
+                              </option>
+                            ))
+                          )}
                         </select>
                         <button
                           className="btn btn-primary"
                           type="button"
-                          disabled={!selectedScriptId || actionLoading === "run-admin-script"}
+                          disabled={!selectedScriptId || scriptsLoading || actionLoading === "run-admin-script"}
                           onClick={() => void handleRunAdminScript()}
                         >
                           {actionLoading === "run-admin-script" ? (
@@ -2700,13 +2724,19 @@ const AdminSettingsModal = ({
                         <button
                           className="btn btn-secondary"
                           type="button"
-                          disabled={actionLoading === "run-admin-script"}
+                          disabled={scriptsLoading || actionLoading === "run-admin-script"}
                           onClick={() => void loadAdminScripts()}
                         >
-                          <RefreshCw size={15} />
+                          <RefreshCw size={15} className={scriptsLoading ? "animate-spin" : ""} />
                           Refresh
                         </button>
                       </div>
+
+                      {scriptsError && (
+                        <div className="admin-empty-state">
+                          Unable to load scripts: {scriptsError}
+                        </div>
+                      )}
 
                       {adminScripts.find((script) => script.id === selectedScriptId) && (
                         <div className="admin-meta-list">
