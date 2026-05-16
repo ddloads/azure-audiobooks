@@ -214,6 +214,7 @@ const getErrorMessage = (error: unknown, fallback: string) =>
   isAxiosError<{ error?: string }>(error) ? error.response?.data?.error || fallback : fallback;
 
 const REVIEW_TAG = "review";
+const AUTO_SEARCH_QUEUE_KEY = "metadata-auto-search-queue";
 
 const parseTagList = (value: string | null | undefined) =>
   (value ?? "")
@@ -249,6 +250,7 @@ const BookMetadataModal = ({
   const [activeTab, setActiveTab] = useState<"edit" | "fetch">(initialTab);
   const [searchCollapsed, setSearchCollapsed] = useState(false);
   const [provider, setProvider] = useState<MetadataProvider>("audible");
+  const [autoSearchQueue, setAutoSearchQueue] = useState(() => localStorage.getItem(AUTO_SEARCH_QUEUE_KEY) === "true");
   const [query, setQuery] = useState(book.asin || book.title);
   const [authorSearch, setAuthorSearch] = useState(book.author.name);
   const [loading, setLoading] = useState(false);
@@ -272,6 +274,12 @@ const BookMetadataModal = ({
   const [, setProgressTick] = useState(0);
   const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
   const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
+  const autoSearchKeyRef = useRef<string | null>(null);
+  const autoSearchQueueRef = useRef(autoSearchQueue);
+  const activeTabRef = useRef(activeTab);
+  const providerRef = useRef(provider);
+  const queuePositionRef = useRef(queuePosition);
+  const autoRunSearchRef = useRef<((providerOverride: MetadataProvider, searchOverride: { bookId: string; query: string; author: string }) => void) | null>(null);
 
   const selectedCandidate = useMemo(
     () => results.find((candidate) => candidate.id === selectedCandidateId) ?? null,
@@ -289,48 +297,22 @@ const BookMetadataModal = ({
     });
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    setCurrentBook(book);
-    setQuery(book.asin || book.title);
-    setAuthorSearch(book.author.name);
-    setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
-    setEditFields(buildFieldsFromBook(book));
-
-    const loadFullBook = async () => {
-      try {
-        const res = await api.get<MetadataBook>(`/library/${book.id}`);
-        if (cancelled) return;
-
-        setCurrentBook(res.data);
-        setQuery(res.data.asin || res.data.title);
-        setAuthorSearch(res.data.author.name);
-        setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
-        setEditFields(buildFieldsFromBook(res.data));
-      } catch {
-        if (!cancelled) {
-          setError("Failed to load current book metadata");
-        }
-      }
-    };
-
-    void loadFullBook();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [book]);
-
-  const runSearch = async (event?: FormEvent, providerOverride: MetadataProvider = provider) => {
+  const runSearch = async (
+    event?: FormEvent,
+    providerOverride: MetadataProvider = provider,
+    searchOverride?: { bookId: string; query: string; author: string },
+  ) => {
     event?.preventDefault();
+    const searchBookId = searchOverride?.bookId ?? currentBook.id;
+    const searchQuery = searchOverride?.query ?? query;
+    const searchAuthor = searchOverride?.author ?? authorSearch;
     setLoading(true);
     setError("");
 
     try {
-      const res = await api.post(`/admin/books/${currentBook.id}/match/search`, {
-        query,
-        author: authorSearch,
+      const res = await api.post(`/admin/books/${searchBookId}/match/search`, {
+        query: searchQuery,
+        author: searchAuthor,
         provider: providerOverride,
       });
 
@@ -355,6 +337,68 @@ const BookMetadataModal = ({
     }
   };
 
+  useEffect(() => {
+    autoSearchQueueRef.current = autoSearchQueue;
+    activeTabRef.current = activeTab;
+    providerRef.current = provider;
+    queuePositionRef.current = queuePosition;
+    autoRunSearchRef.current = (providerOverride, searchOverride) => {
+      void runSearch(undefined, providerOverride, searchOverride);
+    };
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setCurrentBook(book);
+    setQuery(book.asin || book.title);
+    setAuthorSearch(book.author.name);
+    setSearchCollapsed(false);
+    setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
+    setEditFields(buildFieldsFromBook(book));
+    setResults([]);
+    setSelectedCandidateId(null);
+    setFetchFields(emptyFields());
+    setSelectedFields(buildSelectionFromFields(emptyFields()));
+
+    const loadFullBook = async () => {
+      try {
+        const res = await api.get<MetadataBook>(`/library/${book.id}`);
+        if (cancelled) return;
+
+        setCurrentBook(res.data);
+        setQuery(res.data.asin || res.data.title);
+        setAuthorSearch(res.data.author.name);
+        setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
+        setEditFields(buildFieldsFromBook(res.data));
+
+        const currentQueuePosition = queuePositionRef.current;
+        const currentProvider = providerRef.current;
+        if (autoSearchQueueRef.current && currentQueuePosition && currentQueuePosition.total > 1 && activeTabRef.current === "fetch") {
+          const autoSearchKey = `${res.data.id}:${currentProvider}`;
+          if (autoSearchKeyRef.current !== autoSearchKey) {
+            autoSearchKeyRef.current = autoSearchKey;
+            autoRunSearchRef.current?.(currentProvider, {
+              bookId: res.data.id,
+              query: res.data.asin || res.data.title,
+              author: res.data.author.name,
+            });
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Failed to load current book metadata");
+        }
+      }
+    };
+
+    void loadFullBook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [book]);
+
   const handleProviderChange = (nextProvider: MetadataProvider) => {
     setProvider(nextProvider);
     setResults([]);
@@ -362,6 +406,22 @@ const BookMetadataModal = ({
     setFetchFields(emptyFields());
     setSelectedFields(buildSelectionFromFields(emptyFields()));
   };
+
+  const handleAutoSearchQueueChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.target.checked;
+    setAutoSearchQueue(enabled);
+
+    if (!enabled || !queuePosition || queuePosition.total <= 1 || activeTab !== "fetch" || loading || saving) return;
+
+    const autoSearchKey = `${currentBook.id}:${provider}`;
+    if (autoSearchKeyRef.current === autoSearchKey) return;
+    autoSearchKeyRef.current = autoSearchKey;
+    void runSearch(undefined, provider);
+  };
+
+  useEffect(() => {
+    localStorage.setItem(AUTO_SEARCH_QUEUE_KEY, String(autoSearchQueue));
+  }, [autoSearchQueue]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -662,6 +722,17 @@ const BookMetadataModal = ({
                 {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
                 Search
               </button>
+
+              {queuePosition && queuePosition.total > 1 && (
+                <label className="book-match-auto-search-toggle">
+                  <input
+                    type="checkbox"
+                    checked={autoSearchQueue}
+                    onChange={handleAutoSearchQueueChange}
+                  />
+                  <span>Auto search</span>
+                </label>
+              )}
             </form>
 
             <div className="book-match-results">
@@ -871,6 +942,15 @@ const BookMetadataModal = ({
           </>
         ) : (
           <div className="metadata-edit-form">
+            {currentBook.coverPath && (
+              <div className="metadata-current-cover-row">
+                <div className="metadata-path-label">Cover Art</div>
+                <div className="metadata-current-cover">
+                  <img src={currentBook.coverPath} alt={`${currentBook.title} cover`} />
+                </div>
+              </div>
+            )}
+
             {currentBook.folderPath && (
               <div className="metadata-path-row">
                 <div className="metadata-path-label">File Path</div>

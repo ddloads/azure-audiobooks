@@ -2320,11 +2320,152 @@ input[type='range']::-moz-range-thumb {
   height: 42px;
 }
 
+.book-match-auto-search-toggle {
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.28);
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.book-match-auto-search-toggle input {
+  accent-color: var(--primary);
+}
+
 .book-match-results {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(360px, 0.92fr);
   gap: 1rem;
   min-height: 420px;
+}
+
+.quick-match-modal {
+  width: min(720px, calc(100vw - 2rem));
+}
+
+.quick-match-summary-grid,
+.quick-match-results {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.quick-match-results {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.quick-match-summary-grid > div,
+.quick-match-result-row {
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.quick-match-summary-grid strong,
+.quick-match-result-row strong {
+  display: block;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.quick-match-summary-grid span,
+.quick-match-result-row span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.quick-match-result-row.success strong {
+  color: #86efac;
+}
+
+.quick-match-result-row.warning strong {
+  color: #fbbf24;
+}
+
+.quick-match-result-row.danger strong {
+  color: #f87171;
+}
+
+.quick-match-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180px;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.quick-match-fields {
+  margin-bottom: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(15, 23, 42, 0.24);
+}
+
+.quick-match-fields-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.quick-match-field-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem 0.75rem;
+}
+
+.quick-match-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 260px;
+  overflow: auto;
+  margin-bottom: 1rem;
+}
+
+.quick-match-detail-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius);
+  background: rgba(30, 41, 59, 0.44);
+}
+
+.quick-match-detail-item div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.quick-match-detail-item strong,
+.quick-match-detail-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-match-detail-item span,
+.quick-match-detail-item.muted strong {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.quick-match-detail-item em {
+  color: var(--primary-light);
+  font-style: normal;
+  font-weight: 700;
 }
 
 .book-match-results-list,
@@ -2615,6 +2756,30 @@ input[type='range']::-moz-range-thumb {
   gap: 0.85rem;
   align-items: center;
   margin-bottom: 1rem;
+}
+
+.metadata-current-cover-row {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.metadata-current-cover {
+  width: 120px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.metadata-current-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .metadata-path-label {
@@ -5388,9 +5553,20 @@ input[type='range']::-moz-range-thumb {
     align-items: stretch;
   }
 
+  .book-match-search-btn,
+  .book-match-auto-search-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+
   .book-match-search-grid,
   .book-match-results,
-  .book-match-field-row {
+  .book-match-field-row,
+  .metadata-current-cover-row,
+  .quick-match-summary-grid,
+  .quick-match-results,
+  .quick-match-options,
+  .quick-match-field-grid {
     grid-template-columns: 1fr;
   }
 

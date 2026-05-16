@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, RefreshCw, Search, Sparkles, SlidersHorizontal, Square, X } from 'lucide-react';
+import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, Search, Sparkles, SlidersHorizontal, Square, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
-import { useToast } from '../context/ToastContext';
 import BookMetadataModal, { type MetadataBook } from '../components/BookMetadataModal';
 import MobileFilterSheet, { type MobileFilterOptions, type MobileFilters } from './MobileFilterSheet';
 
@@ -86,7 +85,6 @@ const MobileLibrary = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { playBook } = usePlayer();
-  const { showToast } = useToast();
 
   const [books, setBooks] = useState<Book[]>([]);
   const [filterOptions, setFilterOptions] = useState<MobileFilterOptions>(emptyFilterOptions);
@@ -97,7 +95,6 @@ const MobileLibrary = () => {
   const [loading, setLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
-  const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'series'>(() =>
     (localStorage.getItem('mobile-view-mode') as 'grid' | 'list' | 'series') || 'grid'
@@ -201,10 +198,7 @@ const MobileLibrary = () => {
     const socket = io(getSocketBaseUrl(), { withCredentials: true });
     socket.on('scanProgress', (data: ScanProgress) => {
       setScanProgress(data);
-      if (data.status === 'scanning' || data.status === 'starting') {
-        setIsScanning(true);
-      } else if (data.status === 'completed' || data.status === 'failed') {
-        setIsScanning(false);
+      if (data.status === 'completed' || data.status === 'failed') {
         void fetchBooks();
         void fetchMeta();
         setTimeout(() => setScanProgress(null), 4000);
@@ -225,17 +219,6 @@ const MobileLibrary = () => {
     obs.observe(node);
     return () => obs.disconnect();
   }, [books.length, visibleCount]);
-
-  const handleScan = async () => {
-    setIsScanning(true);
-    try {
-      await api.post('/library/scan');
-      showToast({ title: 'Scan started', description: 'Checking libraries for new content.', tone: 'info' });
-    } catch {
-      setIsScanning(false);
-      showToast({ title: 'Scan failed', description: 'Check server logs.', tone: 'error' });
-    }
-  };
 
   const handleContinuePlay = async (record: ProgressRecord) => {
     try {
@@ -304,7 +287,6 @@ const MobileLibrary = () => {
 
   const startSelection = () => {
     setIsSelecting(true);
-    setView('grid');
   };
 
   const cancelSelection = () => {
@@ -392,16 +374,6 @@ const MobileLibrary = () => {
           }
         </button>
 
-        {user?.role === 'ADMIN' && (
-          <button
-            className="mobile-filter-btn"
-            onClick={handleScan}
-            disabled={isScanning}
-            title={isScanning ? 'Scanning…' : 'Scan library'}
-          >
-            <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
-          </button>
-        )}
       </div>
 
       {/* Scan progress banner */}
@@ -682,6 +654,7 @@ const MobileLibrary = () => {
 
       {matchBook && (
         <BookMetadataModal
+          key={matchBook.id}
           book={matchBook}
           onClose={() => {
             closeMetadataQueue();

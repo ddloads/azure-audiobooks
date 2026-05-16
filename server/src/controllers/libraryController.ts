@@ -308,6 +308,8 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         ? normalizedBooks.filter((book) => hasTag(book.tags, "matched"))
         : matchStatus === "unmatched"
           ? normalizedBooks.filter((book) => !hasTag(book.tags, "matched"))
+          : matchStatus === "quick-matched"
+            ? normalizedBooks.filter((book) => hasTag(book.tags, "quick-matched"))
           : normalizedBooks;
     const filteredBooks =
       cover === "with"

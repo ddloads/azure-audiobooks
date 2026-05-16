@@ -206,6 +206,82 @@ type WriteTagsJob = {
   stallTimeoutMs: number;
 };
 
+type MetadataProvider = "audible" | "google" | "combined";
+
+type QuickMatchResult = {
+  mode: "preview" | "apply";
+  provider: MetadataProvider;
+  minConfidence: number;
+  ready: Array<{ bookId: string; title: string; candidateTitle: string | null; confidence: number; reason: string }>;
+  applied: Array<{ bookId: string; title: string; candidateTitle: string | null; confidence: number; reason: string }>;
+  skippedAlreadyMatched: Array<{ bookId: string; title: string; tags: string | null }>;
+  needsReview: Array<{ bookId: string; title: string; reason: string }>;
+  noResult: Array<{ bookId: string; title: string; reason: string }>;
+  failed: Array<{ bookId: string; title: string; error: string }>;
+};
+
+type QuickMatchFieldKey =
+  | "title"
+  | "subtitle"
+  | "author"
+  | "narrator"
+  | "seriesName"
+  | "seriesSequence"
+  | "description"
+  | "publisher"
+  | "year"
+  | "genres"
+  | "tags"
+  | "language"
+  | "isbn"
+  | "asin"
+  | "abridged"
+  | "imageUrl";
+
+const defaultQuickMatchFields = (): Record<QuickMatchFieldKey, boolean> => ({
+  title: true,
+  subtitle: true,
+  author: true,
+  narrator: true,
+  seriesName: true,
+  seriesSequence: true,
+  description: true,
+  publisher: true,
+  year: true,
+  genres: true,
+  tags: true,
+  language: true,
+  isbn: true,
+  asin: true,
+  abridged: true,
+  imageUrl: true,
+});
+
+const quickMatchFieldLabels: Array<{ key: QuickMatchFieldKey; label: string }> = [
+  { key: "title", label: "Title" },
+  { key: "subtitle", label: "Subtitle" },
+  { key: "author", label: "Author" },
+  { key: "narrator", label: "Narrator" },
+  { key: "seriesName", label: "Series" },
+  { key: "seriesSequence", label: "Series #" },
+  { key: "description", label: "Description" },
+  { key: "publisher", label: "Publisher" },
+  { key: "year", label: "Year" },
+  { key: "genres", label: "Genres" },
+  { key: "tags", label: "Tags" },
+  { key: "language", label: "Language" },
+  { key: "isbn", label: "ISBN" },
+  { key: "asin", label: "ASIN" },
+  { key: "abridged", label: "Abridged" },
+  { key: "imageUrl", label: "Cover" },
+];
+
+const hasTag = (value: string | null | undefined, tag: string) =>
+  (value ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .includes(tag);
+
 const INITIAL_BOOK_RENDER_COUNT = 120;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 
@@ -271,7 +347,12 @@ const Library = () => {
     label: string;
   } | null>(null);
   const [batchActionMessage, setBatchActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [isQuickMatchOpen, setIsQuickMatchOpen] = useState(false);
+  const [quickMatchProvider, setQuickMatchProvider] = useState<MetadataProvider>("audible");
+  const [quickMatchMinConfidence, setQuickMatchMinConfidence] = useState("0.90");
+  const [quickMatchFields, setQuickMatchFields] = useState<Record<QuickMatchFieldKey, boolean>>(defaultQuickMatchFields);
+  const [quickMatchResult, setQuickMatchResult] = useState<QuickMatchResult | null>(null);
+  const [quickMatchBusy, setQuickMatchBusy] = useState<"preview" | "apply" | null>(null);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
   const [openContinueMenuBookId, setOpenContinueMenuBookId] = useState<string | null>(null);
@@ -502,10 +583,7 @@ const Library = () => {
 
   const handleScanProgress = useEffectEvent((data: ScanProgress) => {
     setScanProgress(data);
-    if (data.status === "scanning" || data.status === "starting") {
-      setIsScanning(true);
-    } else if (data.status === "completed" || data.status === "failed") {
-      setIsScanning(false);
+    if (data.status === "completed" || data.status === "failed") {
       void fetchBooks();
       void fetchLibraries();
       setTimeout(() => setScanProgress(null), 5000);
@@ -604,26 +682,6 @@ const Library = () => {
       clearTimeout(timeout);
     };
   }, [filters, search, sortBy]);
-
-  const handleScan = async () => {
-    setIsScanning(true);
-    try {
-      await api.post("/library/scan");
-      showToast({
-        title: "Scan started",
-        description: "Checking libraries for new content.",
-        tone: "info",
-      });
-    } catch (error) {
-      console.error("Scan failed", error);
-      showToast({
-        title: "Scan failed",
-        description: getErrorMessage(error, "Check server logs."),
-        tone: "error",
-      });
-      setIsScanning(false);
-    }
-  };
 
   const handleRescan = async () => {
     if (!actionBook) return;
@@ -732,6 +790,10 @@ const Library = () => {
       .map((id) => bookById.get(id))
       .filter((book): book is LibraryBook => Boolean(book)),
     [selectedBookIds, bookById]
+  );
+  const quickMatchEligibleBooks = useMemo(
+    () => selectedBooks.filter((book) => !hasTag(book.tags, "matched") && !hasTag(book.tags, "quick-matched")),
+    [selectedBooks],
   );
   const visibleBooks = useMemo(
     () => books.slice(0, visibleBookCount),
@@ -864,6 +926,53 @@ const Library = () => {
     setLastSelectedBookId(null);
   };
 
+  const runQuickMatch = async (mode: "preview" | "apply") => {
+    const queue = quickMatchEligibleBooks;
+    if (queue.length === 0) {
+      setQuickMatchResult({
+        mode,
+        provider: quickMatchProvider,
+        minConfidence: Number(quickMatchMinConfidence) || 0.9,
+        ready: [],
+        applied: [],
+        skippedAlreadyMatched: selectedBooks.map((book) => ({ bookId: book.id, title: book.title, tags: book.tags ?? null })),
+        needsReview: [],
+        noResult: [],
+        failed: [],
+      });
+      return;
+    }
+
+    setQuickMatchBusy(mode);
+    setBatchActionMessage(null);
+    try {
+      const threshold = Number(quickMatchMinConfidence);
+      const response = await api.post<QuickMatchResult>("/admin/books/quick-match", {
+        bookIds: selectedBooks.map((book) => book.id),
+        provider: quickMatchProvider,
+        mode,
+        minConfidence: Number.isFinite(threshold) ? threshold : 0.9,
+        selectedFields: quickMatchFields,
+      });
+      setQuickMatchResult(response.data);
+
+      if (mode === "apply") {
+        await refreshLibraryData();
+        setBatchActionMessage({
+          type: "success",
+          text: `Quick matched ${response.data.applied.length} title${response.data.applied.length === 1 ? "" : "s"}`,
+        });
+      }
+    } catch (error) {
+      setBatchActionMessage({
+        type: "error",
+        text: getErrorMessage(error, "Quick match failed"),
+      });
+    } finally {
+      setQuickMatchBusy(null);
+    }
+  };
+
   const writeSelectedMetadataTags = async () => {
     const queue = selectedBooks;
     if (queue.length === 0) return;
@@ -936,7 +1045,7 @@ const Library = () => {
         className="btn btn-primary"
         type="button"
         onClick={startMetadataQueue}
-        disabled={Boolean(tagWriteProgress)}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
       >
         <Sparkles size={15} />
         Match
@@ -944,8 +1053,20 @@ const Library = () => {
       <button
         className="btn btn-secondary"
         type="button"
+        onClick={() => {
+          setQuickMatchResult(null);
+          setIsQuickMatchOpen(true);
+        }}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
+      >
+        <Sparkles size={15} />
+        Quick Match
+      </button>
+      <button
+        className="btn btn-secondary"
+        type="button"
         onClick={writeSelectedMetadataTags}
-        disabled={Boolean(tagWriteProgress)}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
         aria-busy={Boolean(tagWriteProgress)}
       >
         {tagWriteProgress ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
@@ -955,7 +1076,7 @@ const Library = () => {
         className="btn btn-secondary"
         type="button"
         onClick={clearBatchSelection}
-        disabled={Boolean(tagWriteProgress)}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
       >
         <X size={15} />
         Clear
@@ -1024,14 +1145,6 @@ const Library = () => {
         <div className="library-actions">
           {user?.role === "ADMIN" && (
             <>
-              <button
-                onClick={handleScan}
-                className="btn btn-secondary"
-                disabled={isScanning}
-              >
-                <RefreshCw size={15} className={isScanning ? "animate-spin" : ""} />
-                {isScanning ? "Scanning…" : "Scan Library"}
-              </button>
               <button
                 onClick={() => setIsUploadModalOpen(true)}
                 className="btn btn-primary"
@@ -1276,6 +1389,7 @@ const Library = () => {
                   <option value="all">Any match status</option>
                   <option value="matched">Matched</option>
                   <option value="unmatched">Unmatched</option>
+                  <option value="quick-matched">Quick matched</option>
                 </select>
               </div>
             </label>
@@ -1674,6 +1788,187 @@ const Library = () => {
           onQueuePrevious={() => goToMetadataQueueIndex(matchQueueIndex - 1)}
           onQueueNext={() => goToMetadataQueueIndex(matchQueueIndex + 1)}
         />
+      )}
+
+      {isQuickMatchOpen && (
+        <div className="modal-backdrop" onClick={(event) => event.target === event.currentTarget && !quickMatchBusy && setIsQuickMatchOpen(false)}>
+          <div className="card modal-card quick-match-modal">
+            <div className="modal-header">
+              <div>
+                <h2>Quick Match</h2>
+                <p className="book-match-subtitle">
+                  Automatically match only selected titles that are currently unmatched.
+                </p>
+              </div>
+              <button
+                className="modal-close"
+                onClick={() => setIsQuickMatchOpen(false)}
+                aria-label="Close"
+                disabled={Boolean(quickMatchBusy)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="quick-match-summary-grid">
+              <div>
+                <strong>{selectedBooks.length}</strong>
+                <span>Selected</span>
+              </div>
+              <div>
+                <strong>{quickMatchEligibleBooks.length}</strong>
+                <span>Eligible</span>
+              </div>
+              <div>
+                <strong>{selectedBooks.length - quickMatchEligibleBooks.length}</strong>
+                <span>Already matched</span>
+              </div>
+            </div>
+
+            <div className="quick-match-options">
+              <label className="form-group">
+                <span>Provider</span>
+                <select
+                  className="form-control"
+                  value={quickMatchProvider}
+                  onChange={(event) => setQuickMatchProvider(event.target.value as MetadataProvider)}
+                  disabled={Boolean(quickMatchBusy)}
+                >
+                  <option value="audible">Audible.com</option>
+                  <option value="combined">Audible + Google</option>
+                  <option value="google">Google Books</option>
+                </select>
+              </label>
+              <label className="form-group">
+                <span>Minimum confidence</span>
+                <input
+                  className="form-control"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  value={quickMatchMinConfidence}
+                  onChange={(event) => setQuickMatchMinConfidence(event.target.value)}
+                  disabled={Boolean(quickMatchBusy)}
+                />
+              </label>
+            </div>
+
+            <div className="quick-match-fields">
+              <div className="quick-match-fields-head">
+                <strong>Fields to update</strong>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  type="button"
+                  onClick={() => setQuickMatchFields(defaultQuickMatchFields())}
+                  disabled={Boolean(quickMatchBusy)}
+                >
+                  Reset
+                </button>
+              </div>
+              <div className="quick-match-field-grid">
+                {quickMatchFieldLabels.map((field) => (
+                  <label key={field.key} className="admin-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={quickMatchFields[field.key]}
+                      disabled={Boolean(quickMatchBusy)}
+                      onChange={(event) =>
+                        setQuickMatchFields((current) => ({
+                          ...current,
+                          [field.key]: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>{field.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {quickMatchEligibleBooks.length === 0 && (
+              <div className="admin-empty-state">
+                No selected titles are eligible. Quick Match only runs on titles without a matched state.
+              </div>
+            )}
+
+            {quickMatchResult && (
+              <div className="quick-match-results">
+                <div className="quick-match-result-row success">
+                  <strong>{quickMatchResult.mode === "apply" ? quickMatchResult.applied.length : quickMatchResult.ready.length}</strong>
+                  <span>{quickMatchResult.mode === "apply" ? "Applied" : "Ready to apply"}</span>
+                </div>
+                <div className="quick-match-result-row">
+                  <strong>{quickMatchResult.skippedAlreadyMatched.length}</strong>
+                  <span>Skipped matched</span>
+                </div>
+                <div className="quick-match-result-row warning">
+                  <strong>{quickMatchResult.needsReview.length}</strong>
+                  <span>Needs review</span>
+                </div>
+                <div className="quick-match-result-row">
+                  <strong>{quickMatchResult.noResult.length}</strong>
+                  <span>No result</span>
+                </div>
+                <div className="quick-match-result-row danger">
+                  <strong>{quickMatchResult.failed.length}</strong>
+                  <span>Failed</span>
+                </div>
+              </div>
+            )}
+
+            {quickMatchResult && (
+              <div className="quick-match-detail-list">
+                {(quickMatchResult.mode === "apply" ? quickMatchResult.applied : quickMatchResult.ready).slice(0, 8).map((item) => (
+                  <div key={item.bookId} className="quick-match-detail-item">
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.candidateTitle || "Unknown title"}</span>
+                    </div>
+                    <em>{Math.round(item.confidence * 100)}%</em>
+                  </div>
+                ))}
+                {quickMatchResult.needsReview.slice(0, 5).map((item) => (
+                  <div key={item.bookId} className="quick-match-detail-item muted">
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.reason}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="book-match-actions">
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => setIsQuickMatchOpen(false)}
+                disabled={Boolean(quickMatchBusy)}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-secondary"
+                type="button"
+                onClick={() => void runQuickMatch("preview")}
+                disabled={Boolean(quickMatchBusy) || quickMatchEligibleBooks.length === 0}
+              >
+                {quickMatchBusy === "preview" ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+                Preview
+              </button>
+              <button
+                className="btn btn-primary"
+                type="button"
+                onClick={() => void runQuickMatch("apply")}
+                disabled={Boolean(quickMatchBusy) || quickMatchEligibleBooks.length === 0}
+              >
+                {quickMatchBusy === "apply" ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}
+                Apply Safe Matches
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Book Management Modals */}

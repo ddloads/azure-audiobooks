@@ -32,6 +32,7 @@ import {
   undoMergeBookFiles,
   renameAudibleCliProfileHandler,
   purgeLibrary,
+  quickMatchBooks,
   rescanLibrary,
   rescanSingleLibrary,
   searchBookMatches,
@@ -99,6 +100,7 @@ router.patch("/sources/:sourceId", updateLibrarySource);
 router.delete("/sources/:sourceId", deleteLibrarySource);
 
 router.get("/books", listAdminBooks);
+router.post("/books/quick-match", quickMatchBooks);
 router.post("/books/:bookId/match/search", searchBookMatches);
 router.post("/books/:bookId/match/apply", applyBookMatch);
 router.patch("/books/:bookId/metadata", updateBookMetadata);
