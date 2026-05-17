@@ -2348,6 +2348,9 @@ input[type='range']::-moz-range-thumb {
 
 .quick-match-modal {
   width: min(720px, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .quick-match-summary-grid,
@@ -2428,9 +2431,21 @@ input[type='range']::-moz-range-thumb {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-  max-height: 260px;
+  max-height: clamp(140px, 24dvh, 260px);
   overflow: auto;
   margin-bottom: 1rem;
+}
+
+.quick-match-modal .book-match-actions {
+  position: sticky;
+  bottom: -1.5rem;
+  z-index: 2;
+  margin-right: -1.5rem;
+  margin-bottom: -1.5rem;
+  margin-left: -1.5rem;
+  padding: 1rem 1.5rem 1.5rem;
+  background: rgba(15, 23, 42, 0.96);
+  border-top-color: rgba(51, 65, 85, 0.9);
 }
 
 .quick-match-detail-item {
