@@ -93,7 +93,7 @@ type EditableFields = {
 };
 
 type SelectableFieldKey = keyof EditableFields;
-type MetadataProvider = "audible" | "google" | "combined";
+type MetadataProvider = "audible" | "google" | "goodreads" | "combined";
 
 type WriteTagsJob = {
   id: string;
@@ -692,6 +692,7 @@ const BookMetadataModal = ({
                   >
                     <option value="audible">Audible.com</option>
                     <option value="google">Google Books</option>
+                    <option value="goodreads">Goodreads</option>
                     <option value="combined">Audible + Google</option>
                   </select>
                 </div>
@@ -738,7 +739,7 @@ const BookMetadataModal = ({
             <div className="book-match-results">
               <div className="book-match-results-list">
                 {results.length === 0 && !loading ? (
-                  <div className="admin-empty-state">No Audible metadata found for this search.</div>
+                  <div className="admin-empty-state">No metadata found for this search.</div>
                 ) : (
                   results.map((candidate) => {
                     const isSelected = candidate.id === selectedCandidateId;
@@ -831,7 +832,11 @@ const BookMetadataModal = ({
                         rel="noreferrer"
                       >
                         <Sparkles size={14} />
-                        {selectedCandidate.id.startsWith("google_") ? "Google Books" : "Audible"}
+                        {selectedCandidate.id.startsWith("google_")
+                          ? "Google Books"
+                          : selectedCandidate.id.startsWith("goodreads_")
+                            ? "Goodreads"
+                            : "Audible"}
                       </a>
                     )}
                   </div>

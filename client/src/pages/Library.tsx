@@ -206,7 +206,7 @@ type WriteTagsJob = {
   stallTimeoutMs: number;
 };
 
-type MetadataProvider = "audible" | "google" | "combined";
+type MetadataProvider = "audible" | "google" | "goodreads" | "combined";
 
 type QuickMatchResult = {
   mode: "preview" | "apply";
@@ -1837,6 +1837,7 @@ const Library = () => {
                   <option value="audible">Audible.com</option>
                   <option value="combined">Audible + Google</option>
                   <option value="google">Google Books</option>
+                  <option value="goodreads">Goodreads</option>
                 </select>
               </label>
               <label className="form-group">

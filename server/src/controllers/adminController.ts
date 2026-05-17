@@ -34,6 +34,7 @@ import {
   setStoredActiveAudibleProfile,
 } from "../utils/audibleCli";
 import { searchGoogleBooks } from "../utils/googleBooks";
+import { searchGoodreads } from "../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../utils/covers";
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
@@ -248,6 +249,7 @@ const parseAsinValue = (value: string | null | undefined) =>
 
 const parseMetadataProvider = (value: unknown) => {
   if (value === "google") return "google";
+  if (value === "goodreads") return "goodreads";
   if (value === "combined") return "combined";
   return "audible";
 };
@@ -1940,8 +1942,10 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
       }
     } else if (provider === "audible") {
       candidates = await loadAudibleCandidates();
-    } else {
+    } else if (provider === "google") {
       candidates = await searchGoogleBooks(query, author);
+    } else {
+      candidates = await searchGoodreads(query, author);
     }
 
     res.json({
@@ -2016,7 +2020,9 @@ const findBookMatchCandidates = async (
 
   const candidates = provider === "audible"
     ? await loadAudibleCandidates()
-    : await searchGoogleBooks(query, author);
+    : provider === "google"
+      ? await searchGoogleBooks(query, author)
+      : await searchGoodreads(query, author);
 
   return { provider, query, author, candidates };
 };
@@ -2082,6 +2088,10 @@ const chooseQuickMatchCandidate = (
 
   if (top.id.startsWith("google_")) {
     return { candidate: null, reason: "Google Books results require manual review" };
+  }
+
+  if (top.id.startsWith("goodreads_")) {
+    return { candidate: null, reason: "Goodreads results require manual review" };
   }
 
   const confidence = Number(top.confidence) || 0;
