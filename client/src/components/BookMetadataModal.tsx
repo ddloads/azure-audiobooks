@@ -4,60 +4,9 @@ import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Penc
 import { io } from "socket.io-client";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
+import { getCandidateSourceLabel, metadataProviderOptions } from "../features/metadata/providers";
+import type { MatchCandidate, MetadataBook, MetadataProvider } from "../features/metadata/types";
 import { useIsMobile } from "../hooks/useIsMobile";
-
-export type MetadataBook = {
-  id: string;
-  title: string;
-  subtitle?: string | null;
-  author: { name: string };
-  library?: { id: string; name: string };
-  narrator?: string | null;
-  series?: { id?: string; name: string } | null;
-  sequence?: number | null;
-  description?: string | null;
-  publisher?: string | null;
-  year?: string | null;
-  genres?: string | null;
-  tags?: string | null;
-  language?: string | null;
-  isbn?: string | null;
-  asin?: string | null;
-  abridged?: boolean | null;
-  duration: number;
-  folderPath?: string | null;
-  coverPath?: string;
-};
-
-type CandidateMetadata = {
-  title: string | null;
-  subtitle: string | null;
-  author: string | null;
-  narrator: string | null;
-  description: string | null;
-  publisher: string | null;
-  year: string | null;
-  genres: string | null;
-  tags: string | null;
-  language: string | null;
-  isbn: string | null;
-  asin: string | null;
-  abridged: boolean | null;
-  seriesName: string | null;
-  seriesSequence: number | null;
-  durationSeconds: number | null;
-  releaseDate: string | null;
-  imageUrl: string | null;
-  audibleUrl: string | null;
-};
-
-type MatchCandidate = {
-  id: string;
-  audibleUrl: string;
-  confidence: number;
-  confidenceLabel: string;
-  metadata: CandidateMetadata;
-};
 
 interface BookMetadataModalProps {
   book: MetadataBook;
@@ -93,7 +42,6 @@ type EditableFields = {
 };
 
 type SelectableFieldKey = keyof EditableFields;
-type MetadataProvider = "audible" | "google" | "goodreads" | "combined";
 
 type WriteTagsJob = {
   id: string;
@@ -690,10 +638,9 @@ const BookMetadataModal = ({
                     value={provider}
                     onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
                   >
-                    <option value="audible">Audible.com</option>
-                    <option value="google">Google Books</option>
-                    <option value="goodreads">Goodreads</option>
-                    <option value="combined">Audible + Google</option>
+                    {metadataProviderOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -832,11 +779,7 @@ const BookMetadataModal = ({
                         rel="noreferrer"
                       >
                         <Sparkles size={14} />
-                        {selectedCandidate.id.startsWith("google_")
-                          ? "Google Books"
-                          : selectedCandidate.id.startsWith("goodreads_")
-                            ? "Goodreads"
-                            : "Audible"}
+                        {getCandidateSourceLabel(selectedCandidate)}
                       </a>
                     )}
                   </div>

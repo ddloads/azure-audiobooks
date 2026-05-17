@@ -6,7 +6,8 @@ import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
-import BookMetadataModal, { type MetadataBook } from '../components/BookMetadataModal';
+import BookMetadataModal from '../components/BookMetadataModal';
+import type { MetadataBook } from '../features/metadata/types';
 import MobileFilterSheet, { type MobileFilterOptions, type MobileFilters } from './MobileFilterSheet';
 
 interface Book extends MetadataBook {

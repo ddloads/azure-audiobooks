@@ -6,6 +6,8 @@ Last updated: 2026-05-17
 
 Azure Audiobooks is a monorepo audiobook library manager with a React/Vite frontend and a Node/Express/Prisma backend. The app supports desktop and mobile library browsing, metadata management, library scanning, duplicate handling, file management, tag writing, and PWA-style mobile use.
 
+The frontend is moving toward a feature-module structure. Shared metadata contracts now live under `client/src/features/metadata/`, and the Quick Match UI now lives under `client/src/features/quick-match/` instead of being embedded directly in the main library page.
+
 ## Current Features
 
 - Library browsing with grid, list, and mobile-focused views.
@@ -27,6 +29,12 @@ Azure Audiobooks is a monorepo audiobook library manager with a React/Vite front
 
 ## Latest Changes
 
+- Extracted reusable metadata types into `client/src/features/metadata/types.ts`.
+- Centralized metadata provider labels/options and candidate source labeling in `client/src/features/metadata/providers.ts`.
+- Extracted Quick Match types, field defaults, and field labels into `client/src/features/quick-match/types.ts`.
+- Moved the Quick Match modal UI into `client/src/features/quick-match/QuickMatchModal.tsx`.
+- Reduced `client/src/pages/Library.tsx` by moving Quick Match rendering and provider option details out of the page component.
+- Updated `BookMetadataModal` and mobile library code to use shared metadata types instead of importing types from a UI component.
 - Added Goodreads as a metadata match source provider.
 - Added a server-side Goodreads adapter at `server/src/utils/goodreads.ts`.
 - Wired Goodreads into manual metadata search at `/admin/books/:bookId/match/search`.
@@ -44,6 +52,7 @@ Azure Audiobooks is a monorepo audiobook library manager with a React/Vite front
 
 ## Known Notes
 
+- Large screens such as `AdminSettingsModal`, `BookMetadataModal`, and parts of `Library` still contain more logic than ideal. They are good next candidates for feature-by-feature extraction.
 - Goodreads no longer provides a generally available public API, so the Goodreads provider uses public Goodreads search/detail pages and maps parsed results into the existing metadata candidate shape.
 - Google Books and Goodreads Quick Match results require manual review before applying metadata automatically.
 - Local workspace-only files under `.claude/` and `.sync/` are modified but are not part of the current feature commit.
