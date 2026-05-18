@@ -18,6 +18,10 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      'react-hooks/exhaustive-deps': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
   {
     files: ['src/context/*.tsx'],

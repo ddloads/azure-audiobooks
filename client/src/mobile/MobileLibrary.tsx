@@ -192,7 +192,7 @@ const MobileLibrary = () => {
   useEffect(() => {
     const id = setTimeout(() => { void fetchBooks(); }, search ? 300 : 0);
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [filters, search]);
 
   useEffect(() => {
@@ -206,7 +206,7 @@ const MobileLibrary = () => {
       }
     });
     return () => { socket.disconnect(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   useEffect(() => {

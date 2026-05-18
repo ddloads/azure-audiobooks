@@ -15,6 +15,7 @@ import { useTasks } from '../context/TaskContext';
 import { useToast } from '../context/ToastContext';
 import BookMetadataModal from '../components/BookMetadataModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatBookDescription } from '../utils/formatDescription';
 
 interface AudioFile {
   id: string;
@@ -135,7 +136,7 @@ const MobileBookDetails = () => {
       if (data.status === 'failed') setMerging(false);
     });
     return () => { socket.disconnect(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [bookId]);
 
   const checkCache = async () => {
@@ -279,7 +280,7 @@ const MobileBookDetails = () => {
 
   const isCurrentPlaying = currentBook?.id === book.id && isPlaying;
   const canMergeM4B = book.audioFiles.length > 1 || (book.audioFiles.length === 1 && !book.audioFiles[0].filename.toLowerCase().endsWith('.m4b'));
-  const descText = book.description?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() ?? '';
+  const descText = formatBookDescription(book.description);
   const descPreview = descText.slice(0, 280);
 
   return (

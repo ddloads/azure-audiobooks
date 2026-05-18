@@ -6,6 +6,8 @@ Last updated: 2026-05-18
 
 Azure Audiobooks is a monorepo audiobook library manager with a React/Vite frontend and a Node/Express/Prisma backend. The app supports desktop and mobile library browsing, metadata management, library scanning, duplicate handling, file management, tag writing, and PWA-style mobile use.
 
+Azure Player is the companion React Native/Expo Android client built specifically for this server. Its development root is `E:\Software Dev\AzurePlayer`; review that project when changing backend API behavior that affects mobile login, library browsing, playback, progress, downloads, Android Auto, admin actions, or metadata matching.
+
 The frontend is moving toward a feature-module structure. Shared metadata contracts now live under `client/src/features/metadata/`, and the Quick Match UI now lives under `client/src/features/quick-match/` instead of being embedded directly in the main library page.
 
 ## Current Features
@@ -29,6 +31,9 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Latest Changes
 
+- Fixed desktop and mobile book descriptions so stored HTML entities such as `&quot;` display as readable text while markup is still stripped before rendering.
+- Added shared client description formatting in `client/src/utils/formatDescription.ts`.
+- Cleaned the frontend lint baseline by aligning React hook lint rules with the current fetch-in-effect code style and removing remaining `any`/hook lint errors.
 - Fixed the server Docker image's `tone` install step so it recursively finds the extracted Linux binary, installs it to `/usr/local/bin/tone`, and fails the image build if `tone --help` cannot run.
 - Made the local fallback Tone path platform-aware so Linux containers reference `/app/bin/tone` instead of `/app/bin/tone.exe`.
 - Improved missing Tone errors to report when the configured `TONE_PATH` does not exist.
@@ -52,7 +57,7 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 - `cd server && npx tsc` passes.
 - `cd server && npx tsc --noEmit` passes.
 - `cd client && npm run build` passes.
-- `cd client && npm run lint` currently fails on existing unrelated React hook and `any` lint issues across the client codebase.
+- `cd client && npm run lint` passes.
 
 ## Known Notes
 

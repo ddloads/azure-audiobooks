@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
@@ -58,10 +58,12 @@ interface LibraryBook extends MetadataBook {
   asin?: string | null;
   duration: number;
   coverPath?: string;
+  folderPath?: string;
   library: { id: string; name: string };
   author: { name: string };
   series?: { id?: string; name: string } | null;
   sequence?: number | null;
+  _count?: { audioFiles?: number };
 }
 
 type DesktopViewMode = "books" | "list" | "series";
@@ -523,32 +525,30 @@ const Library = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openContinueMenuBookId]);
 
-  const handleScanProgress = useEffectEvent((data: ScanProgress) => {
+  const handleScanProgress = (data: ScanProgress) => {
     setScanProgress(data);
     if (data.status === "completed" || data.status === "failed") {
       void fetchBooks();
       void fetchLibraries();
       setTimeout(() => setScanProgress(null), 5000);
     }
-  });
+  };
 
-  const updateBatchWriteProgress = useEffectEvent(
-    (context: { index: number; total: number; title: string }, job: WriteTagsJob) => {
-      const filePercent = job.totalFiles > 0 ? job.processedFiles / job.totalFiles : 0;
-      const overallPercent = ((context.index + filePercent) / context.total) * 100;
-      setTagWriteProgress({
-        current: context.index + 1,
-        total: context.total,
-        percent: overallPercent,
-        label:
-          job.currentFile?.split(/[/\\]/).pop() ||
-          job.message ||
-          `Writing tags for ${context.title}`,
-      });
-    },
-  );
+  const updateBatchWriteProgress = (context: { index: number; total: number; title: string }, job: WriteTagsJob) => {
+    const filePercent = job.totalFiles > 0 ? job.processedFiles / job.totalFiles : 0;
+    const overallPercent = ((context.index + filePercent) / context.total) * 100;
+    setTagWriteProgress({
+      current: context.index + 1,
+      total: context.total,
+      percent: overallPercent,
+      label:
+        job.currentFile?.split(/[/\\]/).pop() ||
+        job.message ||
+        `Writing tags for ${context.title}`,
+    });
+  };
 
-  const handleWriteTagsProgress = useEffectEvent((job: WriteTagsJob) => {
+  const handleWriteTagsProgress = (job: WriteTagsJob) => {
     writeTagsJobsRef.current.set(job.id, job);
 
     const activeBatchWrite = activeBatchWriteRef.current;
@@ -563,7 +563,7 @@ const Library = () => {
         resolve(job);
       }
     }
-  });
+  };
 
   const waitForWriteTagsJobCompletion = (jobId: string) => {
     const existing = writeTagsJobsRef.current.get(jobId);
@@ -1799,10 +1799,10 @@ const Library = () => {
                     <div className="dup-info">
                       <div className="dup-title">{dup.title}</div>
                       <div className="dup-meta">
-                        {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
+                        {dup.library?.name} - {dup._count?.audioFiles ?? 0} files
                       </div>
-                      <div className="dup-path" title={(dup as any).folderPath}>
-                        {(dup as any).folderPath}
+                      <div className="dup-path" title={dup.folderPath}>
+                        {dup.folderPath}
                       </div>
                     </div>
                   </label>

@@ -34,6 +34,7 @@ import { useToast } from "../context/ToastContext";
 import BookMetadataModal from "../components/BookMetadataModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { getApiBaseUrl, getSocketBaseUrl } from "../api/backend";
+import { formatBookDescription } from "../utils/formatDescription";
 
 interface AudioFile {
   id: string;
@@ -70,6 +71,8 @@ interface Book {
   isbn?: string | null;
   asin?: string | null;
   abridged?: boolean | null;
+  library?: { id: string; name: string };
+  _count?: { audioFiles?: number };
   audioFiles: AudioFile[];
   chapters: Chapter[];
 }
@@ -169,7 +172,7 @@ const BookDetailsPage: React.FC = () => {
       socket.off("mergeProgress", handleMergeProgress);
       socket.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [bookId]);
 
   const handleMergeToM4B = async () => {
@@ -401,7 +404,7 @@ const BookDetailsPage: React.FC = () => {
     }
   }, [book]);
 
-  const fetchBookDetails = async () => {
+  async function fetchBookDetails() {
     if (!bookId) return;
     try {
       const [bookRes, progressRes, backupRes] = await Promise.all([
@@ -420,11 +423,11 @@ const BookDetailsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     void fetchBookDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [bookId]);
 
   const handlePlayFromStart = () => {
@@ -526,6 +529,7 @@ const BookDetailsPage: React.FC = () => {
   }
 
   const isCurrentPlaying = currentBook?.id === book.id && isPlaying;
+  const bookDescription = formatBookDescription(book.description);
   const canConvertSingleFileToM4B =
     book.audioFiles.length === 1 &&
     !book.audioFiles[0].filename.toLowerCase().endsWith(".m4b");
@@ -829,11 +833,11 @@ const BookDetailsPage: React.FC = () => {
         </div>
 
         {/* Description */}
-        {book.description && (
+        {bookDescription && (
           <div className="book-details-desc-section">
             <h3 className="section-subtitle">About this book</h3>
             <p className="description-text">
-              {book.description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
+              {bookDescription}
             </p>
           </div>
         )}
@@ -992,10 +996,10 @@ const BookDetailsPage: React.FC = () => {
                     <div className="dup-info">
                       <div className="dup-title">{dup.title}</div>
                       <div className="dup-meta">
-                        {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
+                        {dup.library?.name} - {dup._count?.audioFiles ?? dup.audioFiles.length} files
                       </div>
-                      <div className="dup-path" title={(dup as any).folderPath}>
-                        {(dup as any).folderPath}
+                      <div className="dup-path" title={dup.folderPath}>
+                        {dup.folderPath}
                       </div>
                     </div>
                   </label>
