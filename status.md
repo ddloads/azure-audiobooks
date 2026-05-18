@@ -31,6 +31,9 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Latest Changes
 
+- Implemented automated metadata verification: Writing tags to audio files now automatically triggers a book-specific rescan to refresh the database from the newly embedded tags.
+- Added `forceMetadata` support to `rescanBook` and `upsertBookFolder` in the scanner utility to allow forced re-probing of files regardless of metadata version.
+- Updated `runWriteTagsJob` in the admin controller to include a verification step and provide real-time status feedback during the refresh.
 - Fixed desktop and mobile book descriptions so stored HTML entities such as `&quot;` display as readable text while markup is still stripped before rendering.
 - Added shared client description formatting in `client/src/utils/formatDescription.ts`.
 - Cleaned the frontend lint baseline by aligning React hook lint rules with the current fetch-in-effect code style and removing remaining `any`/hook lint errors.

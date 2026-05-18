@@ -195,8 +195,23 @@ const runWriteTagsJob = async (jobId: string, bookId: string) => {
       job.status = "completed";
       job.message =
         job.failures.length > 0
-          ? `Metadata written with ${job.failures.length} file failure(s)`
-          : "Metadata written to files successfully";
+          ? `Metadata written with ${job.failures.length} file failure(s). Refreshing database...`
+          : "Metadata written successfully. Refreshing database...";
+      touchWriteTagsJob(job);
+      emitWriteTagsJobProgress(job);
+
+      // Trigger a rescan to verify tags and update the database
+      try {
+        await rescanBook(bookId, true);
+        if (job.failures.length > 0) {
+          job.message = `Metadata written with ${job.failures.length} file failure(s) and verified.`;
+        } else {
+          job.message = "Metadata written and verified successfully";
+        }
+      } catch (rescanError) {
+        console.error("Rescan after write-tags failed:", rescanError);
+        job.message += " (Auto-refresh failed, please rescan manually)";
+      }
     }
     touchWriteTagsJob(job);
     emitWriteTagsJobProgress(job);
