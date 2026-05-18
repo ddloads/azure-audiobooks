@@ -22,6 +22,7 @@ import {
   Trash2,
   Settings,
   Save,
+  Smartphone,
   Sparkles,
   X,
   Headphones,
@@ -37,6 +38,7 @@ import BookCard from "../components/BookCard";
 import BookMetadataModal from "../components/BookMetadataModal";
 import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
+import ConnectMobileModal from "../components/ConnectMobileModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { usePlayer } from "../context/PlayerContext";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
@@ -267,6 +269,7 @@ const Library = () => {
 
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
   const [matchBook, setMatchBook] = useState<MetadataBook | null>(null);
   const [actionBook, setActionBook] = useState<LibraryBook | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
@@ -1099,8 +1102,16 @@ const Library = () => {
                 Files
               </button>
               <button
+                onClick={() => setIsConnectMobileOpen(true)}
+                className="btn btn-secondary library-icon-btn"
+                title="Connect Mobile App"
+              >
+                <Smartphone size={15} />
+              </button>
+              <button
                 onClick={() => navigate("/settings", { state: { from: returnTo } })}
                 className="btn btn-secondary library-icon-btn"
+                title="Admin Settings"
               >
                 <Settings size={15} />
               </button>
@@ -1699,6 +1710,10 @@ const Library = () => {
             </div>
           )}
         </>
+      )}
+
+      {isConnectMobileOpen && (
+        <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
       )}
 
       {isUploadModalOpen && (

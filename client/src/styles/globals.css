@@ -5892,6 +5892,134 @@ input[type='range']::-moz-range-thumb {
   }
 }
 
+/* ── Connect Mobile Modal ── */
+.connect-mobile-modal {
+  max-width: 400px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem 0;
+}
+
+.modal-header-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.connect-mobile-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.connect-mobile-url-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.connect-mobile-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.connect-mobile-url-input {
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+.connect-mobile-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.connect-mobile-qr-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+}
+
+.connect-mobile-qr-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connect-mobile-qr-frame {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.connect-mobile-spinner {
+  color: var(--text-muted);
+  animation: spin 1s linear infinite;
+}
+
+.connect-mobile-error {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--error, #ef4444);
+  font-size: 0.88rem;
+}
+
+.connect-mobile-code-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.connect-mobile-code {
+  color: var(--text);
+  letter-spacing: 0.12em;
+  font-size: 1.05em;
+}
+
+.connect-mobile-countdown {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.connect-mobile-countdown.urgent {
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+.connect-mobile-instructions {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.5;
+  padding: 0.75rem;
+  background: rgba(124, 58, 237, 0.06);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  border-radius: var(--radius-md);
+}
+
+.connect-mobile-instructions strong {
+  color: var(--text);
+}
+
 /* ── Book Details Page ── */
 .book-details-page {
   padding-top: 2.25rem;
