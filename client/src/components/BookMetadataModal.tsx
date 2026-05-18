@@ -110,6 +110,13 @@ const formatDuration = (seconds: number | null) => {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 };
 
+const getFilePathLabel = (folderPath?: string | null) => {
+  if (!folderPath) return null;
+  const normalized = folderPath.replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.slice(-3).join(" / ") || folderPath;
+};
+
 const buildFieldsFromCandidate = (candidate: MatchCandidate): EditableFields => ({
   title: candidate.metadata.title ?? "",
   subtitle: candidate.metadata.subtitle ?? "",
@@ -233,6 +240,22 @@ const BookMetadataModal = ({
     () => results.find((candidate) => candidate.id === selectedCandidateId) ?? null,
     [results, selectedCandidateId],
   );
+  const detailItems = [
+    currentBook.author?.name,
+    currentBook.series?.name
+      ? `${currentBook.series.name}${currentBook.sequence != null ? ` #${currentBook.sequence}` : ""}`
+      : null,
+    currentBook.narrator ? `Narrated by ${currentBook.narrator}` : null,
+    formatDuration(currentBook.duration),
+    currentBook.year,
+    currentBook.library?.name,
+  ].filter(Boolean);
+  const identifierItems = [
+    currentBook.asin ? `ASIN ${currentBook.asin}` : null,
+    currentBook.isbn ? `ISBN ${currentBook.isbn}` : null,
+    currentBook.abridged ? "Abridged" : null,
+  ].filter(Boolean);
+  const folderLabel = getFilePathLabel(currentBook.folderPath);
 
   const waitForWriteTagsJobCompletion = (jobId: string) => {
     const existing = writeTagsJobsRef.current.get(jobId);
@@ -517,6 +540,14 @@ const BookMetadataModal = ({
           <div>
             <h2>Manage Metadata</h2>
             <p className="book-match-subtitle">{currentBook.title}</p>
+            {detailItems.length > 0 && (
+              <p className="book-match-source-details">{detailItems.join(" - ")}</p>
+            )}
+            {(identifierItems.length > 0 || folderLabel) && (
+              <p className="book-match-source-details book-match-source-details--secondary">
+                {[...identifierItems, folderLabel].filter(Boolean).join(" - ")}
+              </p>
+            )}
             {queuePosition && queuePosition.total > 1 && (
               <p className="book-match-queue-status">
                 Title {queuePosition.current} of {queuePosition.total}

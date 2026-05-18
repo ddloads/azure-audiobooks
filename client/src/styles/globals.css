@@ -2322,6 +2322,19 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.88rem;
 }
 
+.book-match-source-details {
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.book-match-source-details--secondary {
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
 .book-match-queue-status {
   color: var(--primary);
   font-size: 0.8rem;
