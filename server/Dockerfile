@@ -42,11 +42,24 @@ RUN apt-get update && apt-get install -y \
 # Install Audible library for Python scripts and audible-cli
 RUN pip3 install audible audible-cli --break-system-packages
 
-# Install 'tone' linux-x64 binary
-RUN wget https://github.com/sandreas/tone/releases/download/v0.2.5/tone-0.2.5-linux-x64.tar.gz \
-    && tar -xzf tone-0.2.5-linux-x64.tar.gz \
-    && find . -maxdepth 1 -type f -executable -name "tone*" -exec mv {} /usr/local/bin/tone \; \
-    && rm -f tone*.tar.gz
+# Install 'tone' linux binary
+ARG TONE_VERSION=0.2.5
+ARG TARGETARCH
+RUN set -eux; \
+    case "${TARGETARCH:-amd64}" in \
+      amd64) tone_arch="x64" ;; \
+      arm64) tone_arch="arm64" ;; \
+      arm) tone_arch="arm" ;; \
+      *) echo "Unsupported TARGETARCH for tone: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    wget -O /tmp/tone.tar.gz "https://github.com/sandreas/tone/releases/download/v${TONE_VERSION}/tone-${TONE_VERSION}-linux-${tone_arch}.tar.gz"; \
+    mkdir -p /tmp/tone; \
+    tar -xzf /tmp/tone.tar.gz -C /tmp/tone; \
+    tone_bin="$(find /tmp/tone -type f -name tone -perm /111 | head -n 1)"; \
+    test -n "$tone_bin"; \
+    install -m 0755 "$tone_bin" /usr/local/bin/tone; \
+    /usr/local/bin/tone --help >/dev/null; \
+    rm -rf /tmp/tone /tmp/tone.tar.gz
 
 # Copy built assets and production node_modules from builder
 COPY --from=builder /app/server/dist ./dist

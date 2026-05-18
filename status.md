@@ -1,6 +1,6 @@
 # Azure Audiobooks Status
 
-Last updated: 2026-05-17
+Last updated: 2026-05-18
 
 ## Project State
 
@@ -29,6 +29,9 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Latest Changes
 
+- Fixed the server Docker image's `tone` install step so it recursively finds the extracted Linux binary, installs it to `/usr/local/bin/tone`, and fails the image build if `tone --help` cannot run.
+- Made the local fallback Tone path platform-aware so Linux containers reference `/app/bin/tone` instead of `/app/bin/tone.exe`.
+- Improved missing Tone errors to report when the configured `TONE_PATH` does not exist.
 - Extracted reusable metadata types into `client/src/features/metadata/types.ts`.
 - Centralized metadata provider labels/options and candidate source labeling in `client/src/features/metadata/providers.ts`.
 - Extracted Quick Match types, field defaults, and field labels into `client/src/features/quick-match/types.ts`.
@@ -46,6 +49,7 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Validation
 
+- `cd server && npx tsc` passes.
 - `cd server && npx tsc --noEmit` passes.
 - `cd client && npm run build` passes.
 - `cd client && npm run lint` currently fails on existing unrelated React hook and `any` lint issues across the client codebase.

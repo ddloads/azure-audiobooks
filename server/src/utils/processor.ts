@@ -424,8 +424,13 @@ export const embedMetadata = async (
 ): Promise<void> => {
   const resolvedTonePath = resolveTonePath();
   if (!resolvedTonePath) {
+    const configuredPath = process.env.TONE_PATH?.trim();
+    const installHint = configuredPath
+      ? `Configured TONE_PATH does not exist: ${configuredPath}.`
+      : `Set TONE_PATH, install tone on PATH, or place tone at ${tonePath}.`;
+
     throw new Error(
-      `Tone executable not found. Set TONE_PATH to tone.exe or place tone.exe at ${tonePath}.`,
+      `Tone executable not found. ${installHint}`,
     );
   }
 
