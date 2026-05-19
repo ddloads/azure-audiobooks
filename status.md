@@ -1,6 +1,6 @@
 # Azure Audiobooks Status
 
-Last updated: 2026-05-18
+Last updated: 2026-05-19
 
 ## Project State
 
@@ -31,6 +31,18 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Latest Changes
 
+- Added authenticated bug reporting with `POST /api/reports`, including issue type, optional comment, page path, user agent, and submitting user.
+- Added Prisma migration `20260519183000_add_bug_reports` and `BugReport` storage for user-submitted reports.
+- Added an Admin Settings `Reports` tab backed by `GET /api/admin/reports` so admins can review recent submissions.
+- Added desktop and mobile-web report entry points using the shared `BugReportModal`.
+- Updated the companion Azure Player app locally to submit reports through the new `/api/reports` endpoint from its profile support section.
+- Added recovery email support to user accounts with a nullable unique `User.email` field and Prisma migration `20260519000000_add_user_email`.
+- Updated public registration and admin-created users to require recovery email, including server-side format and duplicate-email validation.
+- Added a blocking app-level recovery email prompt for existing authenticated users who do not yet have an email in the database.
+- Added `PATCH /auth/me/email` so users can add their own recovery email without admin intervention.
+- Exposed recovery email in auth, admin user list, dashboard recent-user data, and mobile pairing auth responses.
+- Made the mobile QR pairing generator visible to all authenticated users instead of admins only.
+- Confirmed the existing Admin Scripts UI includes `Apply Prisma migrations`, which runs `npx prisma migrate deploy` for applying the email migration.
 - Expanded the metadata modal header so it now shows title context like author, series, narrator, duration, identifiers, library, and a shortened folder path before matching.
 - Implemented automated metadata verification: Writing tags to audio files now automatically triggers a book-specific rescan to refresh the database from the newly embedded tags.
 - Added `forceMetadata` support to `rescanBook` and `upsertBookFolder` in the scanner utility to allow forced re-probing of files regardless of metadata version.
@@ -58,6 +70,9 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Validation
 
+- `cd server && npx prisma validate --schema prisma/schema.prisma` passes.
+- `cd server && npx tsc -p tsconfig.json --noEmit` passes.
+- `cd server && npx prisma generate` passes.
 - `cd server && npx tsc` passes.
 - `cd server && npx tsc --noEmit` passes.
 - `cd client && npm run build` passes.
@@ -65,6 +80,9 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 
 ## Known Notes
 
+- Existing deployments must apply Prisma migrations, either manually or through Admin Settings -> Scripts -> Apply Prisma migrations, before bug reports can be stored.
+- Existing deployments must apply Prisma migrations, either manually or through Admin Settings -> Scripts -> Apply Prisma migrations, before email-backed recovery fields are available in the database.
+- The companion Azure Player workspace at `E:\Software Dev\AzurePlayer` has no configured Git remote and appears fully untracked, so its local bug-reporting UI/API changes must be committed from that project once its repository setup is confirmed.
 - Large screens such as `AdminSettingsModal`, `BookMetadataModal`, and parts of `Library` still contain more logic than ideal. They are good next candidates for feature-by-feature extraction.
 - Goodreads no longer provides a generally available public API, so the Goodreads provider uses public Goodreads search/detail pages and maps parsed results into the existing metadata candidate shape.
 - Google Books and Goodreads Quick Match results require manual review before applying metadata automatically.

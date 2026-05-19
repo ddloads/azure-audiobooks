@@ -7,6 +7,7 @@ import streamRoutes from "./routes/streamRoutes";
 import progressRoutes from "./routes/progressRoutes";
 import settingsRoutes from "./routes/settingsRoutes";
 import adminRoutes from "./routes/adminRoutes";
+import reportRoutes from "./routes/reportRoutes";
 import {
   errorLoggingMiddleware,
   requestLoggingMiddleware,
@@ -48,6 +49,7 @@ app.use("/api/stream", streamRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/reports", reportRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

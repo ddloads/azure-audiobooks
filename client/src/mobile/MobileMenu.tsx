@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { FolderOpen, LogOut, RefreshCw, Settings, Smartphone, Upload } from 'lucide-react';
+import { Bug, FolderOpen, LogOut, RefreshCw, Settings, Smartphone, Upload } from 'lucide-react';
 import { useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import AppLogo from '../components/AppLogo';
 import UploadModal from '../components/UploadModal';
 import ConnectMobileModal from '../components/ConnectMobileModal';
+import BugReportModal from '../components/BugReportModal';
 
 const MobileMenu = () => {
   const { user, logout } = useAuth();
@@ -15,6 +16,7 @@ const MobileMenu = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const isAdmin = user?.role === 'ADMIN';
 
   const handleScan = async () => {
@@ -65,6 +67,10 @@ const MobileMenu = () => {
           <Smartphone size={18} className="mobile-menu-item-icon" />
           Connect Mobile App
         </button>
+        <button className="mobile-menu-item" onClick={() => setIsBugReportOpen(true)}>
+          <Bug size={18} className="mobile-menu-item-icon" />
+          Report an Issue
+        </button>
       </div>
 
       {isAdmin && (
@@ -97,6 +103,10 @@ const MobileMenu = () => {
 
       {isConnectMobileOpen && (
         <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
+      )}
+
+      {isBugReportOpen && (
+        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
       )}
     </div>
   );

@@ -46,6 +46,7 @@ import {
   writeBookMetadataToFile,
 } from "../controllers/adminController";
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
+import { listBugReports } from "../controllers/reportController";
 import { updateAppearanceSettingsHandler } from "../controllers/settingsController";
 import { listAdminScriptsHandler, runAdminScriptHandler } from "../controllers/scriptController";
 import {
@@ -131,5 +132,6 @@ router.get("/backups", listBackups);
 router.post("/backups", createBackup);
 router.get("/logs", listSystemLogs);
 router.delete("/logs", clearSystemLogs);
+router.get("/reports", listBugReports);
 
 export default router;

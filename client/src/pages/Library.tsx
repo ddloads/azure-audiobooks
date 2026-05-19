@@ -24,6 +24,7 @@ import {
   Save,
   Smartphone,
   Sparkles,
+  Bug,
   X,
   Headphones,
   SlidersHorizontal,
@@ -40,6 +41,7 @@ import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
 import ConnectMobileModal from "../components/ConnectMobileModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import BugReportModal from "../components/BugReportModal";
 import { usePlayer } from "../context/PlayerContext";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
 import QuickMatchModal from "../features/quick-match/QuickMatchModal";
@@ -272,6 +274,7 @@ const Library = () => {
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [matchBook, setMatchBook] = useState<MetadataBook | null>(null);
   const [actionBook, setActionBook] = useState<LibraryBook | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
@@ -1118,6 +1121,13 @@ const Library = () => {
             <Smartphone size={15} />
           </button>
           <button
+            onClick={() => setIsBugReportOpen(true)}
+            className="btn btn-secondary library-icon-btn"
+            title="Report an issue"
+          >
+            <Bug size={15} />
+          </button>
+          <button
             onClick={logout}
             className="btn logout-btn"
             title="Sign out"
@@ -1714,6 +1724,10 @@ const Library = () => {
 
       {isConnectMobileOpen && (
         <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
+      )}
+
+      {isBugReportOpen && (
+        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
       )}
 
       {isUploadModalOpen && (

@@ -371,6 +371,28 @@ img {
   box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.18);
 }
 
+.bug-report-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
+}
+
+.bug-report-body .form-group > span {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bug-report-textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
 select.form-control {
   cursor: pointer;
 }
@@ -5011,6 +5033,47 @@ input[type='range']::-moz-range-thumb {
   font-size: 0.875rem;
   border-radius: var(--radius-lg);
   border: 1px dashed rgba(51, 65, 85, 0.6);
+}
+
+.admin-report-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-report-card {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.admin-report-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-report-card-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.admin-report-comment {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.admin-report-comment-muted,
+.admin-report-user-agent {
+  color: var(--text-muted);
+}
+
+.admin-report-user-agent {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
 }
 
 .admin-search {

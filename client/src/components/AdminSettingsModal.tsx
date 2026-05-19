@@ -49,7 +49,7 @@ import { useToast } from "../context/ToastContext";
 import ConfirmDialog from "./ConfirmDialog";
 import FolderBrowserModal from "./FolderBrowserModal";
 
-type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "logs";
+type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "reports" | "logs";
 type OverviewSectionKey = "libraries" | "recentBooks" | "recentUsers" | "storage" | "tasks";
 interface OverviewPreferences {
   showStats: boolean;
@@ -191,6 +191,18 @@ interface AdminLogsResponse {
   logDirectory: string;
 }
 
+interface AdminBugReport {
+  id: string;
+  type: string;
+  comment?: string | null;
+  path?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+  userId: string;
+  username: string;
+  email?: string | null;
+}
+
 interface AdminScriptOption {
   id: string;
   label: string;
@@ -295,6 +307,16 @@ const LOG_LEVEL_OPTIONS: Array<{ value: AdminLogLevel; label: string }> = [
   { value: "debug", label: "Debug" },
 ];
 
+const REPORT_TYPE_LABELS: Record<string, string> = {
+  playback: "Playback issue",
+  library: "Library or scanning",
+  metadata: "Book metadata",
+  account: "Account or login",
+  performance: "Slow or unresponsive",
+  visual: "Visual problem",
+  other: "Something else",
+};
+
 const tabs: Array<{ key: TabKey; label: string; icon: typeof Settings; description: string }> = [
   {
     key: "overview",
@@ -331,6 +353,12 @@ const tabs: Array<{ key: TabKey; label: string; icon: typeof Settings; descripti
     label: "System",
     icon: Database,
     description: "Backups, storage paths, and maintenance controls.",
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    icon: Bug,
+    description: "User-submitted issue reports and optional comments.",
   },
   {
     key: "logs",
@@ -539,9 +567,11 @@ const AdminSettingsModal = ({
   const [scriptsError, setScriptsError] = useState("");
   const [scriptResult, setScriptResult] = useState<AdminScriptResult | null>(null);
   const [logsData, setLogsData] = useState<AdminLogsResponse | null>(null);
+  const [bugReports, setBugReports] = useState<AdminBugReport[]>([]);
   const [runtimeTasks, setRuntimeTasks] = useState<AdminRuntimeTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [reportsLoading, setReportsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [newUsername, setNewUsername] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -755,6 +785,22 @@ const AdminSettingsModal = ({
     }
   };
 
+  const loadBugReports = async () => {
+    setReportsLoading(true);
+    try {
+      const response = await api.get<AdminBugReport[]>("/admin/reports");
+      setBugReports(response.data);
+    } catch (actionError) {
+      showToast({
+        title: "Failed to load reports",
+        description: getErrorMessage(actionError, "Failed to load bug reports"),
+        tone: "error",
+      });
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
   const loadAudibleCliStatus = async () => {
     setAudibleCliStatusLoading(true);
     try {
@@ -943,6 +989,11 @@ const AdminSettingsModal = ({
     if (activeTab !== "logs") return;
     void loadLogs(logsPage);
   }, [activeTab, logsPage, enabledLogLevels, logScopeFilter, logSearch]);
+
+  useEffect(() => {
+    if (activeTab !== "reports") return;
+    void loadBugReports();
+  }, [activeTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3224,6 +3275,63 @@ const AdminSettingsModal = ({
                           ))
                         )}
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "reports" && (
+                  <div className="admin-panel-stack">
+                    <div className="admin-section-head">
+                      <div>
+                        <h3>Issue reports</h3>
+                        <p className="admin-library-meta-text">
+                          Latest reports submitted from the library and mobile menu.
+                        </p>
+                      </div>
+                      <button
+                        className="btn btn-secondary"
+                        type="button"
+                        onClick={() => void loadBugReports()}
+                        disabled={reportsLoading}
+                      >
+                        {reportsLoading ? <RefreshCw size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                        Refresh
+                      </button>
+                    </div>
+
+                    <div className="admin-report-list">
+                      {reportsLoading && bugReports.length === 0 ? (
+                        <div className="admin-empty-state">Loading reports...</div>
+                      ) : bugReports.length === 0 ? (
+                        <div className="admin-empty-state">No issue reports have been submitted.</div>
+                      ) : (
+                        bugReports.map((report) => (
+                          <article className="card admin-section-card admin-report-card" key={report.id}>
+                            <div className="admin-report-card-head">
+                              <div>
+                                <h3>{REPORT_TYPE_LABELS[report.type] ?? report.type}</h3>
+                                <p className="admin-library-meta-text">
+                                  {report.username}
+                                  {report.email ? ` · ${report.email}` : ""}
+                                  {" · "}
+                                  {formatDate(report.createdAt)}
+                                </p>
+                              </div>
+                              <div className="admin-pill">{report.path || "No path"}</div>
+                            </div>
+                            {report.comment ? (
+                              <p className="admin-report-comment">{report.comment}</p>
+                            ) : (
+                              <p className="admin-report-comment admin-report-comment-muted">No comment provided.</p>
+                            )}
+                            {report.userAgent && (
+                              <div className="admin-report-user-agent" title={report.userAgent}>
+                                {report.userAgent}
+                              </div>
+                            )}
+                          </article>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
