@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, Search, Sparkles, SlidersHorizontal, Square, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
@@ -83,9 +83,11 @@ const CHUNK_SIZE = 40;
 
 const MobileLibrary = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { playBook } = usePlayer();
+  const returnTo = `${location.pathname}${location.search}`;
 
   const [books, setBooks] = useState<Book[]>([]);
   const [filterOptions, setFilterOptions] = useState<MobileFilterOptions>(emptyFilterOptions);
@@ -547,7 +549,7 @@ const MobileLibrary = () => {
                     <div
                       key={book.id}
                       className={`mobile-book-card${isSelecting ? ' is-selecting' : ''}${isSelected ? ' is-selected' : ''}`}
-                      onClick={() => isSelecting ? toggleBookSelection(book.id) : navigate(`/book/${book.id}`)}
+                      onClick={() => isSelecting ? toggleBookSelection(book.id) : navigate(`/book/${book.id}`, { state: { from: returnTo } })}
                     >
                       {isSelecting && (
                         <div className="mobile-book-select-indicator">
@@ -585,7 +587,7 @@ const MobileLibrary = () => {
                     <div
                       key={book.id}
                       className={`mobile-book-list-item${isSelecting ? ' is-selecting' : ''}${isSelected ? ' is-selected' : ''}`}
-                      onClick={() => isSelecting ? toggleBookSelection(book.id) : navigate(`/book/${book.id}`)}
+                      onClick={() => isSelecting ? toggleBookSelection(book.id) : navigate(`/book/${book.id}`, { state: { from: returnTo } })}
                     >
                       {isSelecting && (
                         <div className="mobile-book-list-check">
