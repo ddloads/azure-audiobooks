@@ -48,6 +48,7 @@ const emptyFilters = (): MobileFilters => ({
   narrator: '',
   yearFrom: '',
   listeningStatus: 'all',
+  matchStatus: 'all',
   cover: 'all',
   sortBy: 'newest',
 });
@@ -128,6 +129,7 @@ const MobileLibrary = () => {
     if (filters.narrator) n++;
     if (filters.yearFrom) n++;
     if (filters.listeningStatus !== 'all') n++;
+    if (filters.matchStatus !== 'all') n++;
     if (filters.cover !== 'all') n++;
     return n;
   }, [filters]);
@@ -142,6 +144,7 @@ const MobileLibrary = () => {
     narrator: filters.narrator || undefined,
     yearFrom: filters.yearFrom || undefined,
     listeningStatus: filters.listeningStatus !== 'all' ? filters.listeningStatus : undefined,
+    matchStatus: filters.matchStatus !== 'all' ? filters.matchStatus : undefined,
     cover: filters.cover !== 'all' ? filters.cover : undefined,
   });
 

@@ -22,6 +22,13 @@ type GoodreadsBookDetails = {
 
 const GOODREADS_BASE_URL = "https://www.goodreads.com";
 
+export class GoodreadsSearchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GoodreadsSearchError";
+  }
+}
+
 const decodeHtml = (value: string) =>
   value
     .replace(/&amp;/g, "&")
@@ -86,7 +93,14 @@ const fetchHtml = async (url: string) => {
     throw new Error(`Goodreads request failed with status ${response.status}`);
   }
 
-  return response.text();
+  const html = await response.text();
+  if (/awswaf|challenge-container|verify that you're not a robot|captcha/i.test(html)) {
+    throw new GoodreadsSearchError(
+      "Goodreads blocked the automated search request. Goodreads no longer supports this server-side search path.",
+    );
+  }
+
+  return html;
 };
 
 const metaContent = (html: string, name: string) => {
@@ -296,6 +310,9 @@ export const searchGoodreads = async (
       .flatMap((result) => (result.status === "fulfilled" ? [result.value] : []))
       .sort((left, right) => right.confidence - left.confidence);
   } catch (error) {
+    if (error instanceof GoodreadsSearchError) {
+      throw error;
+    }
     console.error("Goodreads search error:", error);
     return [];
   }

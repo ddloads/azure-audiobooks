@@ -256,6 +256,8 @@ const BookMetadataModal = ({
     currentBook.abridged ? "Abridged" : null,
   ].filter(Boolean);
   const folderLabel = getFilePathLabel(currentBook.folderPath);
+  const getDefaultQueryForProvider = (nextProvider: MetadataProvider, sourceBook: MetadataBook = currentBook) =>
+    nextProvider === "audible" ? sourceBook.asin || sourceBook.title : sourceBook.title;
 
   const waitForWriteTagsJobCompletion = (jobId: string) => {
     const existing = writeTagsJobsRef.current.get(jobId);
@@ -374,6 +376,7 @@ const BookMetadataModal = ({
 
   const handleProviderChange = (nextProvider: MetadataProvider) => {
     setProvider(nextProvider);
+    setQuery(getDefaultQueryForProvider(nextProvider));
     setResults([]);
     setSelectedCandidateId(null);
     setFetchFields(emptyFields());

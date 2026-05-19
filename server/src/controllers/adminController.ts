@@ -33,8 +33,8 @@ import {
   searchAudibleCli,
   setStoredActiveAudibleProfile,
 } from "../utils/audibleCli";
-import { searchGoogleBooks } from "../utils/googleBooks";
-import { searchGoodreads } from "../utils/goodreads";
+import { GoogleBooksSearchError, searchGoogleBooks } from "../utils/googleBooks";
+import { GoodreadsSearchError, searchGoodreads } from "../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../utils/covers";
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
@@ -261,6 +261,8 @@ const isBoolean = (value: unknown): value is boolean => typeof value === "boolea
 
 const parseAsinValue = (value: string | null | undefined) =>
   value?.match(/\bASIN[:\s-]*([A-Z0-9]{10})\b/i)?.[1]?.toUpperCase() ?? null;
+
+const isAsinLike = (value: string | null | undefined) => /^[A-Z0-9]{10}$/i.test(value?.trim() ?? "");
 
 const parseMetadataProvider = (value: unknown) => {
   if (value === "google") return "google";
@@ -1914,6 +1916,7 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
       getOptionalBodyValue(req.body?.query) || book.asin || parseAsinValue(book.description) || book.title;
     const author = getOptionalBodyValue(req.body?.author) || book.author.name;
     const provider = parseMetadataProvider(req.body?.provider);
+    const catalogQuery = isAsinLike(query) ? book.title : query;
 
     const loadAudibleCandidates = async () => {
       const context = {
@@ -1941,7 +1944,7 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
     if (provider === "combined") {
       const [audibleCandidates, googleCandidates] = await Promise.all([
         loadAudibleCandidates(),
-        searchGoogleBooks(query, author),
+        searchGoogleBooks(catalogQuery, author),
       ]);
 
       candidates = [...audibleCandidates];
@@ -1958,18 +1961,22 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
     } else if (provider === "audible") {
       candidates = await loadAudibleCandidates();
     } else if (provider === "google") {
-      candidates = await searchGoogleBooks(query, author);
+      candidates = await searchGoogleBooks(catalogQuery, author);
     } else {
-      candidates = await searchGoodreads(query, author);
+      candidates = await searchGoodreads(catalogQuery, author);
     }
 
     res.json({
       provider,
-      query,
+      query: provider === "audible" ? query : catalogQuery,
       author,
       candidates,
     });
   } catch (error) {
+    if (error instanceof GoogleBooksSearchError || error instanceof GoodreadsSearchError) {
+      res.status(502).json({ error: error.message });
+      return;
+    }
     console.error("Search book matches error:", error);
     res.status(500).json({ error: "Failed to search metadata" });
   }
@@ -1993,6 +2000,7 @@ const findBookMatchCandidates = async (
 ) => {
   const query = queryOverride || book.asin || parseAsinValue(book.description) || book.title;
   const author = authorOverride || book.author.name;
+  const catalogQuery = isAsinLike(query) ? book.title : query;
   const context = {
     title: book.title,
     author: book.author.name,
@@ -2017,7 +2025,7 @@ const findBookMatchCandidates = async (
   if (provider === "combined") {
     const [audibleCandidates, googleCandidates] = await Promise.all([
       loadAudibleCandidates(),
-      searchGoogleBooks(query, author),
+      searchGoogleBooks(catalogQuery, author),
     ]);
 
     const candidates = [...audibleCandidates];
@@ -2030,16 +2038,16 @@ const findBookMatchCandidates = async (
       if (!isDuplicate) candidates.push(google);
     }
 
-    return { provider, query, author, candidates };
+    return { provider, query: catalogQuery, author, candidates };
   }
 
   const candidates = provider === "audible"
     ? await loadAudibleCandidates()
     : provider === "google"
-      ? await searchGoogleBooks(query, author)
-      : await searchGoodreads(query, author);
+      ? await searchGoogleBooks(catalogQuery, author)
+      : await searchGoodreads(catalogQuery, author);
 
-  return { provider, query, author, candidates };
+  return { provider, query: provider === "audible" ? query : catalogQuery, author, candidates };
 };
 
 const buildFieldsFromMatchCandidate = (
