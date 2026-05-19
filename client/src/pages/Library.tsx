@@ -1102,13 +1102,6 @@ const Library = () => {
                 Files
               </button>
               <button
-                onClick={() => setIsConnectMobileOpen(true)}
-                className="btn btn-secondary library-icon-btn"
-                title="Connect Mobile App"
-              >
-                <Smartphone size={15} />
-              </button>
-              <button
                 onClick={() => navigate("/settings", { state: { from: returnTo } })}
                 className="btn btn-secondary library-icon-btn"
                 title="Admin Settings"
@@ -1117,6 +1110,13 @@ const Library = () => {
               </button>
             </>
           )}
+          <button
+            onClick={() => setIsConnectMobileOpen(true)}
+            className="btn btn-secondary library-icon-btn"
+            title="Connect Mobile App"
+          >
+            <Smartphone size={15} />
+          </button>
           <button
             onClick={logout}
             className="btn logout-btn"

@@ -4,7 +4,13 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma";
 import { AUTH_COOKIE_NAME, AuthRequest } from "../middleware/authMiddleware";
-import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
+import {
+  findUserByEmailInsensitive,
+  findUserByUsernameInsensitive,
+  isValidEmail,
+  sanitizeEmail,
+  sanitizeUsername,
+} from "../utils/usernames";
 
 // In-memory pairing codes for mobile QR connect. Single-use, 5-minute TTL.
 const pairingCodes = new Map<string, { userId: string; role: string; expiresAt: number }>();
@@ -44,16 +50,28 @@ const setAuthCookie = (res: Response, token: string) => {
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const username = sanitizeUsername(req.body?.username);
+    const email = sanitizeEmail(req.body?.email);
     const password = req.body?.password;
 
-    if (!username || !password) {
-      res.status(400).json({ error: "Username and password are required" });
+    if (!username || !email || !password) {
+      res.status(400).json({ error: "Username, email, and password are required" });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "A valid email is required" });
       return;
     }
 
     const existingUser = await findUserByUsernameInsensitive(username);
     if (existingUser) {
       res.status(400).json({ error: "Username already exists" });
+      return;
+    }
+
+    const existingEmail = await findUserByEmailInsensitive(email);
+    if (existingEmail) {
+      res.status(400).json({ error: "Email already exists" });
       return;
     }
 
@@ -65,6 +83,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const user = await prisma.user.create({
       data: {
         username,
+        email,
         password: hashedPassword,
         role,
       },
@@ -77,6 +96,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
         role: user.role,
       },
       token,
@@ -116,6 +136,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       user: {
         id: user.id,
         username: user.username,
+        email: user.email,
         role: user.role,
       },
       token,
@@ -135,7 +156,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, role: true },
+      select: { id: true, username: true, email: true, role: true },
     });
 
     if (!user) {
@@ -146,6 +167,43 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
     res.json(user);
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateMyEmail = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const email = sanitizeEmail(req.body?.email);
+    if (!email) {
+      res.status(400).json({ error: "Email is required" });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "A valid email is required" });
+      return;
+    }
+
+    const existingEmail = await findUserByEmailInsensitive(email);
+    if (existingEmail && existingEmail.id !== req.user.userId) {
+      res.status(400).json({ error: "Email already exists" });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { email },
+      select: { id: true, username: true, email: true, role: true },
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error("Update email error:", error);
+    res.status(500).json({ error: "Failed to update email" });
   }
 };
 
@@ -203,7 +261,7 @@ export const redeemPairingCode = async (req: Request, res: Response): Promise<vo
 
     const user = await prisma.user.findUnique({
       where: { id: entry.userId },
-      select: { id: true, username: true, role: true },
+      select: { id: true, username: true, email: true, role: true },
     });
 
     if (!user) {
@@ -212,7 +270,7 @@ export const redeemPairingCode = async (req: Request, res: Response): Promise<vo
     }
 
     const token = issueAuthToken(user.id, user.role);
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
+    res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
   } catch (error) {
     res.status(500).json({ error: "Failed to redeem pairing code" });
   }

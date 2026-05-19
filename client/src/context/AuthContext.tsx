@@ -4,6 +4,7 @@ import api from "../api/axios";
 interface User {
   id: string;
   username: string;
+  email?: string | null;
   role: string;
 }
 
@@ -11,6 +12,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (token: string, user: User) => void;
+  updateUser: (user: User) => void;
   logout: () => void;
 }
 
@@ -53,6 +55,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(user);
   };
 
+  const updateUser = (user: User) => {
+    setUser(user);
+  };
+
   const logout = () => {
     void api.post("/auth/logout").catch(() => undefined);
     localStorage.removeItem("token");
@@ -60,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, updateUser, logout }}>
       {children}
     </AuthContext.Provider>
   );

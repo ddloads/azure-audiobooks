@@ -49,8 +49,8 @@ async function main() {
   ]);
   await prisma.user.createMany({
     data: [
-      { username: "admin", password: adminHash, role: "ADMIN" },
-      { username: "demo",  password: demoHash,  role: "USER"  },
+      { username: "admin", email: "admin@example.com", password: adminHash, role: "ADMIN" },
+      { username: "demo", email: "demo@example.com", password: demoHash, role: "USER" },
     ],
   });
   console.log("Created users: admin / demo");

@@ -98,6 +98,7 @@ interface DashboardData {
   recentUsers: Array<{
     id: string;
     username: string;
+    email?: string | null;
     role: string;
     createdAt: string;
   }>;
@@ -114,6 +115,7 @@ interface DashboardData {
 interface AdminUser {
   id: string;
   username: string;
+  email?: string | null;
   role: string;
   createdAt: string;
   updatedAt: string;
@@ -542,6 +544,7 @@ const AdminSettingsModal = ({
   const [logsLoading, setLogsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [newUsername, setNewUsername] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [newRole, setNewRole] = useState("USER");
@@ -1131,6 +1134,7 @@ const AdminSettingsModal = ({
       try {
         await api.post("/admin/users", {
           username: newUsername.trim(),
+          email: newEmail.trim(),
           password: newPassword,
           role: newRole,
         });
@@ -1140,6 +1144,7 @@ const AdminSettingsModal = ({
           tone: "success",
         });
         setNewUsername("");
+        setNewEmail("");
         setNewPassword("");
         setNewRole("USER");
         await loadAll();
@@ -1982,7 +1987,7 @@ const AdminSettingsModal = ({
                                   <strong>{user.username}</strong>
                                   <small>
                                     <span className={`admin-role-badge admin-role-${user.role.toLowerCase()}`}>{user.role}</span>
-                                    {" · "}joined {formatDate(user.createdAt)}
+                                    {" · "}{user.email || "No recovery email"} · joined {formatDate(user.createdAt)}
                                   </small>
                                 </div>
                               </div>
@@ -2047,6 +2052,13 @@ const AdminSettingsModal = ({
                           value={newUsername}
                           onChange={(e) => setNewUsername(e.target.value)}
                         />
+                        <input
+                          className="form-control"
+                          placeholder="Recovery email"
+                          type="email"
+                          value={newEmail}
+                          onChange={(e) => setNewEmail(e.target.value)}
+                        />
                         <div className="password-field">
                           <input
                             className="form-control password-input"
@@ -2075,7 +2087,12 @@ const AdminSettingsModal = ({
                         <button
                           className="btn btn-primary"
                           type="button"
-                          disabled={!newUsername.trim() || !newPassword || actionLoading === "create-user"}
+                          disabled={
+                            !newUsername.trim() ||
+                            !newEmail.trim() ||
+                            !newPassword ||
+                            actionLoading === "create-user"
+                          }
                           onClick={() => void handleCreateUser()}
                         >
                           {actionLoading === "create-user" ? (
@@ -2106,7 +2123,7 @@ const AdminSettingsModal = ({
                                   <span className={`admin-role-badge admin-role-${user.role.toLowerCase()}`}>
                                     {user.role}
                                   </span>
-                                  {" · "}{user._count.progress} listens · joined {formatDate(user.createdAt)}
+                                  {" · "}{user.email || "No recovery email"} · {user._count.progress} listens · joined {formatDate(user.createdAt)}
                                 </small>
                               </div>
                             </div>

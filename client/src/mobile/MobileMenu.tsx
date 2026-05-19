@@ -59,13 +59,17 @@ const MobileMenu = () => {
         </div>
       )}
 
+      <div className="mobile-menu-section">
+        <span className="mobile-menu-section-label">Account</span>
+        <button className="mobile-menu-item" onClick={() => setIsConnectMobileOpen(true)}>
+          <Smartphone size={18} className="mobile-menu-item-icon" />
+          Connect Mobile App
+        </button>
+      </div>
+
       {isAdmin && (
         <div className="mobile-menu-section">
           <span className="mobile-menu-section-label">Admin</span>
-          <button className="mobile-menu-item" onClick={() => setIsConnectMobileOpen(true)}>
-            <Smartphone size={18} className="mobile-menu-item-icon" />
-            Connect Mobile App
-          </button>
           <button className="mobile-menu-item" onClick={() => navigate('/files', { state: { from: '/' } })}>
             <FolderOpen size={18} className="mobile-menu-item-icon" />
             File Manager

@@ -4001,7 +4001,7 @@ input[type='range']::-moz-range-thumb {
 
 .admin-create-user-grid {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 0.8fr auto;
+  grid-template-columns: 1fr 1.2fr 1.2fr 0.8fr auto;
   gap: 0.75rem;
 }
 
@@ -6149,6 +6149,25 @@ input[type='range']::-moz-range-thumb {
 
 .connect-mobile-instructions strong {
   color: var(--text);
+}
+
+.account-email-modal {
+  max-width: 420px;
+}
+
+.account-email-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.account-email-copy {
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.account-email-submit {
+  justify-content: center;
 }
 
 /* ── Book Details Page ── */

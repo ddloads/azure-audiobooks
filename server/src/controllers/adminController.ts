@@ -39,7 +39,13 @@ import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } fro
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
 import { invalidateFilterOptionsCache } from "./libraryController";
-import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
+import {
+  findUserByEmailInsensitive,
+  findUserByUsernameInsensitive,
+  isValidEmail,
+  sanitizeEmail,
+  sanitizeUsername,
+} from "../utils/usernames";
 import { createLogger } from "../lib/logger";
 import { booksArePotentialDuplicates, findDuplicateGroups } from "../utils/duplicates";
 
@@ -444,7 +450,7 @@ export const getAdminDashboard = async (_req: AuthRequest, res: Response): Promi
       prisma.audioFile.count(),
       prisma.book.aggregate({ _sum: { duration: true } }),
       prisma.user.findMany({
-        select: { id: true, username: true, role: true, createdAt: true },
+        select: { id: true, username: true, email: true, role: true, createdAt: true },
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
@@ -507,6 +513,7 @@ export const listUsers = async (_req: AuthRequest, res: Response): Promise<void>
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -529,9 +536,15 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       role?: string;
     };
     const username = sanitizeUsername(req.body?.username);
+    const email = sanitizeEmail(req.body?.email);
 
-    if (!username || !password) {
-      res.status(400).json({ error: "Username and password are required" });
+    if (!username || !email || !password) {
+      res.status(400).json({ error: "Username, email, and password are required" });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "A valid email is required" });
       return;
     }
 
@@ -542,16 +555,24 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const existingEmail = await findUserByEmailInsensitive(email);
+    if (existingEmail) {
+      res.status(400).json({ error: "Email already exists" });
+      return;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         username,
+        email,
         password: hashedPassword,
         role: normalizedRole,
       },
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -562,6 +583,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
     adminLogger.info("User created", {
       targetUserId: user.id,
       username: user.username,
+      email: user.email,
       role: user.role,
     });
   } catch (error) {
@@ -611,6 +633,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
         createdAt: true,
         updatedAt: true,
