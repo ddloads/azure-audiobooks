@@ -217,6 +217,7 @@ const BookMetadataModal = ({
   const [error, setError] = useState("");
   const [results, setResults] = useState<MatchCandidate[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [mobileFetchPane, setMobileFetchPane] = useState<"results" | "fields">("results");
 
   // For Fetch tab
   const [fetchFields, setFetchFields] = useState<EditableFields>(emptyFields);
@@ -288,7 +289,10 @@ const BookMetadataModal = ({
 
       const candidates: MatchCandidate[] = res.data.candidates ?? [];
       setResults(candidates);
-      if (candidates.length > 0 && isMobile) setSearchCollapsed(true);
+      if (isMobile) {
+        setMobileFetchPane("results");
+        if (candidates.length > 0) setSearchCollapsed(true);
+      }
 
       if (candidates[0]) {
         const nextFields = buildFieldsFromCandidate(candidates[0]);
@@ -327,6 +331,7 @@ const BookMetadataModal = ({
     setEditFields(buildFieldsFromBook(book));
     setResults([]);
     setSelectedCandidateId(null);
+    setMobileFetchPane("results");
     setFetchFields(emptyFields());
     setSelectedFields(buildSelectionFromFields(emptyFields()));
 
@@ -446,6 +451,7 @@ const BookMetadataModal = ({
     setSelectedCandidateId(candidate.id);
     setFetchFields(nextFields);
     setSelectedFields(buildSelectionFromFields(nextFields));
+    if (isMobile) setMobileFetchPane("fields");
   };
 
   const handleFetchFieldChange = (key: SelectableFieldKey, value: string | boolean) => {
@@ -645,61 +651,277 @@ const BookMetadataModal = ({
         )}
 
         {activeTab === "fetch" ? (
-          <>
-            <form className="book-match-search" onSubmit={runSearch}>
-              {isMobile && (
-                <button
-                  type="button"
-                  className="mobile-search-collapse-btn"
-                  onClick={() => setSearchCollapsed(v => !v)}
-                >
-                  {searchCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                  {searchCollapsed ? 'Search options' : 'Hide options'}
-                </button>
-              )}
-              {(!isMobile || !searchCollapsed) && (
-              <div className="book-match-search-grid">
-                <div className="form-group">
-                  <label>Provider</label>
-                  <select
-                    className="form-control"
-                    value={provider}
-                    onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
+          isMobile ? (
+            mobileFetchPane === "results" ? (
+              /* ── Mobile Pane 1: pick a match ── */
+              <div className="mobile-fetch-results-pane">
+                <form className="book-match-search" onSubmit={runSearch}>
+                  <button
+                    type="button"
+                    className="mobile-search-collapse-btn"
+                    onClick={() => setSearchCollapsed(v => !v)}
                   >
-                    {metadataProviderOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
+                    {searchCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    {searchCollapsed ? 'Search options' : 'Hide options'}
+                  </button>
+                  {!searchCollapsed && (
+                    <div className="book-match-search-grid">
+                      <div className="form-group">
+                        <label>Provider</label>
+                        <select
+                          className="form-control"
+                          value={provider}
+                          onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
+                        >
+                          {metadataProviderOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Search Title or ASIN</label>
+                        <input
+                          className="form-control"
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                          placeholder="Title or ASIN"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Author</label>
+                        <input
+                          className="form-control"
+                          value={authorSearch}
+                          onChange={(event) => setAuthorSearch(event.target.value)}
+                          placeholder="Author"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="mobile-search-action-row">
+                    <button className="btn btn-primary" type="submit" disabled={loading}>
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                      Search
+                    </button>
+                    <label className="book-match-auto-search-toggle">
+                      <input
+                        type="checkbox"
+                        checked={autoSearchQueue}
+                        onChange={handleAutoSearchQueueChange}
+                      />
+                      <span>Auto</span>
+                    </label>
+                  </div>
+                </form>
+
+                <div className="mobile-fetch-list">
+                  {results.length === 0 && !loading ? (
+                    <div className="admin-empty-state">No metadata found for this search.</div>
+                  ) : (
+                    results.map((candidate) => {
+                      const isSelected = candidate.id === selectedCandidateId;
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          className={`mobile-match-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => handleSelectCandidate(candidate)}
+                        >
+                          <div className="mobile-match-card-cover">
+                            {candidate.metadata.imageUrl ? (
+                              <img src={candidate.metadata.imageUrl} alt={candidate.metadata.title || "Cover"} />
+                            ) : (
+                              <div className="book-cover-placeholder" />
+                            )}
+                          </div>
+                          <div className="mobile-match-card-info">
+                            <div className="mobile-match-card-top">
+                              <span className="mobile-match-card-title">{candidate.metadata.title || "Unknown title"}</span>
+                              <span className="book-match-confidence">{candidate.confidenceLabel}</span>
+                            </div>
+                            <span className="mobile-match-card-meta">
+                              {candidate.metadata.author || "Unknown author"}
+                              {candidate.metadata.seriesName ? ` · ${candidate.metadata.seriesName}` : ""}
+                            </span>
+                          </div>
+                          {isSelected && <Check size={18} className="mobile-match-card-check" />}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
 
-                <div className="form-group">
-                  <label>Search Title or ASIN</label>
-                  <input
-                    className="form-control"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Title or ASIN"
-                  />
-                </div>
+                {selectedCandidateId && (
+                  <div className="mobile-fetch-proceed-bar">
+                    <span className="mobile-fetch-proceed-label">{selectedCandidate?.metadata.title}</span>
+                    <button className="btn btn-primary" type="button" onClick={() => setMobileFetchPane("fields")}>
+                      Review <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Mobile Pane 2: review & apply fields ── */
+              <div className="mobile-fetch-fields-pane">
+                <button type="button" className="mobile-fetch-back-bar" onClick={() => setMobileFetchPane("results")}>
+                  <ChevronLeft size={16} />
+                  <span>{results.length} result{results.length !== 1 ? "s" : ""} — change selection</span>
+                </button>
 
-                <div className="form-group">
-                  <label>Author</label>
-                  <input
-                    className="form-control"
-                    value={authorSearch}
-                    onChange={(event) => setAuthorSearch(event.target.value)}
-                    placeholder="Author"
-                  />
+                {selectedCandidate && (
+                  <>
+                    <div className="mobile-fetch-candidate-summary">
+                      {selectedCandidate.metadata.imageUrl && (
+                        <img
+                          className="mobile-fetch-candidate-cover"
+                          src={selectedCandidate.metadata.imageUrl}
+                          alt=""
+                        />
+                      )}
+                      <div className="mobile-fetch-candidate-info">
+                        <span className="book-match-confidence">{selectedCandidate.confidenceLabel}</span>
+                        <strong className="mobile-fetch-candidate-title">{selectedCandidate.metadata.title}</strong>
+                        <span className="mobile-fetch-candidate-meta">{selectedCandidate.metadata.author}</span>
+                      </div>
+                      {(selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl) && (
+                        <a
+                          className="book-match-link"
+                          href={selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Sparkles size={14} />
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="mobile-fetch-fields-scroll">
+                      <div className="book-match-field-list">
+                        {FIELD_DEFINITIONS.map((field) => (
+                          <div key={field.key} className="book-match-field-row">
+                            <label className="book-match-select">
+                              <input
+                                type="checkbox"
+                                checked={selectedFields[field.key]}
+                                onChange={(event) =>
+                                  setSelectedFields((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.checked,
+                                  }))
+                                }
+                              />
+                              <span>{field.label}</span>
+                            </label>
+                            <div className="book-match-field-control">
+                              {field.key === "imageUrl" && fetchFields.imageUrl ? (
+                                <div className="book-match-cover-preview">
+                                  <img src={fetchFields.imageUrl} alt="Cover preview" />
+                                  <input
+                                    className="form-control"
+                                    value={fetchFields[field.key] as string}
+                                    onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                  />
+                                </div>
+                              ) : field.type === "textarea" ? (
+                                <textarea
+                                  className="form-control"
+                                  rows={5}
+                                  value={fetchFields[field.key] as string}
+                                  onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                />
+                              ) : field.type === "checkbox" ? (
+                                <label className="admin-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(fetchFields[field.key])}
+                                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                                      handleFetchFieldChange(field.key, event.target.checked)
+                                    }
+                                  />
+                                  <span>{fetchFields[field.key] ? "Yes" : "No"}</span>
+                                </label>
+                              ) : (
+                                <input
+                                  className="form-control"
+                                  value={fetchFields[field.key] as string}
+                                  onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <label className="book-match-review-flag">
+                        <input
+                          type="checkbox"
+                          checked={markForReview}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                            setMarkForReview(event.target.checked)
+                          }
+                        />
+                        <span>
+                          Flag for review
+                          <small>
+                            Adds the `review` tag so you can filter this title in the library view.
+                          </small>
+                        </span>
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                <div className="book-match-actions">
+                  <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-primary" type="button" onClick={handleSaveFetch} disabled={saving}>
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    Submit
+                  </button>
                 </div>
               </div>
-              )}
-
-              <button className="btn btn-primary book-match-search-btn" type="submit" disabled={loading}>
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                Search
-              </button>
-
-              {activeTab === "fetch" && (
+            )
+          ) : (
+            /* ── Desktop layout ── */
+            <>
+              <form className="book-match-search" onSubmit={runSearch}>
+                <div className="book-match-search-grid">
+                  <div className="form-group">
+                    <label>Provider</label>
+                    <select
+                      className="form-control"
+                      value={provider}
+                      onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
+                    >
+                      {metadataProviderOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Search Title or ASIN</label>
+                    <input
+                      className="form-control"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Title or ASIN"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Author</label>
+                    <input
+                      className="form-control"
+                      value={authorSearch}
+                      onChange={(event) => setAuthorSearch(event.target.value)}
+                      placeholder="Author"
+                    />
+                  </div>
+                </div>
+                <button className="btn btn-primary book-match-search-btn" type="submit" disabled={loading}>
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                  Search
+                </button>
                 <label className="book-match-auto-search-toggle">
                   <input
                     type="checkbox"
@@ -708,214 +930,199 @@ const BookMetadataModal = ({
                   />
                   <span>Auto search</span>
                 </label>
-              )}
-            </form>
+              </form>
 
-            <div className="book-match-results">
-              <div className="book-match-results-list">
-                {results.length === 0 && !loading ? (
-                  <div className="admin-empty-state">No metadata found for this search.</div>
-                ) : (
-                  results.map((candidate) => {
-                    const isSelected = candidate.id === selectedCandidateId;
-                    const durationLabel = formatDuration(candidate.metadata.durationSeconds);
-                    return (
-                      <button
-                        key={candidate.id}
-                        type="button"
-                        className={`book-match-result-card ${isSelected ? "selected" : ""}`}
-                        onClick={() => handleSelectCandidate(candidate)}
-                      >
-                        <div className="book-match-result-cover">
-                          {candidate.metadata.imageUrl ? (
-                            <img
-                              src={candidate.metadata.imageUrl}
-                              alt={candidate.metadata.title || "Fetched title"}
-                            />
-                          ) : (
-                            <div className="book-cover-placeholder">No Cover</div>
-                          )}
-                        </div>
-
-                        <div className="book-match-result-copy">
-                          <div className="book-match-result-head">
-                            <div>
-                              <h3>{candidate.metadata.title || "Unknown title"}</h3>
-                              {candidate.metadata.subtitle && (
-                                <p className="book-match-result-subcopy">
-                                  {candidate.metadata.subtitle}
-                                </p>
-                              )}
-                            </div>
-                            <span className="book-match-confidence">{candidate.confidenceLabel}</span>
+              <div className="book-match-results">
+                <div className="book-match-results-list">
+                  {results.length === 0 && !loading ? (
+                    <div className="admin-empty-state">No metadata found for this search.</div>
+                  ) : (
+                    results.map((candidate) => {
+                      const isSelected = candidate.id === selectedCandidateId;
+                      const durationLabel = formatDuration(candidate.metadata.durationSeconds);
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          className={`book-match-result-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => handleSelectCandidate(candidate)}
+                        >
+                          <div className="book-match-result-cover">
+                            {candidate.metadata.imageUrl ? (
+                              <img
+                                src={candidate.metadata.imageUrl}
+                                alt={candidate.metadata.title || "Fetched title"}
+                              />
+                            ) : (
+                              <div className="book-cover-placeholder">No Cover</div>
+                            )}
                           </div>
-
-                          <p className="book-match-result-meta">
-                            {candidate.metadata.author || "Unknown author"}
-                            {candidate.metadata.narrator
-                              ? ` · Narrator: ${candidate.metadata.narrator}`
-                              : ""}
-                            {durationLabel ? ` · ${durationLabel}` : ""}
-                          </p>
-
-                          {candidate.metadata.seriesName && (
-                            <p className="book-match-result-subcopy">
-                              {candidate.metadata.seriesName}
-                              {candidate.metadata.seriesSequence
-                                ? ` · Book ${candidate.metadata.seriesSequence}`
-                                : ""}
-                            </p>
-                          )}
-
-                          {(candidate.metadata.genres || candidate.metadata.language) && (
+                          <div className="book-match-result-copy">
+                            <div className="book-match-result-head">
+                              <div>
+                                <h3>{candidate.metadata.title || "Unknown title"}</h3>
+                                {candidate.metadata.subtitle && (
+                                  <p className="book-match-result-subcopy">{candidate.metadata.subtitle}</p>
+                                )}
+                              </div>
+                              <span className="book-match-confidence">{candidate.confidenceLabel}</span>
+                            </div>
                             <p className="book-match-result-meta">
-                              {candidate.metadata.genres}
-                              {candidate.metadata.genres && candidate.metadata.language ? " · " : ""}
-                              {candidate.metadata.language ? candidate.metadata.language.toUpperCase() : ""}
+                              {candidate.metadata.author || "Unknown author"}
+                              {candidate.metadata.narrator ? ` · Narrator: ${candidate.metadata.narrator}` : ""}
+                              {durationLabel ? ` · ${durationLabel}` : ""}
                             </p>
-                          )}
+                            {candidate.metadata.seriesName && (
+                              <p className="book-match-result-subcopy">
+                                {candidate.metadata.seriesName}
+                                {candidate.metadata.seriesSequence
+                                  ? ` · Book ${candidate.metadata.seriesSequence}`
+                                  : ""}
+                              </p>
+                            )}
+                            {(candidate.metadata.genres || candidate.metadata.language) && (
+                              <p className="book-match-result-meta">
+                                {candidate.metadata.genres}
+                                {candidate.metadata.genres && candidate.metadata.language ? " · " : ""}
+                                {candidate.metadata.language ? candidate.metadata.language.toUpperCase() : ""}
+                              </p>
+                            )}
+                            {candidate.metadata.description && (
+                              <p className="book-match-result-desc">{candidate.metadata.description}</p>
+                            )}
+                            {isSelected && (
+                              <span className="book-match-selected-pill">
+                                <Check size={14} />
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
 
-                          {candidate.metadata.description && (
-                            <p className="book-match-result-desc">{candidate.metadata.description}</p>
-                          )}
-
-                          {isSelected && (
-                            <span className="book-match-selected-pill">
-                              <Check size={14} />
-                              Selected
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              {selectedCandidate && (
-                <div className="book-match-fields">
-                  <div className="book-match-fields-header">
-                    <div>
-                      <span className="book-match-fields-kicker">Selected Metadata</span>
-                      <h3>{selectedCandidate.metadata.title}</h3>
+                {selectedCandidate && (
+                  <div className="book-match-fields">
+                    <div className="book-match-fields-header">
+                      <div>
+                        <span className="book-match-fields-kicker">Selected Metadata</span>
+                        <h3>{selectedCandidate.metadata.title}</h3>
+                      </div>
+                      {(selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl) && (
+                        <a
+                          className="book-match-link"
+                          href={selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Sparkles size={14} />
+                          {getCandidateSourceLabel(selectedCandidate)}
+                        </a>
+                      )}
                     </div>
-                    {(selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl) && (
-                      <a
-                        className="book-match-link"
-                        href={selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Sparkles size={14} />
-                        {getCandidateSourceLabel(selectedCandidate)}
-                      </a>
-                    )}
-                  </div>
 
-                  <div className="book-match-field-list">
-                    {FIELD_DEFINITIONS.map((field) => (
-                      <div key={field.key} className="book-match-field-row">
-                        <label className="book-match-select">
-                          <input
-                            type="checkbox"
-                            checked={selectedFields[field.key]}
-                            onChange={(event) =>
-                              setSelectedFields((current) => ({
-                                ...current,
-                                [field.key]: event.target.checked,
-                              }))
-                            }
-                          />
-                          <span>{field.label}</span>
-                        </label>
-
-                        <div className="book-match-field-control">
-                          {field.key === "imageUrl" && fetchFields.imageUrl ? (
-                            <div className="book-match-cover-preview">
-                              <img src={fetchFields.imageUrl} alt="Cover preview" />
+                    <div className="book-match-field-list">
+                      {FIELD_DEFINITIONS.map((field) => (
+                        <div key={field.key} className="book-match-field-row">
+                          <label className="book-match-select">
+                            <input
+                              type="checkbox"
+                              checked={selectedFields[field.key]}
+                              onChange={(event) =>
+                                setSelectedFields((current) => ({
+                                  ...current,
+                                  [field.key]: event.target.checked,
+                                }))
+                              }
+                            />
+                            <span>{field.label}</span>
+                          </label>
+                          <div className="book-match-field-control">
+                            {field.key === "imageUrl" && fetchFields.imageUrl ? (
+                              <div className="book-match-cover-preview">
+                                <img src={fetchFields.imageUrl} alt="Cover preview" />
+                                <input
+                                  className="form-control"
+                                  value={fetchFields[field.key] as string}
+                                  onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                />
+                              </div>
+                            ) : field.type === "textarea" ? (
+                              <textarea
+                                className="form-control"
+                                rows={5}
+                                value={fetchFields[field.key] as string}
+                                onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                              />
+                            ) : field.type === "checkbox" ? (
+                              <label className="admin-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(fetchFields[field.key])}
+                                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                                    handleFetchFieldChange(field.key, event.target.checked)
+                                  }
+                                />
+                                <span>{fetchFields[field.key] ? "Yes" : "No"}</span>
+                              </label>
+                            ) : (
                               <input
                                 className="form-control"
                                 value={fetchFields[field.key] as string}
                                 onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
                               />
-                            </div>
-                          ) : field.type === "textarea" ? (
-                            <textarea
-                              className="form-control"
-                              rows={5}
-                              value={fetchFields[field.key] as string}
-                              onChange={(event) =>
-                                handleFetchFieldChange(field.key, event.target.value)
-                              }
-                            />
-                          ) : field.type === "checkbox" ? (
-                            <label className="admin-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(fetchFields[field.key])}
-                                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                                  handleFetchFieldChange(field.key, event.target.checked)
-                                }
-                              />
-                              <span>{fetchFields[field.key] ? "Yes" : "No"}</span>
-                            </label>
-                          ) : (
-                            <input
-                              className="form-control"
-                              value={fetchFields[field.key] as string}
-                              onChange={(event) =>
-                                handleFetchFieldChange(field.key, event.target.value)
-                              }
-                            />
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
 
-                  <label className="book-match-review-flag">
-                    <input
-                      type="checkbox"
-                      checked={markForReview}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                        setMarkForReview(event.target.checked)
-                      }
-                    />
-                    <span>
-                      Flag for review
-                      <small>
-                        Adds the `review` tag so you can filter this title in the library view.
-                      </small>
-                    </span>
-                  </label>
+                    <label className="book-match-review-flag">
+                      <input
+                        type="checkbox"
+                        checked={markForReview}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                          setMarkForReview(event.target.checked)
+                        }
+                      />
+                      <span>
+                        Flag for review
+                        <small>
+                          Adds the `review` tag so you can filter this title in the library view.
+                        </small>
+                      </span>
+                    </label>
 
-                  <div className="book-match-actions">
-                    <button
-                      className="btn btn-secondary"
-                      type="button"
-                      onClick={onClose}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      type="button"
-                      onClick={handleSaveFetch}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Check size={16} />
-                      )}
-                      Submit
-                    </button>
+                    <div className="book-match-actions">
+                      <button
+                        className="btn btn-secondary"
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={handleSaveFetch}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Check size={16} />
+                        )}
+                        Submit
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </>
+                )}
+              </div>
+            </>
+          )
         ) : (
           <div className="metadata-edit-form">
             {currentBook.coverPath && (
