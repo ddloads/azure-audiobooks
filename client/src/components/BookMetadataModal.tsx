@@ -233,7 +233,6 @@ const BookMetadataModal = ({
   const autoSearchQueueRef = useRef(autoSearchQueue);
   const activeTabRef = useRef(activeTab);
   const providerRef = useRef(provider);
-  const queuePositionRef = useRef(queuePosition);
   const autoRunSearchRef = useRef<((providerOverride: MetadataProvider, searchOverride: { bookId: string; query: string; author: string }) => void) | null>(null);
 
   const selectedCandidate = useMemo(
@@ -312,7 +311,6 @@ const BookMetadataModal = ({
     autoSearchQueueRef.current = autoSearchQueue;
     activeTabRef.current = activeTab;
     providerRef.current = provider;
-    queuePositionRef.current = queuePosition;
     autoRunSearchRef.current = (providerOverride, searchOverride) => {
       void runSearch(undefined, providerOverride, searchOverride);
     };
@@ -343,9 +341,8 @@ const BookMetadataModal = ({
         setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
         setEditFields(buildFieldsFromBook(res.data));
 
-        const currentQueuePosition = queuePositionRef.current;
         const currentProvider = providerRef.current;
-        if (autoSearchQueueRef.current && currentQueuePosition && currentQueuePosition.total > 1 && activeTabRef.current === "fetch") {
+        if (autoSearchQueueRef.current && activeTabRef.current === "fetch") {
           const autoSearchKey = `${res.data.id}:${currentProvider}`;
           if (autoSearchKeyRef.current !== autoSearchKey) {
             autoSearchKeyRef.current = autoSearchKey;
@@ -382,7 +379,7 @@ const BookMetadataModal = ({
     const enabled = event.target.checked;
     setAutoSearchQueue(enabled);
 
-    if (!enabled || !queuePosition || queuePosition.total <= 1 || activeTab !== "fetch" || loading || saving) return;
+    if (!enabled || activeTab !== "fetch" || loading || saving) return;
 
     const autoSearchKey = `${currentBook.id}:${provider}`;
     if (autoSearchKeyRef.current === autoSearchKey) return;
@@ -702,7 +699,7 @@ const BookMetadataModal = ({
                 Search
               </button>
 
-              {queuePosition && queuePosition.total > 1 && (
+              {activeTab === "fetch" && (
                 <label className="book-match-auto-search-toggle">
                   <input
                     type="checkbox"
