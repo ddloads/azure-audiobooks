@@ -1227,6 +1227,20 @@
 .mobile-details-download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .mobile-details-download-btn.cached { color: #4ade80; border-color: #4ade80; }
 
+.mobile-details-report-btn {
+  width: 48px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Metadata grid */
 .mobile-details-meta {
   display: grid;

@@ -19,12 +19,15 @@ const getErrorMessage = (error: unknown, fallback: string) =>
 
 interface BugReportModalProps {
   onClose: () => void;
+  initialType?: string;
+  initialComment?: string;
+  path?: string;
 }
 
-const BugReportModal = ({ onClose }: BugReportModalProps) => {
+const BugReportModal = ({ onClose, initialType = issueTypes[0].value, initialComment = "", path }: BugReportModalProps) => {
   const { showToast } = useToast();
-  const [type, setType] = useState(issueTypes[0].value);
-  const [comment, setComment] = useState("");
+  const [type, setType] = useState(initialType);
+  const [comment, setComment] = useState(initialComment);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -33,7 +36,7 @@ const BugReportModal = ({ onClose }: BugReportModalProps) => {
       await api.post("/reports", {
         type,
         comment,
-        path: `${window.location.pathname}${window.location.search}`,
+        path: path ?? `${window.location.pathname}${window.location.search}`,
       });
       showToast({
         title: "Report submitted",

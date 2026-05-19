@@ -2103,6 +2103,13 @@ input[type='range']::-moz-range-thumb {
   gap: 0.6rem !important;
 }
 
+.title-report-btn {
+  padding: 0.875rem 1.2rem;
+  border-radius: var(--radius-lg);
+  gap: 0.55rem;
+  white-space: nowrap;
+}
+
 .btn-outline {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-strong);

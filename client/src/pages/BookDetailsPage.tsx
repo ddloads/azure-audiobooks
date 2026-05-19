@@ -25,6 +25,7 @@ import {
   Trash2,
   FileSearch,
   RefreshCw,
+  Bug,
 } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
@@ -33,6 +34,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import BookMetadataModal from "../components/BookMetadataModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import BugReportModal from "../components/BugReportModal";
 import { getApiBaseUrl, getSocketBaseUrl } from "../api/backend";
 import { formatBookDescription } from "../utils/formatDescription";
 
@@ -103,6 +105,7 @@ const BookDetailsPage: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [merging, setMerging] = useState(false);
   const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
@@ -828,6 +831,15 @@ const BookDetailsPage: React.FC = () => {
                   </>
                 )}
               </button>
+              <button
+                className="btn btn-secondary title-report-btn"
+                type="button"
+                onClick={() => setShowBugReportModal(true)}
+                title="Report an issue with this title"
+              >
+                <Bug size={18} />
+                Report Issue
+              </button>
             </div>
           </div>
         </div>
@@ -925,6 +937,14 @@ const BookDetailsPage: React.FC = () => {
           onClose={() => setShowMetadataModal(false)}
           onApplied={() => fetchBookDetails()}
           initialTab="edit"
+        />
+      )}
+      {showBugReportModal && book && (
+        <BugReportModal
+          onClose={() => setShowBugReportModal(false)}
+          initialType="metadata"
+          path={`/book/${book.id}`}
+          initialComment={`Title: ${book.title}\nAuthor: ${book.author.name}\n\n`}
         />
       )}
       <ConfirmDialog

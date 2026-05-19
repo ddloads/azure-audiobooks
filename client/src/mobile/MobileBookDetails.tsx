@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 import {
   ArrowLeft, BookOpen, CheckCircle2, ChevronDown, ChevronUp,
   Database, Download, Loader2, MoreVertical, Pause,
-  Pencil, Play, RefreshCw, Search, Trash2, Undo,
+  Pencil, Play, RefreshCw, Search, Trash2, Undo, Bug,
 } from 'lucide-react';
 import api from '../api/axios';
 import { getApiBaseUrl, getSocketBaseUrl } from '../api/backend';
@@ -15,6 +15,7 @@ import { useTasks } from '../context/TaskContext';
 import { useToast } from '../context/ToastContext';
 import BookMetadataModal from '../components/BookMetadataModal';
 import ConfirmDialog from '../components/ConfirmDialog';
+import BugReportModal from '../components/BugReportModal';
 import { formatBookDescription } from '../utils/formatDescription';
 
 interface AudioFile {
@@ -87,6 +88,7 @@ const MobileBookDetails = () => {
   const [tracksCollapsed, setTracksCollapsed] = useState(true);
   const [showToolsSheet, setShowToolsSheet] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [metadataInitialTab, setMetadataInitialTab] = useState<'edit' | 'fetch'>('edit');
   const [confirmAction, setConfirmAction] = useState<null | 'merge' | 'undo' | 'rescan' | 'cleanup' | 'delete'>(null);
   const [merging, setMerging] = useState(false);
@@ -393,6 +395,13 @@ const MobileBookDetails = () => {
           >
             {downloading ? <Loader2 size={18} className="animate-spin" /> : isCached ? <CheckCircle2 size={18} /> : <Download size={18} />}
           </button>
+          <button
+            className="mobile-details-report-btn"
+            onClick={() => setShowBugReportModal(true)}
+            title="Report an issue with this title"
+          >
+            <Bug size={18} />
+          </button>
         </div>
 
         {/* Details — collapsible */}
@@ -562,6 +571,15 @@ const MobileBookDetails = () => {
           onClose={() => setShowMetadataModal(false)}
           onApplied={() => fetchBookDetails()}
           initialTab={metadataInitialTab}
+        />
+      )}
+
+      {showBugReportModal && (
+        <BugReportModal
+          onClose={() => setShowBugReportModal(false)}
+          initialType="metadata"
+          path={`/book/${book.id}`}
+          initialComment={`Title: ${book.title}\nAuthor: ${book.author.name}\n\n`}
         />
       )}
 

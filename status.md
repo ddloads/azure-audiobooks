@@ -35,7 +35,9 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
 - Added Prisma migration `20260519183000_add_bug_reports` and `BugReport` storage for user-submitted reports.
 - Added an Admin Settings `Reports` tab backed by `GET /api/admin/reports` so admins can review recent submissions.
 - Added desktop and mobile-web report entry points using the shared `BugReportModal`.
+- Added contextual report buttons on desktop and mobile-web title detail pages, prefilled with the current title and author.
 - Updated the companion Azure Player app locally to submit reports through the new `/api/reports` endpoint from its profile support section.
+- Updated the companion Azure Player app locally with a title detail report button that submits `azure-player://book/:id` context.
 - Added recovery email support to user accounts with a nullable unique `User.email` field and Prisma migration `20260519000000_add_user_email`.
 - Updated public registration and admin-created users to require recovery email, including server-side format and duplicate-email validation.
 - Added a blocking app-level recovery email prompt for existing authenticated users who do not yet have an email in the database.
