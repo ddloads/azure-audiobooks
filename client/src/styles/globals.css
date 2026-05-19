@@ -5610,10 +5610,78 @@ input[type='range']::-moz-range-thumb {
     overflow: hidden;
   }
 
+  .metadata-modal .modal-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.65rem 0.75rem;
+    margin-bottom: 0;
+  }
+
+  .metadata-modal .modal-header > div:first-child {
+    min-width: 0;
+  }
+
+  .metadata-modal .modal-header h2 {
+    white-space: nowrap;
+  }
+
+  .metadata-modal .modal-close {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .metadata-modal .book-match-subtitle,
+  .metadata-modal .book-match-source-details {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+  }
+
+  .metadata-modal .book-match-subtitle {
+    -webkit-line-clamp: 2;
+  }
+
+  .metadata-modal .book-match-source-details {
+    -webkit-line-clamp: 2;
+  }
+
+  .metadata-modal .book-match-source-details--secondary {
+    -webkit-line-clamp: 1;
+  }
+
+  .metadata-modal .book-match-queue-controls {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+    margin: 0;
+  }
+
+  .metadata-modal .book-match-queue-controls .btn {
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .metadata-modal .metadata-tabs {
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0.65rem 1rem;
+  }
+
+  .metadata-modal .metadata-tab {
+    flex: 1;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0.45rem 0.75rem;
+  }
+
   .metadata-modal .book-match-results {
     overflow: auto;
     min-height: 0;
-    padding-bottom: 0.75rem;
+    padding: 0 1rem 0.75rem;
   }
 
   .book-match-search {
@@ -5640,10 +5708,60 @@ input[type='range']::-moz-range-thumb {
 
   .book-match-results {
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
 
   .book-match-results-list {
-    max-height: min(42vh, 360px);
+    flex: none;
+    max-height: clamp(140px, 26dvh, 220px);
+    padding: 0.65rem;
+  }
+
+  .book-match-result-card {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 0.65rem;
+  }
+
+  .book-match-result-cover {
+    width: 64px;
+  }
+
+  .book-match-result-head {
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .book-match-result-head h3 {
+    font-size: 0.92rem;
+  }
+
+  .book-match-confidence {
+    padding: 0.22rem 0.45rem;
+    font-size: 0.68rem;
+  }
+
+  .book-match-result-desc {
+    display: none;
+  }
+
+  .book-match-fields {
+    padding: 0.75rem;
+  }
+
+  .book-match-fields-header {
+    align-items: flex-start;
+  }
+
+  .book-match-fields-header h3 {
+    font-size: 0.95rem;
+    line-height: 1.25;
+  }
+
+  .book-match-link {
+    flex-shrink: 0;
   }
 
   .book-match-fields,
