@@ -12,6 +12,7 @@ export interface RequestLogContext {
   ip?: string;
   userId?: string;
   role?: string;
+  title?: string;
 }
 
 export interface LogEntry {
@@ -25,6 +26,7 @@ export interface LogEntry {
   ip?: string;
   userId?: string;
   role?: string;
+  title?: string;
   statusCode?: number;
   durationMs?: number;
   tags?: string[];
@@ -154,17 +156,21 @@ const writeEntry = (
   extras?: { statusCode?: number; durationMs?: number; tags?: string[] },
 ) => {
   const requestContext = requestContextStore.getStore();
+  const displayTitle = requestContext?.title;
+  const enrichedMessage = displayTitle ? `[${displayTitle}] ${message}` : message;
+
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
     context,
-    message,
+    message: enrichedMessage,
     requestId: requestContext?.requestId,
     method: requestContext?.method,
     path: requestContext?.path,
     ip: requestContext?.ip,
     userId: requestContext?.userId,
     role: requestContext?.role,
+    title: displayTitle,
     statusCode: extras?.statusCode,
     durationMs: extras?.durationMs,
     tags: extras?.tags,

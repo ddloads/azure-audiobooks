@@ -38,6 +38,7 @@ import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } fro
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
 import { invalidateFilterOptionsCache } from "./libraryController";
+import { setLogTitle } from "../middleware/loggingMiddleware";
 import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
 import { createLogger } from "../lib/logger";
 import { booksArePotentialDuplicates, findDuplicateGroups } from "../utils/duplicates";
@@ -1071,6 +1072,8 @@ export const deleteBook = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    setLogTitle(book.title);
+
     // Delete from DB first
     await prisma.book.delete({ where: { id: bookId } });
 
@@ -1121,6 +1124,8 @@ export const mergeBookFiles = async (req: AuthRequest, res: Response): Promise<v
       res.status(404).json({ error: "Book not found" });
       return;
     }
+
+    setLogTitle(book.title);
 
     if (book.audioFiles.length === 0) {
       res.status(400).json({ error: "Book has no audio files" });
@@ -1980,6 +1985,8 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
+    setLogTitle(book.title);
+
     const selectedFields = selected as Record<string, unknown>;
     const sourceFields = fields as Record<string, unknown>;
     const updateData: Record<string, unknown> = {};
@@ -2067,31 +2074,61 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
 
     updateData.metadataVersion = book.metadataVersion;
 
-    const updatedBook = await prisma.book.update({
-      where: { id: bookId },
-      data: updateData,
-      include: {
-        author: true,
-        series: true,
-        library: true,
-        audioFiles: { orderBy: { index: "asc" } },
-      },
-    });
+    try {
+      const updatedBook = await prisma.book.update({
+        where: { id: bookId },
+        data: updateData,
+        include: {
+          author: true,
+          series: true,
+          library: true,
+          audioFiles: { orderBy: { index: "asc" } },
+        },
+      });
 
-    invalidateFilterOptionsCache();
-    res.json(updatedBook);
+      invalidateFilterOptionsCache();
+      res.json(updatedBook);
     } catch (error: any) {
+      if (
+        error?.code === "P2002" &&
+        (error.meta?.target?.includes("title") || error.meta?.target?.includes("authorId"))
+      ) {
+        const disambiguatedTitle = `${updateData.title || book.title} (${path.basename(book.folderPath)})`;
+        console.log(
+          `Title collision on apply match for "${updateData.title || book.title}". Renaming to "${disambiguatedTitle}"`,
+        );
+
+        const retryData = { ...updateData, title: disambiguatedTitle };
+        const updatedBook = await prisma.book.update({
+          where: { id: bookId },
+          data: retryData,
+          include: {
+            author: true,
+            series: true,
+            library: true,
+            audioFiles: { orderBy: { index: "asc" } },
+          },
+        });
+
+        invalidateFilterOptionsCache();
+        res.json(updatedBook);
+        return;
+      }
+
+      throw error;
+    }
+  } catch (error: any) {
     console.error("Apply book match error:", error);
     if (error?.code === "P2002") {
       res.status(400).json({ error: "That metadata would duplicate an existing book title/author entry" });
       return;
     }
     res.status(500).json({ error: "Failed to save fetched metadata" });
-    }
-    };
+  }
+};
 
-    export const updateBookMetadata = async (req: AuthRequest, res: Response): Promise<void> => {
-    try {
+export const updateBookMetadata = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
     const bookId = getSingleParam(req.params.bookId);
     if (!bookId) {
       res.status(400).json({ error: "Invalid book id" });
@@ -2113,6 +2150,8 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       res.status(404).json({ error: "Book not found" });
       return;
     }
+
+    setLogTitle(book.title);
 
     const updateData: Record<string, unknown> = {};
 
@@ -2170,28 +2209,58 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       updateData.sequence = toNullableNumber(fields.seriesSequence);
     }
 
-    const updatedBook = await prisma.book.update({
-      where: { id: bookId },
-      data: updateData,
-      include: {
-        author: true,
-        series: true,
-        library: true,
-        audioFiles: { orderBy: { index: "asc" } },
-      },
-    });
+    try {
+      const updatedBook = await prisma.book.update({
+        where: { id: bookId },
+        data: updateData,
+        include: {
+          author: true,
+          series: true,
+          library: true,
+          audioFiles: { orderBy: { index: "asc" } },
+        },
+      });
 
-    invalidateFilterOptionsCache();
-    res.json(updatedBook);
+      invalidateFilterOptionsCache();
+      res.json(updatedBook);
     } catch (error: any) {
+      if (
+        error?.code === "P2002" &&
+        (error.meta?.target?.includes("title") || error.meta?.target?.includes("authorId"))
+      ) {
+        const disambiguatedTitle = `${(updateData.title as string) || book.title} (${path.basename(book.folderPath)})`;
+        console.log(
+          `Title collision on update metadata for "${updateData.title || book.title}". Renaming to "${disambiguatedTitle}"`,
+        );
+
+        const retryData = { ...updateData, title: disambiguatedTitle };
+        const updatedBook = await prisma.book.update({
+          where: { id: bookId },
+          data: retryData,
+          include: {
+            author: true,
+            series: true,
+            library: true,
+            audioFiles: { orderBy: { index: "asc" } },
+          },
+        });
+
+        invalidateFilterOptionsCache();
+        res.json(updatedBook);
+        return;
+      }
+
+      throw error;
+    }
+  } catch (error: any) {
     console.error("Update book metadata error:", error);
     if (error?.code === "P2002") {
       res.status(400).json({ error: "That metadata would duplicate an existing book title/author entry" });
       return;
     }
     res.status(500).json({ error: "Failed to update book metadata" });
-    }
-    };
+  }
+};
 
 export const writeBookMetadataToFile = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -2210,6 +2279,8 @@ export const writeBookMetadataToFile = async (req: AuthRequest, res: Response): 
       res.status(404).json({ error: "Book not found" });
       return;
     }
+
+    setLogTitle(book.title);
 
     const existingJob = getRunningWriteTagsJobForBook(bookId);
     if (existingJob) {

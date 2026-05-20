@@ -5,6 +5,7 @@ import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
+import { setLogTitle } from "../middleware/loggingMiddleware";
 import { findDuplicateGroups } from "../utils/duplicates";
 import { cleanupBookTitle } from "../utils/titleCleanup";
 
@@ -419,6 +420,8 @@ export const getBookDetails = async (req: Request, res: Response) => {
       res.status(404).json({ error: "Book not found" });
       return;
     }
+
+    setLogTitle(book.title);
 
     res.json(normalizeLibraryBook(book));
   } catch (error) {

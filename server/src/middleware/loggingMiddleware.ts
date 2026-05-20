@@ -58,6 +58,10 @@ export const enrichRequestLogContext = (req: AuthRequest) => {
   });
 };
 
+export const setLogTitle = (title: string) => {
+  updateRequestContext({ title });
+};
+
 export const errorLoggingMiddleware = (
   error: unknown,
   req: AuthRequest,
