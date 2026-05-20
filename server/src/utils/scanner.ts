@@ -240,6 +240,7 @@ const pickDescription = (...values: unknown[]): string | null => {
 const upsertBookFolder = async (
   folder: DiscoveredFolder,
   shouldStop: () => boolean = () => false,
+  forceMetadata: boolean = false,
 ) => {
   if (shouldStop()) return;
 
@@ -285,6 +286,7 @@ const upsertBookFolder = async (
 
   // Skip metadata extraction only if file count matches AND we already ran the current extractor
   const skipMetadata =
+    !forceMetadata &&
     existingBook !== null &&
     existingBook._count.audioFiles === audioFiles.length &&
     existingBook.metadataVersion >= METADATA_VERSION;
@@ -689,7 +691,7 @@ export const scanLibrary = async (libraryId?: string, context: ScanRunContext = 
   });
 };
 
-export const rescanBook = async (bookId: string) => {
+export const rescanBook = async (bookId: string, forceMetadata: boolean = false) => {
   const book = await prisma.book.findUnique({
     where: { id: bookId },
     select: { libraryId: true, folderPath: true },
@@ -706,11 +708,15 @@ export const rescanBook = async (bookId: string) => {
   const folderPath = book.folderPath;
   const files = fs.readdirSync(folderPath);
 
-  await upsertBookFolder({
-    libraryId: book.libraryId,
-    folderName: path.basename(folderPath),
-    folderPath,
-    files,
-  });
+  await upsertBookFolder(
+    {
+      libraryId: book.libraryId,
+      folderName: path.basename(folderPath),
+      folderPath,
+      files,
+    },
+    () => false,
+    forceMetadata,
+  );
 };
 

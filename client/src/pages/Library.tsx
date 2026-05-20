@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
@@ -22,7 +22,9 @@ import {
   Trash2,
   Settings,
   Save,
+  Smartphone,
   Sparkles,
+  Bug,
   X,
   Headphones,
   SlidersHorizontal,
@@ -34,11 +36,22 @@ import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import AppLogo from "../components/AppLogo";
 import BookCard from "../components/BookCard";
-import BookMetadataModal, { type MetadataBook } from "../components/BookMetadataModal";
+import BookMetadataModal from "../components/BookMetadataModal";
 import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
+import ConnectMobileModal from "../components/ConnectMobileModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import BugReportModal from "../components/BugReportModal";
 import { usePlayer } from "../context/PlayerContext";
+import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
+import QuickMatchModal from "../features/quick-match/QuickMatchModal";
+import {
+  defaultQuickMatchFields,
+  type QuickMatchBusyState,
+  type QuickMatchFields,
+  type QuickMatchMode,
+  type QuickMatchResult,
+} from "../features/quick-match/types";
 
 interface LibraryBook extends MetadataBook {
   id: string;
@@ -47,10 +60,12 @@ interface LibraryBook extends MetadataBook {
   asin?: string | null;
   duration: number;
   coverPath?: string;
+  folderPath?: string;
   library: { id: string; name: string };
   author: { name: string };
   series?: { id?: string; name: string } | null;
   sequence?: number | null;
+  _count?: { audioFiles?: number };
 }
 
 type DesktopViewMode = "books" | "list" | "series";
@@ -206,6 +221,12 @@ type WriteTagsJob = {
   stallTimeoutMs: number;
 };
 
+const hasTag = (value: string | null | undefined, tag: string) =>
+  (value ?? "")
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .includes(tag);
+
 const INITIAL_BOOK_RENDER_COUNT = 120;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 
@@ -252,6 +273,8 @@ const Library = () => {
 
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [matchBook, setMatchBook] = useState<MetadataBook | null>(null);
   const [actionBook, setActionBook] = useState<LibraryBook | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
@@ -271,7 +294,12 @@ const Library = () => {
     label: string;
   } | null>(null);
   const [batchActionMessage, setBatchActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const [isQuickMatchOpen, setIsQuickMatchOpen] = useState(false);
+  const [quickMatchProvider, setQuickMatchProvider] = useState<MetadataProvider>("audible");
+  const [quickMatchMinConfidence, setQuickMatchMinConfidence] = useState("0.90");
+  const [quickMatchFields, setQuickMatchFields] = useState<QuickMatchFields>(defaultQuickMatchFields);
+  const [quickMatchResult, setQuickMatchResult] = useState<QuickMatchResult | null>(null);
+  const [quickMatchBusy, setQuickMatchBusy] = useState<QuickMatchBusyState>(null);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
   const [openContinueMenuBookId, setOpenContinueMenuBookId] = useState<string | null>(null);
@@ -500,35 +528,30 @@ const Library = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openContinueMenuBookId]);
 
-  const handleScanProgress = useEffectEvent((data: ScanProgress) => {
+  const handleScanProgress = (data: ScanProgress) => {
     setScanProgress(data);
-    if (data.status === "scanning" || data.status === "starting") {
-      setIsScanning(true);
-    } else if (data.status === "completed" || data.status === "failed") {
-      setIsScanning(false);
+    if (data.status === "completed" || data.status === "failed") {
       void fetchBooks();
       void fetchLibraries();
       setTimeout(() => setScanProgress(null), 5000);
     }
-  });
+  };
 
-  const updateBatchWriteProgress = useEffectEvent(
-    (context: { index: number; total: number; title: string }, job: WriteTagsJob) => {
-      const filePercent = job.totalFiles > 0 ? job.processedFiles / job.totalFiles : 0;
-      const overallPercent = ((context.index + filePercent) / context.total) * 100;
-      setTagWriteProgress({
-        current: context.index + 1,
-        total: context.total,
-        percent: overallPercent,
-        label:
-          job.currentFile?.split(/[/\\]/).pop() ||
-          job.message ||
-          `Writing tags for ${context.title}`,
-      });
-    },
-  );
+  const updateBatchWriteProgress = (context: { index: number; total: number; title: string }, job: WriteTagsJob) => {
+    const filePercent = job.totalFiles > 0 ? job.processedFiles / job.totalFiles : 0;
+    const overallPercent = ((context.index + filePercent) / context.total) * 100;
+    setTagWriteProgress({
+      current: context.index + 1,
+      total: context.total,
+      percent: overallPercent,
+      label:
+        job.currentFile?.split(/[/\\]/).pop() ||
+        job.message ||
+        `Writing tags for ${context.title}`,
+    });
+  };
 
-  const handleWriteTagsProgress = useEffectEvent((job: WriteTagsJob) => {
+  const handleWriteTagsProgress = (job: WriteTagsJob) => {
     writeTagsJobsRef.current.set(job.id, job);
 
     const activeBatchWrite = activeBatchWriteRef.current;
@@ -543,7 +566,7 @@ const Library = () => {
         resolve(job);
       }
     }
-  });
+  };
 
   const waitForWriteTagsJobCompletion = (jobId: string) => {
     const existing = writeTagsJobsRef.current.get(jobId);
@@ -604,26 +627,6 @@ const Library = () => {
       clearTimeout(timeout);
     };
   }, [filters, search, sortBy]);
-
-  const handleScan = async () => {
-    setIsScanning(true);
-    try {
-      await api.post("/library/scan");
-      showToast({
-        title: "Scan started",
-        description: "Checking libraries for new content.",
-        tone: "info",
-      });
-    } catch (error) {
-      console.error("Scan failed", error);
-      showToast({
-        title: "Scan failed",
-        description: getErrorMessage(error, "Check server logs."),
-        tone: "error",
-      });
-      setIsScanning(false);
-    }
-  };
 
   const handleRescan = async () => {
     if (!actionBook) return;
@@ -732,6 +735,10 @@ const Library = () => {
       .map((id) => bookById.get(id))
       .filter((book): book is LibraryBook => Boolean(book)),
     [selectedBookIds, bookById]
+  );
+  const quickMatchEligibleBooks = useMemo(
+    () => selectedBooks.filter((book) => !hasTag(book.tags, "matched") && !hasTag(book.tags, "quick-matched")),
+    [selectedBooks],
   );
   const visibleBooks = useMemo(
     () => books.slice(0, visibleBookCount),
@@ -864,6 +871,53 @@ const Library = () => {
     setLastSelectedBookId(null);
   };
 
+  const runQuickMatch = async (mode: QuickMatchMode) => {
+    const queue = quickMatchEligibleBooks;
+    if (queue.length === 0) {
+      setQuickMatchResult({
+        mode,
+        provider: quickMatchProvider,
+        minConfidence: Number(quickMatchMinConfidence) || 0.9,
+        ready: [],
+        applied: [],
+        skippedAlreadyMatched: selectedBooks.map((book) => ({ bookId: book.id, title: book.title, tags: book.tags ?? null })),
+        needsReview: [],
+        noResult: [],
+        failed: [],
+      });
+      return;
+    }
+
+    setQuickMatchBusy(mode);
+    setBatchActionMessage(null);
+    try {
+      const threshold = Number(quickMatchMinConfidence);
+      const response = await api.post<QuickMatchResult>("/admin/books/quick-match", {
+        bookIds: selectedBooks.map((book) => book.id),
+        provider: quickMatchProvider,
+        mode,
+        minConfidence: Number.isFinite(threshold) ? threshold : 0.9,
+        selectedFields: quickMatchFields,
+      });
+      setQuickMatchResult(response.data);
+
+      if (mode === "apply") {
+        await refreshLibraryData();
+        setBatchActionMessage({
+          type: "success",
+          text: `Quick matched ${response.data.applied.length} title${response.data.applied.length === 1 ? "" : "s"}`,
+        });
+      }
+    } catch (error) {
+      setBatchActionMessage({
+        type: "error",
+        text: getErrorMessage(error, "Quick match failed"),
+      });
+    } finally {
+      setQuickMatchBusy(null);
+    }
+  };
+
   const writeSelectedMetadataTags = async () => {
     const queue = selectedBooks;
     if (queue.length === 0) return;
@@ -936,7 +990,7 @@ const Library = () => {
         className="btn btn-primary"
         type="button"
         onClick={startMetadataQueue}
-        disabled={Boolean(tagWriteProgress)}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
       >
         <Sparkles size={15} />
         Match
@@ -944,8 +998,20 @@ const Library = () => {
       <button
         className="btn btn-secondary"
         type="button"
+        onClick={() => {
+          setQuickMatchResult(null);
+          setIsQuickMatchOpen(true);
+        }}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
+      >
+        <Sparkles size={15} />
+        Quick Match
+      </button>
+      <button
+        className="btn btn-secondary"
+        type="button"
         onClick={writeSelectedMetadataTags}
-        disabled={Boolean(tagWriteProgress)}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
         aria-busy={Boolean(tagWriteProgress)}
       >
         {tagWriteProgress ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
@@ -955,7 +1021,7 @@ const Library = () => {
         className="btn btn-secondary"
         type="button"
         onClick={clearBatchSelection}
-        disabled={Boolean(tagWriteProgress)}
+        disabled={Boolean(tagWriteProgress) || Boolean(quickMatchBusy)}
       >
         <X size={15} />
         Clear
@@ -1025,14 +1091,6 @@ const Library = () => {
           {user?.role === "ADMIN" && (
             <>
               <button
-                onClick={handleScan}
-                className="btn btn-secondary"
-                disabled={isScanning}
-              >
-                <RefreshCw size={15} className={isScanning ? "animate-spin" : ""} />
-                {isScanning ? "Scanning…" : "Scan Library"}
-              </button>
-              <button
                 onClick={() => setIsUploadModalOpen(true)}
                 className="btn btn-primary"
               >
@@ -1049,11 +1107,26 @@ const Library = () => {
               <button
                 onClick={() => navigate("/settings", { state: { from: returnTo } })}
                 className="btn btn-secondary library-icon-btn"
+                title="Admin Settings"
               >
                 <Settings size={15} />
               </button>
             </>
           )}
+          <button
+            onClick={() => setIsConnectMobileOpen(true)}
+            className="btn btn-secondary library-icon-btn"
+            title="Connect Mobile App"
+          >
+            <Smartphone size={15} />
+          </button>
+          <button
+            onClick={() => setIsBugReportOpen(true)}
+            className="btn btn-secondary library-icon-btn"
+            title="Report an issue"
+          >
+            <Bug size={15} />
+          </button>
           <button
             onClick={logout}
             className="btn logout-btn"
@@ -1276,6 +1349,7 @@ const Library = () => {
                   <option value="all">Any match status</option>
                   <option value="matched">Matched</option>
                   <option value="unmatched">Unmatched</option>
+                  <option value="quick-matched">Quick matched</option>
                 </select>
               </div>
             </label>
@@ -1648,6 +1722,14 @@ const Library = () => {
         </>
       )}
 
+      {isConnectMobileOpen && (
+        <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
+      )}
+
+      {isBugReportOpen && (
+        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
+      )}
+
       {isUploadModalOpen && (
         <UploadModal
           onClose={() => setIsUploadModalOpen(false)}
@@ -1673,6 +1755,23 @@ const Library = () => {
           }
           onQueuePrevious={() => goToMetadataQueueIndex(matchQueueIndex - 1)}
           onQueueNext={() => goToMetadataQueueIndex(matchQueueIndex + 1)}
+        />
+      )}
+
+      {isQuickMatchOpen && (
+        <QuickMatchModal
+          selectedCount={selectedBooks.length}
+          eligibleCount={quickMatchEligibleBooks.length}
+          provider={quickMatchProvider}
+          minConfidence={quickMatchMinConfidence}
+          fields={quickMatchFields}
+          result={quickMatchResult}
+          busy={quickMatchBusy}
+          onClose={() => setIsQuickMatchOpen(false)}
+          onProviderChange={setQuickMatchProvider}
+          onMinConfidenceChange={setQuickMatchMinConfidence}
+          onFieldsChange={setQuickMatchFields}
+          onRun={(mode) => void runQuickMatch(mode)}
         />
       )}
 
@@ -1714,10 +1813,10 @@ const Library = () => {
                     <div className="dup-info">
                       <div className="dup-title">{dup.title}</div>
                       <div className="dup-meta">
-                        {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
+                        {dup.library?.name} - {dup._count?.audioFiles ?? 0} files
                       </div>
-                      <div className="dup-path" title={(dup as any).folderPath}>
-                        {(dup as any).folderPath}
+                      <div className="dup-path" title={dup.folderPath}>
+                        {dup.folderPath}
                       </div>
                     </div>
                   </label>

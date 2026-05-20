@@ -18,6 +18,7 @@ export interface MobileFilters {
   narrator: string;
   yearFrom: string;
   listeningStatus: string;
+  matchStatus: string;
   cover: string;
   sortBy: string;
 }
@@ -104,6 +105,20 @@ const MobileFilterSheet = ({ filters, filterOptions, onFilterChange, onClear, on
                   <option value="not_started">Not started</option>
                   <option value="in_progress">In progress</option>
                   <option value="finished">Finished</option>
+                </select>
+              </div>
+
+              <div className="mobile-filter-group">
+                <label className="mobile-filter-group-label">Match Status</label>
+                <select
+                  className="mobile-filter-select"
+                  value={filters.matchStatus}
+                  onChange={(e) => onFilterChange('matchStatus', e.target.value)}
+                >
+                  <option value="all">Any match status</option>
+                  <option value="matched">Matched</option>
+                  <option value="unmatched">Unmatched</option>
+                  <option value="quick-matched">Quick matched</option>
                 </select>
               </div>
 

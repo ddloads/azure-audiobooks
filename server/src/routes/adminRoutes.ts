@@ -32,6 +32,7 @@ import {
   undoMergeBookFiles,
   renameAudibleCliProfileHandler,
   purgeLibrary,
+  quickMatchBooks,
   rescanLibrary,
   rescanSingleLibrary,
   searchBookMatches,
@@ -45,6 +46,9 @@ import {
   writeBookMetadataToFile,
 } from "../controllers/adminController";
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
+import { listBugReports } from "../controllers/reportController";
+import { updateAppearanceSettingsHandler } from "../controllers/settingsController";
+import { listAdminScriptsHandler, runAdminScriptHandler } from "../controllers/scriptController";
 import {
   browseFilesystemTree,
   createFilesystemFolder,
@@ -66,6 +70,9 @@ router.use(authenticate, authorizeAdmin);
 
 router.get("/dashboard", getAdminDashboard);
 router.get("/tasks", listAdminTasks);
+router.patch("/settings/appearance", updateAppearanceSettingsHandler);
+router.get("/scripts", listAdminScriptsHandler);
+router.post("/scripts/run", runAdminScriptHandler);
 router.get("/filesystem", browseLibraryFolders);
 router.get("/filesystem/roots", listFilesystemRoots);
 router.get("/filesystem/tree", browseFilesystemTree);
@@ -94,6 +101,7 @@ router.patch("/sources/:sourceId", updateLibrarySource);
 router.delete("/sources/:sourceId", deleteLibrarySource);
 
 router.get("/books", listAdminBooks);
+router.post("/books/quick-match", quickMatchBooks);
 router.post("/books/:bookId/match/search", searchBookMatches);
 router.post("/books/:bookId/match/apply", applyBookMatch);
 router.patch("/books/:bookId/metadata", updateBookMetadata);
@@ -124,5 +132,6 @@ router.get("/backups", listBackups);
 router.post("/backups", createBackup);
 router.get("/logs", listSystemLogs);
 router.delete("/logs", clearSystemLogs);
+router.get("/reports", listBugReports);
 
 export default router;

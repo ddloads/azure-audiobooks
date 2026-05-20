@@ -1,5 +1,12 @@
 import { AudibleMatchCandidate } from "./audible";
 
+export class GoogleBooksSearchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GoogleBooksSearchError";
+  }
+}
+
 type GoogleBooksVolume = {
   id: string;
   volumeInfo: {
@@ -30,12 +37,31 @@ export const searchGoogleBooks = async (
 ): Promise<AudibleMatchCandidate[]> => {
   try {
     const searchTerms = [query, authorOverride].filter(Boolean).join(" ").trim();
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(searchTerms)}&maxResults=8`;
+    const params = new URLSearchParams({
+      q: searchTerms,
+      maxResults: "8",
+      printType: "books",
+    });
+    const apiKey = process.env.GOOGLE_BOOKS_API_KEY?.trim() || process.env.GOOGLE_API_KEY?.trim();
+    if (apiKey) {
+      params.set("key", apiKey);
+    }
+
+    const url = `https://www.googleapis.com/books/v1/volumes?${params.toString()}`;
     
     const response = await fetch(url);
-    if (!response.ok) return [];
-
     const data = await response.json();
+
+    if (!response.ok) {
+      const errorMessage = typeof data?.error?.message === "string" ? data.error.message : null;
+      if (response.status === 429) {
+        throw new GoogleBooksSearchError(
+          "Google Books quota was exceeded. Set GOOGLE_BOOKS_API_KEY with an enabled Books API key.",
+        );
+      }
+      throw new GoogleBooksSearchError(errorMessage || `Google Books request failed with status ${response.status}`);
+    }
+
     const items = (data.items || []) as GoogleBooksVolume[];
 
     return items.map((item) => {
@@ -79,6 +105,9 @@ export const searchGoogleBooks = async (
       };
     });
   } catch (error) {
+    if (error instanceof GoogleBooksSearchError) {
+      throw error;
+    }
     console.error("Google Books search error:", error);
     return [];
   }

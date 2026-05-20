@@ -25,6 +25,7 @@ import {
   Trash2,
   FileSearch,
   RefreshCw,
+  Bug,
 } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
@@ -33,7 +34,9 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import BookMetadataModal from "../components/BookMetadataModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import BugReportModal from "../components/BugReportModal";
 import { getApiBaseUrl, getSocketBaseUrl } from "../api/backend";
+import { formatBookDescription } from "../utils/formatDescription";
 
 interface AudioFile {
   id: string;
@@ -70,6 +73,8 @@ interface Book {
   isbn?: string | null;
   asin?: string | null;
   abridged?: boolean | null;
+  library?: { id: string; name: string };
+  _count?: { audioFiles?: number };
   audioFiles: AudioFile[];
   chapters: Chapter[];
 }
@@ -100,6 +105,7 @@ const BookDetailsPage: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [merging, setMerging] = useState(false);
   const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
@@ -169,7 +175,7 @@ const BookDetailsPage: React.FC = () => {
       socket.off("mergeProgress", handleMergeProgress);
       socket.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [bookId]);
 
   const handleMergeToM4B = async () => {
@@ -401,7 +407,7 @@ const BookDetailsPage: React.FC = () => {
     }
   }, [book]);
 
-  const fetchBookDetails = async () => {
+  async function fetchBookDetails() {
     if (!bookId) return;
     try {
       const [bookRes, progressRes, backupRes] = await Promise.all([
@@ -420,11 +426,11 @@ const BookDetailsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   useEffect(() => {
     void fetchBookDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [bookId]);
 
   const handlePlayFromStart = () => {
@@ -526,6 +532,7 @@ const BookDetailsPage: React.FC = () => {
   }
 
   const isCurrentPlaying = currentBook?.id === book.id && isPlaying;
+  const bookDescription = formatBookDescription(book.description);
   const canConvertSingleFileToM4B =
     book.audioFiles.length === 1 &&
     !book.audioFiles[0].filename.toLowerCase().endsWith(".m4b");
@@ -824,16 +831,25 @@ const BookDetailsPage: React.FC = () => {
                   </>
                 )}
               </button>
+              <button
+                className="btn btn-secondary title-report-btn"
+                type="button"
+                onClick={() => setShowBugReportModal(true)}
+                title="Report an issue with this title"
+              >
+                <Bug size={18} />
+                Report Issue
+              </button>
             </div>
           </div>
         </div>
 
         {/* Description */}
-        {book.description && (
+        {bookDescription && (
           <div className="book-details-desc-section">
             <h3 className="section-subtitle">About this book</h3>
             <p className="description-text">
-              {book.description.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim()}
+              {bookDescription}
             </p>
           </div>
         )}
@@ -923,6 +939,14 @@ const BookDetailsPage: React.FC = () => {
           initialTab="edit"
         />
       )}
+      {showBugReportModal && book && (
+        <BugReportModal
+          onClose={() => setShowBugReportModal(false)}
+          initialType="metadata"
+          path={`/book/${book.id}`}
+          initialComment={`Title: ${book.title}\nAuthor: ${book.author.name}\n\n`}
+        />
+      )}
       <ConfirmDialog
         open={confirmAction === "merge"}
         title={canConvertSingleFileToM4B ? "Convert Audio File" : "Merge Book Files"}
@@ -992,10 +1016,10 @@ const BookDetailsPage: React.FC = () => {
                     <div className="dup-info">
                       <div className="dup-title">{dup.title}</div>
                       <div className="dup-meta">
-                        {(dup as any).library?.name} • {(dup as any)._count?.audioFiles} files
+                        {dup.library?.name} - {dup._count?.audioFiles ?? dup.audioFiles.length} files
                       </div>
-                      <div className="dup-path" title={(dup as any).folderPath}>
-                        {(dup as any).folderPath}
+                      <div className="dup-path" title={dup.folderPath}>
+                        {dup.folderPath}
                       </div>
                     </div>
                   </label>

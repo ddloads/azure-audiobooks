@@ -33,13 +33,20 @@ import {
   searchAudibleCli,
   setStoredActiveAudibleProfile,
 } from "../utils/audibleCli";
-import { searchGoogleBooks } from "../utils/googleBooks";
+import { GoogleBooksSearchError, searchGoogleBooks } from "../utils/googleBooks";
+import { GoodreadsSearchError, searchGoodreads } from "../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../utils/covers";
 import { embedMetadata, mergeToM4B } from "../utils/processor";
 import { rescanBook } from "../utils/scanner";
 import { invalidateFilterOptionsCache } from "./libraryController";
 import { setLogTitle } from "../middleware/loggingMiddleware";
-import { findUserByUsernameInsensitive, sanitizeUsername } from "../utils/usernames";
+import {
+  findUserByEmailInsensitive,
+  findUserByUsernameInsensitive,
+  isValidEmail,
+  sanitizeEmail,
+  sanitizeUsername,
+} from "../utils/usernames";
 import { createLogger } from "../lib/logger";
 import { booksArePotentialDuplicates, findDuplicateGroups } from "../utils/duplicates";
 
@@ -195,8 +202,23 @@ const runWriteTagsJob = async (jobId: string, bookId: string) => {
       job.status = "completed";
       job.message =
         job.failures.length > 0
-          ? `Metadata written with ${job.failures.length} file failure(s)`
-          : "Metadata written to files successfully";
+          ? `Metadata written with ${job.failures.length} file failure(s). Refreshing database...`
+          : "Metadata written successfully. Refreshing database...";
+      touchWriteTagsJob(job);
+      emitWriteTagsJobProgress(job);
+
+      // Trigger a rescan to verify tags and update the database
+      try {
+        await rescanBook(bookId, true);
+        if (job.failures.length > 0) {
+          job.message = `Metadata written with ${job.failures.length} file failure(s) and verified.`;
+        } else {
+          job.message = "Metadata written and verified successfully";
+        }
+      } catch (rescanError) {
+        console.error("Rescan after write-tags failed:", rescanError);
+        job.message += " (Auto-refresh failed, please rescan manually)";
+      }
     }
     touchWriteTagsJob(job);
     emitWriteTagsJobProgress(job);
@@ -247,11 +269,16 @@ const isBoolean = (value: unknown): value is boolean => typeof value === "boolea
 const parseAsinValue = (value: string | null | undefined) =>
   value?.match(/\bASIN[:\s-]*([A-Z0-9]{10})\b/i)?.[1]?.toUpperCase() ?? null;
 
+const isAsinLike = (value: string | null | undefined) => /^[A-Z0-9]{10}$/i.test(value?.trim() ?? "");
+
 const parseMetadataProvider = (value: unknown) => {
   if (value === "google") return "google";
+  if (value === "goodreads") return "goodreads";
   if (value === "combined") return "combined";
   return "audible";
 };
+
+type MetadataProvider = ReturnType<typeof parseMetadataProvider>;
 
 const toNullableString = (value: unknown) => {
   if (typeof value !== "string") return null;
@@ -267,6 +294,7 @@ const toNullableNumber = (value: unknown) => {
 
 const REVIEW_TAG = "review";
 const MATCHED_TAG = "matched";
+const QUICK_MATCHED_TAG = "quick-matched";
 
 const normalizeTagList = (value: unknown) => {
   if (typeof value !== "string") return [];
@@ -301,6 +329,9 @@ const mergeManagedTags = (baseTags: unknown, managedTags: string[]) => {
 
   return tags;
 };
+
+const hasManagedTag = (baseTags: unknown, tag: string) =>
+  normalizeTagList(baseTags).some((existingTag) => existingTag.toLowerCase() === tag);
 
 const pathBelongsToRoot = (folderPath: string, rootPath: string) => {
   const normalizedFolder = normalizeSourcePath(folderPath);
@@ -420,7 +451,7 @@ export const getAdminDashboard = async (_req: AuthRequest, res: Response): Promi
       prisma.audioFile.count(),
       prisma.book.aggregate({ _sum: { duration: true } }),
       prisma.user.findMany({
-        select: { id: true, username: true, role: true, createdAt: true },
+        select: { id: true, username: true, email: true, role: true, createdAt: true },
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
@@ -483,6 +514,7 @@ export const listUsers = async (_req: AuthRequest, res: Response): Promise<void>
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -505,9 +537,15 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       role?: string;
     };
     const username = sanitizeUsername(req.body?.username);
+    const email = sanitizeEmail(req.body?.email);
 
-    if (!username || !password) {
-      res.status(400).json({ error: "Username and password are required" });
+    if (!username || !email || !password) {
+      res.status(400).json({ error: "Username, email, and password are required" });
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "A valid email is required" });
       return;
     }
 
@@ -518,16 +556,24 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
+    const existingEmail = await findUserByEmailInsensitive(email);
+    if (existingEmail) {
+      res.status(400).json({ error: "Email already exists" });
+      return;
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         username,
+        email,
         password: hashedPassword,
         role: normalizedRole,
       },
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -538,6 +584,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
     adminLogger.info("User created", {
       targetUserId: user.id,
       username: user.username,
+      email: user.email,
       role: user.role,
     });
   } catch (error) {
@@ -587,6 +634,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       select: {
         id: true,
         username: true,
+        email: true,
         role: true,
         createdAt: true,
         updatedAt: true,
@@ -1896,6 +1944,7 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
       getOptionalBodyValue(req.body?.query) || book.asin || parseAsinValue(book.description) || book.title;
     const author = getOptionalBodyValue(req.body?.author) || book.author.name;
     const provider = parseMetadataProvider(req.body?.provider);
+    const catalogQuery = isAsinLike(query) ? book.title : query;
 
     const loadAudibleCandidates = async () => {
       const context = {
@@ -1923,7 +1972,7 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
     if (provider === "combined") {
       const [audibleCandidates, googleCandidates] = await Promise.all([
         loadAudibleCandidates(),
-        searchGoogleBooks(query, author),
+        searchGoogleBooks(catalogQuery, author),
       ]);
 
       candidates = [...audibleCandidates];
@@ -1939,19 +1988,379 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
       }
     } else if (provider === "audible") {
       candidates = await loadAudibleCandidates();
+    } else if (provider === "google") {
+      candidates = await searchGoogleBooks(catalogQuery, author);
     } else {
-      candidates = await searchGoogleBooks(query, author);
+      candidates = await searchGoodreads(catalogQuery, author);
     }
 
     res.json({
       provider,
-      query,
+      query: provider === "audible" ? query : catalogQuery,
       author,
       candidates,
     });
   } catch (error) {
+    if (error instanceof GoogleBooksSearchError || error instanceof GoodreadsSearchError) {
+      res.status(502).json({ error: error.message });
+      return;
+    }
     console.error("Search book matches error:", error);
     res.status(500).json({ error: "Failed to search metadata" });
+  }
+};
+
+type MatchSearchBook = {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  asin?: string | null;
+  description?: string | null;
+  duration: number | null;
+  author: { name: string };
+};
+
+const findBookMatchCandidates = async (
+  book: MatchSearchBook,
+  provider: MetadataProvider,
+  queryOverride?: string | null,
+  authorOverride?: string | null,
+) => {
+  const query = queryOverride || book.asin || parseAsinValue(book.description) || book.title;
+  const author = authorOverride || book.author.name;
+  const catalogQuery = isAsinLike(query) ? book.title : query;
+  const context = {
+    title: book.title,
+    author: book.author.name,
+    asin: book.asin || parseAsinValue(book.description),
+    duration: book.duration || null,
+  };
+
+  const loadAudibleCandidates = async () => {
+    const cliAvailable = await isAudibleCliAvailable();
+    let audibleCandidates: Awaited<ReturnType<typeof searchAudible>> = [];
+    if (cliAvailable) {
+      audibleCandidates = await searchAudibleCli(query, context, author);
+    }
+
+    if (!audibleCandidates.length) {
+      audibleCandidates = await searchAudible(query, context, author);
+    }
+
+    return audibleCandidates;
+  };
+
+  if (provider === "combined") {
+    const [audibleCandidates, googleCandidates] = await Promise.all([
+      loadAudibleCandidates(),
+      searchGoogleBooks(catalogQuery, author),
+    ]);
+
+    const candidates = [...audibleCandidates];
+    for (const google of googleCandidates) {
+      const isDuplicate = candidates.some(
+        (audible) =>
+          audible.metadata.title?.toLowerCase() === google.metadata.title?.toLowerCase() &&
+          audible.metadata.author?.toLowerCase() === google.metadata.author?.toLowerCase(),
+      );
+      if (!isDuplicate) candidates.push(google);
+    }
+
+    return { provider, query: catalogQuery, author, candidates };
+  }
+
+  const candidates = provider === "audible"
+    ? await loadAudibleCandidates()
+    : provider === "google"
+      ? await searchGoogleBooks(catalogQuery, author)
+      : await searchGoodreads(catalogQuery, author);
+
+  return { provider, query: provider === "audible" ? query : catalogQuery, author, candidates };
+};
+
+const buildFieldsFromMatchCandidate = (
+  candidate: Awaited<ReturnType<typeof searchAudible>>[number],
+) => ({
+  title: candidate.metadata.title ?? "",
+  subtitle: candidate.metadata.subtitle ?? "",
+  author: candidate.metadata.author ?? "",
+  narrator: candidate.metadata.narrator ?? "",
+  seriesName: candidate.metadata.seriesName ?? "",
+  seriesSequence:
+    candidate.metadata.seriesSequence === null || candidate.metadata.seriesSequence === undefined
+      ? ""
+      : String(candidate.metadata.seriesSequence),
+  description: candidate.metadata.description ?? "",
+  publisher: candidate.metadata.publisher ?? "",
+  year: candidate.metadata.year ?? "",
+  genres: candidate.metadata.genres ?? "",
+  tags: candidate.metadata.tags ?? "",
+  language: candidate.metadata.language ?? "",
+  isbn: candidate.metadata.isbn ?? "",
+  asin: candidate.metadata.asin ?? "",
+  abridged: candidate.metadata.abridged ?? false,
+  imageUrl: candidate.metadata.imageUrl ?? "",
+});
+
+const defaultQuickMatchSelectedFields = {
+  title: true,
+  subtitle: true,
+  author: true,
+  narrator: true,
+  seriesName: true,
+  seriesSequence: true,
+  description: true,
+  publisher: true,
+  year: true,
+  genres: true,
+  tags: true,
+  language: true,
+  isbn: true,
+  asin: true,
+  abridged: true,
+  imageUrl: true,
+};
+
+const chooseQuickMatchCandidate = (
+  book: MatchSearchBook,
+  candidates: Awaited<ReturnType<typeof searchAudible>>,
+  minConfidence: number,
+) => {
+  const [top, second] = candidates;
+  if (!top) {
+    return { candidate: null, reason: "No metadata candidates found" };
+  }
+
+  const sourceAsin = book.asin || parseAsinValue(book.description);
+  const candidateAsin = top.metadata.asin?.toUpperCase() || null;
+  if (sourceAsin && candidateAsin === sourceAsin) {
+    return { candidate: top, reason: "ASIN matched exactly" };
+  }
+
+  if (top.id.startsWith("google_")) {
+    return { candidate: null, reason: "Google Books results require manual review" };
+  }
+
+  if (top.id.startsWith("goodreads_")) {
+    return { candidate: null, reason: "Goodreads results require manual review" };
+  }
+
+  const confidence = Number(top.confidence) || 0;
+  if (confidence < minConfidence) {
+    return { candidate: null, reason: `Top match confidence ${Math.round(confidence * 100)}% is below threshold` };
+  }
+
+  const secondConfidence = second ? Number(second.confidence) || 0 : 0;
+  if (second && confidence - secondConfidence < 0.12) {
+    return { candidate: null, reason: "Top match is too close to the next candidate" };
+  }
+
+  return { candidate: top, reason: `Confidence ${Math.round(confidence * 100)}%` };
+};
+
+const applyMatchedFieldsToBook = async (
+  book: { id: string; folderPath: string; tags: string | null },
+  selectedFields: Record<string, unknown>,
+  sourceFields: Record<string, unknown>,
+  managedTags: string[],
+) => {
+  const updateData: Record<string, unknown> = {};
+
+  if (selectedFields.title) {
+    const title = toNullableString(sourceFields.title);
+    if (!title) throw new Error("Title cannot be empty when selected");
+    updateData.title = title;
+  }
+
+  if (selectedFields.subtitle) updateData.subtitle = toNullableString(sourceFields.subtitle);
+  if (selectedFields.narrator) updateData.narrator = toNullableString(sourceFields.narrator);
+  if (selectedFields.description) updateData.description = toNullableString(sourceFields.description);
+  if (selectedFields.publisher) updateData.publisher = toNullableString(sourceFields.publisher);
+  if (selectedFields.year) updateData.year = toNullableString(sourceFields.year);
+  if (selectedFields.genres) updateData.genres = toNullableString(sourceFields.genres);
+  if (selectedFields.language) updateData.language = toNullableString(sourceFields.language);
+  if (selectedFields.isbn) updateData.isbn = toNullableString(sourceFields.isbn);
+  if (selectedFields.asin) updateData.asin = toNullableString(sourceFields.asin)?.toUpperCase() || null;
+  if (selectedFields.abridged) updateData.abridged = Boolean(sourceFields.abridged);
+
+  const baseTags = selectedFields.tags ? sourceFields.tags : book.tags;
+  updateData.tags = serializeTagList(mergeManagedTags(baseTags, managedTags));
+
+  if (selectedFields.imageUrl) {
+    const imageUrl = toNullableString(sourceFields.imageUrl);
+    if (imageUrl) {
+      const oldCoverFile = findCoverInFolder(book.folderPath);
+      if (oldCoverFile) fs.rmSync(oldCoverFile, { force: true });
+
+      const downloaded = await downloadCover(imageUrl, book.folderPath);
+      if (downloaded) {
+        updateData.coverPath = getCoverUrl(book.id);
+      }
+    }
+  }
+
+  if (selectedFields.author) {
+    const authorName = toNullableString(sourceFields.author);
+    if (!authorName) throw new Error("Author cannot be empty when selected");
+
+    const author = await prisma.author.upsert({
+      where: { name: authorName },
+      update: {},
+      create: { name: authorName },
+    });
+    updateData.authorId = author.id;
+  }
+
+  const seriesNameSelected = Boolean(selectedFields.seriesName);
+  const sequenceSelected = Boolean(selectedFields.seriesSequence);
+  if (seriesNameSelected || sequenceSelected) {
+    const seriesName = toNullableString(sourceFields.seriesName);
+
+    if (seriesNameSelected) {
+      if (seriesName) {
+        const series = await prisma.series.upsert({
+          where: { name: seriesName },
+          update: {},
+          create: { name: seriesName },
+        });
+        updateData.seriesId = series.id;
+      } else {
+        updateData.seriesId = null;
+      }
+    }
+
+    if (sequenceSelected) {
+      updateData.sequence = toNullableNumber(sourceFields.seriesSequence);
+    }
+  }
+
+  return prisma.book.update({
+    where: { id: book.id },
+    data: updateData,
+    include: {
+      author: true,
+      series: true,
+      library: true,
+      audioFiles: { orderBy: { index: "asc" } },
+    },
+  });
+};
+
+export const quickMatchBooks = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bookIds: string[] = Array.isArray(req.body?.bookIds)
+      ? req.body.bookIds.filter((id: unknown): id is string => typeof id === "string" && id.trim().length > 0)
+      : [];
+    const provider = parseMetadataProvider(req.body?.provider);
+    const mode = req.body?.mode === "apply" ? "apply" : "preview";
+    const parsedThreshold = Number(req.body?.minConfidence);
+    const minConfidence = Number.isFinite(parsedThreshold)
+      ? Math.min(1, Math.max(0, parsedThreshold))
+      : 0.9;
+    const selectedFields = {
+      ...defaultQuickMatchSelectedFields,
+      ...(req.body?.selectedFields && typeof req.body.selectedFields === "object" ? req.body.selectedFields : {}),
+    };
+
+    if (bookIds.length === 0) {
+      res.status(400).json({ error: "At least one book id is required" });
+      return;
+    }
+
+    const books = await prisma.book.findMany({
+      where: { id: { in: bookIds } },
+      include: {
+        author: true,
+        series: true,
+      },
+    });
+    const orderedBooks = bookIds
+      .map((id) => books.find((book) => book.id === id))
+      .filter((book): book is (typeof books)[number] => Boolean(book));
+
+    const result: {
+      mode: "preview" | "apply";
+      provider: MetadataProvider;
+      minConfidence: number;
+      applied: Array<{ bookId: string; title: string; candidateTitle: string | null; confidence: number; reason: string }>;
+      ready: Array<{ bookId: string; title: string; candidateTitle: string | null; confidence: number; reason: string }>;
+      skippedAlreadyMatched: Array<{ bookId: string; title: string; tags: string | null }>;
+      needsReview: Array<{ bookId: string; title: string; reason: string; candidates: Awaited<ReturnType<typeof searchAudible>> }>;
+      noResult: Array<{ bookId: string; title: string; reason: string }>;
+      failed: Array<{ bookId: string; title: string; error: string }>;
+    } = {
+      mode,
+      provider,
+      minConfidence,
+      applied: [],
+      ready: [],
+      skippedAlreadyMatched: [],
+      needsReview: [],
+      noResult: [],
+      failed: [],
+    };
+
+    for (const book of orderedBooks) {
+      if (hasManagedTag(book.tags, MATCHED_TAG) || hasManagedTag(book.tags, QUICK_MATCHED_TAG)) {
+        result.skippedAlreadyMatched.push({ bookId: book.id, title: book.title, tags: book.tags });
+        continue;
+      }
+
+      try {
+        const searchResult = await findBookMatchCandidates(book, provider);
+        const decision = chooseQuickMatchCandidate(book, searchResult.candidates, minConfidence);
+
+        if (!decision.candidate) {
+          if (searchResult.candidates.length === 0) {
+            result.noResult.push({ bookId: book.id, title: book.title, reason: decision.reason });
+          } else {
+            result.needsReview.push({
+              bookId: book.id,
+              title: book.title,
+              reason: decision.reason,
+              candidates: searchResult.candidates.slice(0, 3),
+            });
+          }
+          continue;
+        }
+
+        const item = {
+          bookId: book.id,
+          title: book.title,
+          candidateTitle: decision.candidate.metadata.title,
+          confidence: decision.candidate.confidence,
+          reason: decision.reason,
+        };
+
+        if (mode === "apply") {
+          const sourceFields = buildFieldsFromMatchCandidate(decision.candidate);
+          await applyMatchedFieldsToBook(
+            book,
+            selectedFields,
+            sourceFields,
+            [MATCHED_TAG, QUICK_MATCHED_TAG],
+          );
+          result.applied.push(item);
+        } else {
+          result.ready.push(item);
+        }
+      } catch (error) {
+        result.failed.push({
+          bookId: book.id,
+          title: book.title,
+          error: error instanceof Error ? error.message : "Quick match failed",
+        });
+      }
+    }
+
+    if (mode === "apply" && result.applied.length > 0) {
+      invalidateFilterOptionsCache();
+    }
+
+    res.json(result);
+  } catch (error) {
+    console.error("Quick match books error:", error);
+    res.status(500).json({ error: "Failed to quick match books" });
   }
 };
 

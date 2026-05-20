@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, Boxes, Headphones, LayoutGrid, LayoutList, Loader2, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, Search, Sparkles, SlidersHorizontal, Square, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
-import { useToast } from '../context/ToastContext';
+import BookMetadataModal from '../components/BookMetadataModal';
+import type { MetadataBook } from '../features/metadata/types';
 import MobileFilterSheet, { type MobileFilterOptions, type MobileFilters } from './MobileFilterSheet';
 
-interface Book {
+interface Book extends MetadataBook {
   id: string;
   title: string;
   author: { name: string };
@@ -47,6 +48,7 @@ const emptyFilters = (): MobileFilters => ({
   narrator: '',
   yearFrom: '',
   listeningStatus: 'all',
+  matchStatus: 'all',
   cover: 'all',
   sortBy: 'newest',
 });
@@ -82,10 +84,11 @@ const CHUNK_SIZE = 40;
 
 const MobileLibrary = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { playBook } = usePlayer();
-  const { showToast } = useToast();
+  const returnTo = `${location.pathname}${location.search}`;
 
   const [books, setBooks] = useState<Book[]>([]);
   const [filterOptions, setFilterOptions] = useState<MobileFilterOptions>(emptyFilterOptions);
@@ -96,11 +99,15 @@ const MobileLibrary = () => {
   const [loading, setLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
-  const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'series'>(() =>
     (localStorage.getItem('mobile-view-mode') as 'grid' | 'list' | 'series') || 'grid'
   );
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
+  const [matchBook, setMatchBook] = useState<MetadataBook | null>(null);
+  const [matchQueue, setMatchQueue] = useState<MetadataBook[]>([]);
+  const [matchQueueIndex, setMatchQueueIndex] = useState(0);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const setView = (mode: 'grid' | 'list' | 'series') => {
@@ -122,6 +129,7 @@ const MobileLibrary = () => {
     if (filters.narrator) n++;
     if (filters.yearFrom) n++;
     if (filters.listeningStatus !== 'all') n++;
+    if (filters.matchStatus !== 'all') n++;
     if (filters.cover !== 'all') n++;
     return n;
   }, [filters]);
@@ -136,6 +144,7 @@ const MobileLibrary = () => {
     narrator: filters.narrator || undefined,
     yearFrom: filters.yearFrom || undefined,
     listeningStatus: filters.listeningStatus !== 'all' ? filters.listeningStatus : undefined,
+    matchStatus: filters.matchStatus !== 'all' ? filters.matchStatus : undefined,
     cover: filters.cover !== 'all' ? filters.cover : undefined,
   });
 
@@ -188,24 +197,21 @@ const MobileLibrary = () => {
   useEffect(() => {
     const id = setTimeout(() => { void fetchBooks(); }, search ? 300 : 0);
     return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [filters, search]);
 
   useEffect(() => {
     const socket = io(getSocketBaseUrl(), { withCredentials: true });
     socket.on('scanProgress', (data: ScanProgress) => {
       setScanProgress(data);
-      if (data.status === 'scanning' || data.status === 'starting') {
-        setIsScanning(true);
-      } else if (data.status === 'completed' || data.status === 'failed') {
-        setIsScanning(false);
+      if (data.status === 'completed' || data.status === 'failed') {
         void fetchBooks();
         void fetchMeta();
         setTimeout(() => setScanProgress(null), 4000);
       }
     });
     return () => { socket.disconnect(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   useEffect(() => {
@@ -219,17 +225,6 @@ const MobileLibrary = () => {
     obs.observe(node);
     return () => obs.disconnect();
   }, [books.length, visibleCount]);
-
-  const handleScan = async () => {
-    setIsScanning(true);
-    try {
-      await api.post('/library/scan');
-      showToast({ title: 'Scan started', description: 'Checking libraries for new content.', tone: 'info' });
-    } catch {
-      setIsScanning(false);
-      showToast({ title: 'Scan failed', description: 'Check server logs.', tone: 'error' });
-    }
-  };
 
   const handleContinuePlay = async (record: ProgressRecord) => {
     try {
@@ -255,6 +250,10 @@ const MobileLibrary = () => {
   };
 
   const visibleBooks = books.slice(0, visibleCount);
+  const selectedBooks = useMemo(
+    () => books.filter((book) => selectedBookIds.has(book.id)),
+    [books, selectedBookIds],
+  );
   const seriesGroups = useMemo(() => {
     const groups = new Map<string, { id?: string; name: string; books: Book[] }>();
     books.forEach((book) => {
@@ -281,6 +280,73 @@ const MobileLibrary = () => {
     next.set('seriesName', series.name);
     setSearchParams(next);
     setView('grid');
+  };
+
+  const toggleBookSelection = (bookId: string) => {
+    setSelectedBookIds((current) => {
+      const next = new Set(current);
+      if (next.has(bookId)) next.delete(bookId);
+      else next.add(bookId);
+      return next;
+    });
+  };
+
+  const startSelection = () => {
+    setIsSelecting(true);
+  };
+
+  const cancelSelection = () => {
+    setIsSelecting(false);
+    setSelectedBookIds(new Set());
+    setMatchQueue([]);
+    setMatchQueueIndex(0);
+  };
+
+  const startMetadataQueue = () => {
+    if (selectedBooks.length === 0) return;
+    setMatchQueue(selectedBooks);
+    setMatchQueueIndex(0);
+    setMatchBook(selectedBooks[0]);
+  };
+
+  const updateQueuedBook = (updatedBook?: MetadataBook) => {
+    if (!updatedBook) return matchQueue;
+    const nextQueue = matchQueue.map((book) =>
+      book.id === updatedBook.id ? { ...book, ...updatedBook } : book,
+    );
+    setMatchQueue(nextQueue);
+    return nextQueue;
+  };
+
+  const closeMetadataQueue = () => {
+    setMatchBook(null);
+    setMatchQueue([]);
+    setMatchQueueIndex(0);
+  };
+
+  const advanceMetadataQueue = async (updatedBook?: MetadataBook) => {
+    const nextQueue = updateQueuedBook(updatedBook);
+    const nextIndex = matchQueueIndex + 1;
+    if (nextQueue.length > 0 && nextIndex < nextQueue.length) {
+      setMatchQueueIndex(nextIndex);
+      setMatchBook(nextQueue[nextIndex]);
+      setSelectedBookIds((current) => {
+        const next = new Set(current);
+        next.delete(nextQueue[matchQueueIndex].id);
+        return next;
+      });
+      return;
+    }
+
+    cancelSelection();
+    closeMetadataQueue();
+    await Promise.all([fetchBooks(), fetchMeta()]);
+  };
+
+  const goToMetadataQueueIndex = (nextIndex: number) => {
+    if (nextIndex < 0 || nextIndex >= matchQueue.length) return;
+    setMatchQueueIndex(nextIndex);
+    setMatchBook(matchQueue[nextIndex]);
   };
 
   return (
@@ -314,16 +380,6 @@ const MobileLibrary = () => {
           }
         </button>
 
-        {user?.role === 'ADMIN' && (
-          <button
-            className="mobile-filter-btn"
-            onClick={handleScan}
-            disabled={isScanning}
-            title={isScanning ? 'Scanning…' : 'Scan library'}
-          >
-            <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
-          </button>
-        )}
       </div>
 
       {/* Scan progress banner */}
@@ -418,28 +474,42 @@ const MobileLibrary = () => {
                   : `${books.length} ${books.length === 1 ? 'audiobook' : 'audiobooks'}`}
                 {(search || activeFilterCount > 0) && ' found'}
               </span>
-              <div className="mobile-view-toggle">
-                <button
-                  className={`mobile-view-toggle-btn${viewMode === 'grid' ? ' active' : ''}`}
-                  onClick={() => setView('grid')}
-                  aria-label="Grid view"
-                >
-                  <LayoutGrid size={14} />
-                </button>
-                <button
-                  className={`mobile-view-toggle-btn${viewMode === 'list' ? ' active' : ''}`}
-                  onClick={() => setView('list')}
-                  aria-label="List view"
-                >
-                  <LayoutList size={14} />
-                </button>
-                <button
-                  className={`mobile-view-toggle-btn${viewMode === 'series' ? ' active' : ''}`}
-                  onClick={() => setView('series')}
-                  aria-label="Series view"
-                >
-                  <Boxes size={14} />
-                </button>
+              <div className="mobile-grid-actions">
+                {user?.role === 'ADMIN' && viewMode !== 'series' && (
+                  <button
+                    className={`mobile-select-toggle${isSelecting ? ' active' : ''}`}
+                    onClick={isSelecting ? cancelSelection : startSelection}
+                    type="button"
+                  >
+                    {isSelecting ? 'Cancel' : 'Select'}
+                  </button>
+                )}
+                <div className="mobile-view-toggle">
+                  <button
+                    className={`mobile-view-toggle-btn${viewMode === 'grid' ? ' active' : ''}`}
+                    onClick={() => setView('grid')}
+                    aria-label="Grid view"
+                  >
+                    <LayoutGrid size={14} />
+                  </button>
+                  <button
+                    className={`mobile-view-toggle-btn${viewMode === 'list' ? ' active' : ''}`}
+                    onClick={() => setView('list')}
+                    aria-label="List view"
+                  >
+                    <LayoutList size={14} />
+                  </button>
+                  <button
+                    className={`mobile-view-toggle-btn${viewMode === 'series' ? ' active' : ''}`}
+                    onClick={() => {
+                      cancelSelection();
+                      setView('series');
+                    }}
+                    aria-label="Series view"
+                  >
+                    <Boxes size={14} />
+                  </button>
+                </div>
               </div>
             </div>
             {viewMode === 'series' ? (
@@ -477,12 +547,18 @@ const MobileLibrary = () => {
                   const pct = (progress && book.duration > 0)
                     ? Math.min(100, Math.round((progress / book.duration) * 100))
                     : 0;
+                  const isSelected = selectedBookIds.has(book.id);
                   return (
                     <div
                       key={book.id}
-                      className="mobile-book-card"
-                      onClick={() => navigate(`/book/${book.id}`)}
+                      className={`mobile-book-card${isSelecting ? ' is-selecting' : ''}${isSelected ? ' is-selected' : ''}`}
+                      onClick={() => isSelecting ? toggleBookSelection(book.id) : navigate(`/book/${book.id}`, { state: { from: returnTo } })}
                     >
+                      {isSelecting && (
+                        <div className="mobile-book-select-indicator">
+                          {isSelected ? <Check size={14} /> : <Square size={14} />}
+                        </div>
+                      )}
                       <div className="mobile-book-cover-wrap">
                         {book.coverPath
                           ? <img src={book.coverPath} alt={book.title} loading="lazy" />
@@ -509,12 +585,18 @@ const MobileLibrary = () => {
                   const pct = (progress && book.duration > 0)
                     ? Math.min(100, Math.round((progress / book.duration) * 100))
                     : 0;
+                  const isSelected = selectedBookIds.has(book.id);
                   return (
                     <div
                       key={book.id}
-                      className="mobile-book-list-item"
-                      onClick={() => navigate(`/book/${book.id}`)}
+                      className={`mobile-book-list-item${isSelecting ? ' is-selecting' : ''}${isSelected ? ' is-selected' : ''}`}
+                      onClick={() => isSelecting ? toggleBookSelection(book.id) : navigate(`/book/${book.id}`, { state: { from: returnTo } })}
                     >
+                      {isSelecting && (
+                        <div className="mobile-book-list-check">
+                          {isSelected ? <Check size={14} /> : <Square size={14} />}
+                        </div>
+                      )}
                       <div className="mobile-book-list-cover">
                         {book.coverPath
                           ? <img src={book.coverPath} alt={book.title} loading="lazy" />
@@ -552,6 +634,49 @@ const MobileLibrary = () => {
           onClear={clearFilters}
           onClose={() => setIsFilterOpen(false)}
           activeFilterCount={activeFilterCount}
+        />
+      )}
+
+      {isSelecting && (
+        <div className="mobile-selection-bar">
+          <div>
+            <strong>{selectedBookIds.size}</strong>
+            <span> selected</span>
+          </div>
+          <button className="btn btn-secondary" type="button" onClick={cancelSelection}>
+            Clear
+          </button>
+          <button
+            className="btn btn-primary"
+            type="button"
+            disabled={selectedBookIds.size === 0}
+            onClick={startMetadataQueue}
+          >
+            <Sparkles size={15} />
+            Match
+          </button>
+        </div>
+      )}
+
+      {matchBook && (
+        <BookMetadataModal
+          key={matchBook.id}
+          book={matchBook}
+          onClose={() => {
+            closeMetadataQueue();
+          }}
+          onApplied={matchQueue.length > 0 ? advanceMetadataQueue : async () => {
+            await Promise.all([fetchBooks(), fetchMeta()]);
+          }}
+          initialTab="fetch"
+          closeAfterSave={matchQueue.length === 0}
+          queuePosition={
+            matchQueue.length > 0
+              ? { current: matchQueueIndex + 1, total: matchQueue.length }
+              : undefined
+          }
+          onQueuePrevious={() => goToMetadataQueueIndex(matchQueueIndex - 1)}
+          onQueueNext={() => goToMetadataQueueIndex(matchQueueIndex + 1)}
         />
       )}
     </div>

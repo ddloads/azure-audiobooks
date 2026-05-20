@@ -8,6 +8,7 @@ import { useAuth } from "../context/AuthContext";
 
 const Register = () => {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -20,7 +21,7 @@ const Register = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await api.post("/auth/register", { username, password });
+      const res = await api.post("/auth/register", { username, email, password });
       login(res.data.token, res.data.user);
       navigate("/");
     } catch (error) {
@@ -55,6 +56,17 @@ const Register = () => {
               placeholder="Choose a username"
               required
               autoFocus
+            />
+          </div>
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              className="form-control"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your recovery email"
+              required
             />
           </div>
           <div className="form-group">

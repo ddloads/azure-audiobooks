@@ -4,60 +4,9 @@ import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, Penc
 import { io } from "socket.io-client";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
+import { getCandidateSourceLabel, metadataProviderOptions } from "../features/metadata/providers";
+import type { MatchCandidate, MetadataBook, MetadataProvider } from "../features/metadata/types";
 import { useIsMobile } from "../hooks/useIsMobile";
-
-export type MetadataBook = {
-  id: string;
-  title: string;
-  subtitle?: string | null;
-  author: { name: string };
-  library?: { id: string; name: string };
-  narrator?: string | null;
-  series?: { id?: string; name: string } | null;
-  sequence?: number | null;
-  description?: string | null;
-  publisher?: string | null;
-  year?: string | null;
-  genres?: string | null;
-  tags?: string | null;
-  language?: string | null;
-  isbn?: string | null;
-  asin?: string | null;
-  abridged?: boolean | null;
-  duration: number;
-  folderPath?: string | null;
-  coverPath?: string;
-};
-
-type CandidateMetadata = {
-  title: string | null;
-  subtitle: string | null;
-  author: string | null;
-  narrator: string | null;
-  description: string | null;
-  publisher: string | null;
-  year: string | null;
-  genres: string | null;
-  tags: string | null;
-  language: string | null;
-  isbn: string | null;
-  asin: string | null;
-  abridged: boolean | null;
-  seriesName: string | null;
-  seriesSequence: number | null;
-  durationSeconds: number | null;
-  releaseDate: string | null;
-  imageUrl: string | null;
-  audibleUrl: string | null;
-};
-
-type MatchCandidate = {
-  id: string;
-  audibleUrl: string;
-  confidence: number;
-  confidenceLabel: string;
-  metadata: CandidateMetadata;
-};
 
 interface BookMetadataModalProps {
   book: MetadataBook;
@@ -93,7 +42,6 @@ type EditableFields = {
 };
 
 type SelectableFieldKey = keyof EditableFields;
-type MetadataProvider = "audible" | "google" | "combined";
 
 type WriteTagsJob = {
   id: string;
@@ -162,6 +110,13 @@ const formatDuration = (seconds: number | null) => {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 };
 
+const getFilePathLabel = (folderPath?: string | null) => {
+  if (!folderPath) return null;
+  const normalized = folderPath.replace(/\\/g, "/");
+  const parts = normalized.split("/").filter(Boolean);
+  return parts.slice(-3).join(" / ") || folderPath;
+};
+
 const buildFieldsFromCandidate = (candidate: MatchCandidate): EditableFields => ({
   title: candidate.metadata.title ?? "",
   subtitle: candidate.metadata.subtitle ?? "",
@@ -214,6 +169,7 @@ const getErrorMessage = (error: unknown, fallback: string) =>
   isAxiosError<{ error?: string }>(error) ? error.response?.data?.error || fallback : fallback;
 
 const REVIEW_TAG = "review";
+const AUTO_SEARCH_QUEUE_KEY = "metadata-auto-search-queue";
 
 const parseTagList = (value: string | null | undefined) =>
   (value ?? "")
@@ -249,6 +205,7 @@ const BookMetadataModal = ({
   const [activeTab, setActiveTab] = useState<"edit" | "fetch">(initialTab);
   const [searchCollapsed, setSearchCollapsed] = useState(false);
   const [provider, setProvider] = useState<MetadataProvider>("audible");
+  const [autoSearchQueue, setAutoSearchQueue] = useState(() => localStorage.getItem(AUTO_SEARCH_QUEUE_KEY) === "true");
   const [query, setQuery] = useState(book.asin || book.title);
   const [authorSearch, setAuthorSearch] = useState(book.author.name);
   const [loading, setLoading] = useState(false);
@@ -260,6 +217,7 @@ const BookMetadataModal = ({
   const [error, setError] = useState("");
   const [results, setResults] = useState<MatchCandidate[]>([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [mobileFetchPane, setMobileFetchPane] = useState<"results" | "fields">("results");
 
   // For Fetch tab
   const [fetchFields, setFetchFields] = useState<EditableFields>(emptyFields);
@@ -272,11 +230,34 @@ const BookMetadataModal = ({
   const [, setProgressTick] = useState(0);
   const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
   const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
+  const autoSearchKeyRef = useRef<string | null>(null);
+  const autoSearchQueueRef = useRef(autoSearchQueue);
+  const activeTabRef = useRef(activeTab);
+  const providerRef = useRef(provider);
+  const autoRunSearchRef = useRef<((providerOverride: MetadataProvider, searchOverride: { bookId: string; query: string; author: string }) => void) | null>(null);
 
   const selectedCandidate = useMemo(
     () => results.find((candidate) => candidate.id === selectedCandidateId) ?? null,
     [results, selectedCandidateId],
   );
+  const detailItems = [
+    currentBook.author?.name,
+    currentBook.series?.name
+      ? `${currentBook.series.name}${currentBook.sequence != null ? ` #${currentBook.sequence}` : ""}`
+      : null,
+    currentBook.narrator ? `Narrated by ${currentBook.narrator}` : null,
+    formatDuration(currentBook.duration),
+    currentBook.year,
+    currentBook.library?.name,
+  ].filter(Boolean);
+  const identifierItems = [
+    currentBook.asin ? `ASIN ${currentBook.asin}` : null,
+    currentBook.isbn ? `ISBN ${currentBook.isbn}` : null,
+    currentBook.abridged ? "Abridged" : null,
+  ].filter(Boolean);
+  const folderLabel = getFilePathLabel(currentBook.folderPath);
+  const getDefaultQueryForProvider = (nextProvider: MetadataProvider, sourceBook: MetadataBook = currentBook) =>
+    nextProvider === "audible" ? sourceBook.asin || sourceBook.title : sourceBook.title;
 
   const waitForWriteTagsJobCompletion = (jobId: string) => {
     const existing = writeTagsJobsRef.current.get(jobId);
@@ -289,54 +270,31 @@ const BookMetadataModal = ({
     });
   };
 
-  useEffect(() => {
-    let cancelled = false;
-
-    setCurrentBook(book);
-    setQuery(book.asin || book.title);
-    setAuthorSearch(book.author.name);
-    setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
-    setEditFields(buildFieldsFromBook(book));
-
-    const loadFullBook = async () => {
-      try {
-        const res = await api.get<MetadataBook>(`/library/${book.id}`);
-        if (cancelled) return;
-
-        setCurrentBook(res.data);
-        setQuery(res.data.asin || res.data.title);
-        setAuthorSearch(res.data.author.name);
-        setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
-        setEditFields(buildFieldsFromBook(res.data));
-      } catch {
-        if (!cancelled) {
-          setError("Failed to load current book metadata");
-        }
-      }
-    };
-
-    void loadFullBook();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [book]);
-
-  const runSearch = async (event?: FormEvent, providerOverride: MetadataProvider = provider) => {
+  const runSearch = async (
+    event?: FormEvent,
+    providerOverride: MetadataProvider = provider,
+    searchOverride?: { bookId: string; query: string; author: string },
+  ) => {
     event?.preventDefault();
+    const searchBookId = searchOverride?.bookId ?? currentBook.id;
+    const searchQuery = searchOverride?.query ?? query;
+    const searchAuthor = searchOverride?.author ?? authorSearch;
     setLoading(true);
     setError("");
 
     try {
-      const res = await api.post(`/admin/books/${currentBook.id}/match/search`, {
-        query,
-        author: authorSearch,
+      const res = await api.post(`/admin/books/${searchBookId}/match/search`, {
+        query: searchQuery,
+        author: searchAuthor,
         provider: providerOverride,
       });
 
       const candidates: MatchCandidate[] = res.data.candidates ?? [];
       setResults(candidates);
-      if (candidates.length > 0 && isMobile) setSearchCollapsed(true);
+      if (isMobile) {
+        setMobileFetchPane("results");
+        if (candidates.length > 0) setSearchCollapsed(true);
+      }
 
       if (candidates[0]) {
         const nextFields = buildFieldsFromCandidate(candidates[0]);
@@ -355,13 +313,91 @@ const BookMetadataModal = ({
     }
   };
 
+  useEffect(() => {
+    autoSearchQueueRef.current = autoSearchQueue;
+    activeTabRef.current = activeTab;
+    providerRef.current = provider;
+    autoRunSearchRef.current = (providerOverride, searchOverride) => {
+      void runSearch(undefined, providerOverride, searchOverride);
+    };
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setCurrentBook(book);
+    setQuery(book.asin || book.title);
+    setAuthorSearch(book.author.name);
+    setSearchCollapsed(false);
+    setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
+    setEditFields(buildFieldsFromBook(book));
+    setResults([]);
+    setSelectedCandidateId(null);
+    setMobileFetchPane("results");
+    setFetchFields(emptyFields());
+    setSelectedFields(buildSelectionFromFields(emptyFields()));
+
+    const loadFullBook = async () => {
+      try {
+        const res = await api.get<MetadataBook>(`/library/${book.id}`);
+        if (cancelled) return;
+
+        setCurrentBook(res.data);
+        setQuery(res.data.asin || res.data.title);
+        setAuthorSearch(res.data.author.name);
+        setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
+        setEditFields(buildFieldsFromBook(res.data));
+
+        const currentProvider = providerRef.current;
+        if (autoSearchQueueRef.current && activeTabRef.current === "fetch") {
+          const autoSearchKey = `${res.data.id}:${currentProvider}`;
+          if (autoSearchKeyRef.current !== autoSearchKey) {
+            autoSearchKeyRef.current = autoSearchKey;
+            autoRunSearchRef.current?.(currentProvider, {
+              bookId: res.data.id,
+              query: res.data.asin || res.data.title,
+              author: res.data.author.name,
+            });
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setError("Failed to load current book metadata");
+        }
+      }
+    };
+
+    void loadFullBook();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [book]);
+
   const handleProviderChange = (nextProvider: MetadataProvider) => {
     setProvider(nextProvider);
+    setQuery(getDefaultQueryForProvider(nextProvider));
     setResults([]);
     setSelectedCandidateId(null);
     setFetchFields(emptyFields());
     setSelectedFields(buildSelectionFromFields(emptyFields()));
   };
+
+  const handleAutoSearchQueueChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const enabled = event.target.checked;
+    setAutoSearchQueue(enabled);
+
+    if (!enabled || activeTab !== "fetch" || loading || saving) return;
+
+    const autoSearchKey = `${currentBook.id}:${provider}`;
+    if (autoSearchKeyRef.current === autoSearchKey) return;
+    autoSearchKeyRef.current = autoSearchKey;
+    void runSearch(undefined, provider);
+  };
+
+  useEffect(() => {
+    localStorage.setItem(AUTO_SEARCH_QUEUE_KEY, String(autoSearchQueue));
+  }, [autoSearchQueue]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -418,6 +454,7 @@ const BookMetadataModal = ({
     setSelectedCandidateId(candidate.id);
     setFetchFields(nextFields);
     setSelectedFields(buildSelectionFromFields(nextFields));
+    if (isMobile) setMobileFetchPane("fields");
   };
 
   const handleFetchFieldChange = (key: SelectableFieldKey, value: string | boolean) => {
@@ -509,6 +546,14 @@ const BookMetadataModal = ({
           <div>
             <h2>Manage Metadata</h2>
             <p className="book-match-subtitle">{currentBook.title}</p>
+            {detailItems.length > 0 && (
+              <p className="book-match-source-details">{detailItems.join(" - ")}</p>
+            )}
+            {(identifierItems.length > 0 || folderLabel) && (
+              <p className="book-match-source-details book-match-source-details--secondary">
+                {[...identifierItems, folderLabel].filter(Boolean).join(" - ")}
+              </p>
+            )}
             {queuePosition && queuePosition.total > 1 && (
               <p className="book-match-queue-status">
                 Title {queuePosition.current} of {queuePosition.total}
@@ -609,268 +654,489 @@ const BookMetadataModal = ({
         )}
 
         {activeTab === "fetch" ? (
-          <>
-            <form className="book-match-search" onSubmit={runSearch}>
-              {isMobile && (
-                <button
-                  type="button"
-                  className="mobile-search-collapse-btn"
-                  onClick={() => setSearchCollapsed(v => !v)}
-                >
-                  {searchCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                  {searchCollapsed ? 'Search options' : 'Hide options'}
-                </button>
-              )}
-              {(!isMobile || !searchCollapsed) && (
-              <div className="book-match-search-grid">
-                <div className="form-group">
-                  <label>Provider</label>
-                  <select
-                    className="form-control"
-                    value={provider}
-                    onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
+          isMobile ? (
+            mobileFetchPane === "results" ? (
+              /* ── Mobile Pane 1: pick a match ── */
+              <div className="mobile-fetch-results-pane">
+                <form className="book-match-search" onSubmit={runSearch}>
+                  <button
+                    type="button"
+                    className="mobile-search-collapse-btn"
+                    onClick={() => setSearchCollapsed(v => !v)}
                   >
-                    <option value="audible">Audible.com</option>
-                    <option value="google">Google Books</option>
-                    <option value="combined">Audible + Google</option>
-                  </select>
-                </div>
+                    {searchCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                    {searchCollapsed ? 'Search options' : 'Hide options'}
+                  </button>
+                  {!searchCollapsed && (
+                    <div className="book-match-search-grid">
+                      <div className="form-group">
+                        <label>Provider</label>
+                        <select
+                          className="form-control"
+                          value={provider}
+                          onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
+                        >
+                          {metadataProviderOptions.map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Search Title or ASIN</label>
+                        <input
+                          className="form-control"
+                          value={query}
+                          onChange={(event) => setQuery(event.target.value)}
+                          placeholder="Title or ASIN"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Author</label>
+                        <input
+                          className="form-control"
+                          value={authorSearch}
+                          onChange={(event) => setAuthorSearch(event.target.value)}
+                          placeholder="Author"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="mobile-search-action-row">
+                    <button className="btn btn-primary" type="submit" disabled={loading}>
+                      {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                      Search
+                    </button>
+                    <label className="book-match-auto-search-toggle">
+                      <input
+                        type="checkbox"
+                        checked={autoSearchQueue}
+                        onChange={handleAutoSearchQueueChange}
+                      />
+                      <span>Auto</span>
+                    </label>
+                  </div>
+                </form>
 
-                <div className="form-group">
-                  <label>Search Title or ASIN</label>
-                  <input
-                    className="form-control"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Title or ASIN"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label>Author</label>
-                  <input
-                    className="form-control"
-                    value={authorSearch}
-                    onChange={(event) => setAuthorSearch(event.target.value)}
-                    placeholder="Author"
-                  />
-                </div>
-              </div>
-              )}
-
-              <button className="btn btn-primary book-match-search-btn" type="submit" disabled={loading}>
-                {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-                Search
-              </button>
-            </form>
-
-            <div className="book-match-results">
-              <div className="book-match-results-list">
-                {results.length === 0 && !loading ? (
-                  <div className="admin-empty-state">No Audible metadata found for this search.</div>
-                ) : (
-                  results.map((candidate) => {
-                    const isSelected = candidate.id === selectedCandidateId;
-                    const durationLabel = formatDuration(candidate.metadata.durationSeconds);
-                    return (
-                      <button
-                        key={candidate.id}
-                        type="button"
-                        className={`book-match-result-card ${isSelected ? "selected" : ""}`}
-                        onClick={() => handleSelectCandidate(candidate)}
-                      >
-                        <div className="book-match-result-cover">
-                          {candidate.metadata.imageUrl ? (
-                            <img
-                              src={candidate.metadata.imageUrl}
-                              alt={candidate.metadata.title || "Fetched title"}
-                            />
-                          ) : (
-                            <div className="book-cover-placeholder">No Cover</div>
-                          )}
-                        </div>
-
-                        <div className="book-match-result-copy">
-                          <div className="book-match-result-head">
-                            <div>
-                              <h3>{candidate.metadata.title || "Unknown title"}</h3>
-                              {candidate.metadata.subtitle && (
-                                <p className="book-match-result-subcopy">
-                                  {candidate.metadata.subtitle}
-                                </p>
-                              )}
-                            </div>
-                            <span className="book-match-confidence">{candidate.confidenceLabel}</span>
+                <div className="mobile-fetch-list">
+                  {results.length === 0 && !loading ? (
+                    <div className="admin-empty-state">No metadata found for this search.</div>
+                  ) : (
+                    results.map((candidate) => {
+                      const isSelected = candidate.id === selectedCandidateId;
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          className={`mobile-match-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => handleSelectCandidate(candidate)}
+                        >
+                          <div className="mobile-match-card-cover">
+                            {candidate.metadata.imageUrl ? (
+                              <img src={candidate.metadata.imageUrl} alt={candidate.metadata.title || "Cover"} />
+                            ) : (
+                              <div className="book-cover-placeholder" />
+                            )}
                           </div>
-
-                          <p className="book-match-result-meta">
-                            {candidate.metadata.author || "Unknown author"}
-                            {candidate.metadata.narrator
-                              ? ` · Narrator: ${candidate.metadata.narrator}`
-                              : ""}
-                            {durationLabel ? ` · ${durationLabel}` : ""}
-                          </p>
-
-                          {candidate.metadata.seriesName && (
-                            <p className="book-match-result-subcopy">
-                              {candidate.metadata.seriesName}
-                              {candidate.metadata.seriesSequence
-                                ? ` · Book ${candidate.metadata.seriesSequence}`
-                                : ""}
-                            </p>
-                          )}
-
-                          {(candidate.metadata.genres || candidate.metadata.language) && (
-                            <p className="book-match-result-meta">
-                              {candidate.metadata.genres}
-                              {candidate.metadata.genres && candidate.metadata.language ? " · " : ""}
-                              {candidate.metadata.language ? candidate.metadata.language.toUpperCase() : ""}
-                            </p>
-                          )}
-
-                          {candidate.metadata.description && (
-                            <p className="book-match-result-desc">{candidate.metadata.description}</p>
-                          )}
-
-                          {isSelected && (
-                            <span className="book-match-selected-pill">
-                              <Check size={14} />
-                              Selected
+                          <div className="mobile-match-card-info">
+                            <div className="mobile-match-card-top">
+                              <span className="mobile-match-card-title">{candidate.metadata.title || "Unknown title"}</span>
+                              <span className="book-match-confidence">{candidate.confidenceLabel}</span>
+                            </div>
+                            <span className="mobile-match-card-meta">
+                              {candidate.metadata.author || "Unknown author"}
+                              {candidate.metadata.seriesName ? ` · ${candidate.metadata.seriesName}` : ""}
                             </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
+                          </div>
+                          {isSelected && <Check size={18} className="mobile-match-card-check" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {selectedCandidateId && (
+                  <div className="mobile-fetch-proceed-bar">
+                    <span className="mobile-fetch-proceed-label">{selectedCandidate?.metadata.title}</span>
+                    <button className="btn btn-primary" type="button" onClick={() => setMobileFetchPane("fields")}>
+                      Review <ChevronRight size={16} />
+                    </button>
+                  </div>
                 )}
               </div>
+            ) : (
+              /* ── Mobile Pane 2: review & apply fields ── */
+              <div className="mobile-fetch-fields-pane">
+                <button type="button" className="mobile-fetch-back-bar" onClick={() => setMobileFetchPane("results")}>
+                  <ChevronLeft size={16} />
+                  <span>{results.length} result{results.length !== 1 ? "s" : ""} — change selection</span>
+                </button>
 
-              {selectedCandidate && (
-                <div className="book-match-fields">
-                  <div className="book-match-fields-header">
-                    <div>
-                      <span className="book-match-fields-kicker">Selected Metadata</span>
-                      <h3>{selectedCandidate.metadata.title}</h3>
+                {selectedCandidate && (
+                  <>
+                    <div className="mobile-fetch-candidate-summary">
+                      {selectedCandidate.metadata.imageUrl && (
+                        <img
+                          className="mobile-fetch-candidate-cover"
+                          src={selectedCandidate.metadata.imageUrl}
+                          alt=""
+                        />
+                      )}
+                      <div className="mobile-fetch-candidate-info">
+                        <span className="book-match-confidence">{selectedCandidate.confidenceLabel}</span>
+                        <strong className="mobile-fetch-candidate-title">{selectedCandidate.metadata.title}</strong>
+                        <span className="mobile-fetch-candidate-meta">{selectedCandidate.metadata.author}</span>
+                      </div>
+                      {(selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl) && (
+                        <a
+                          className="book-match-link"
+                          href={selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Sparkles size={14} />
+                        </a>
+                      )}
                     </div>
-                    {(selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl) && (
-                      <a
-                        className="book-match-link"
-                        href={selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <Sparkles size={14} />
-                        {selectedCandidate.id.startsWith("google_") ? "Google Books" : "Audible"}
-                      </a>
-                    )}
+
+                    <div className="mobile-fetch-fields-scroll">
+                      <div className="book-match-field-list">
+                        {FIELD_DEFINITIONS.map((field) => (
+                          <div key={field.key} className="book-match-field-row">
+                            <label className="book-match-select">
+                              <input
+                                type="checkbox"
+                                checked={selectedFields[field.key]}
+                                onChange={(event) =>
+                                  setSelectedFields((current) => ({
+                                    ...current,
+                                    [field.key]: event.target.checked,
+                                  }))
+                                }
+                              />
+                              <span>{field.label}</span>
+                            </label>
+                            <div className="book-match-field-control">
+                              {field.key === "imageUrl" && fetchFields.imageUrl ? (
+                                <div className="book-match-cover-preview">
+                                  <img src={fetchFields.imageUrl} alt="Cover preview" />
+                                  <input
+                                    className="form-control"
+                                    value={fetchFields[field.key] as string}
+                                    onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                  />
+                                </div>
+                              ) : field.type === "textarea" ? (
+                                <textarea
+                                  className="form-control"
+                                  rows={5}
+                                  value={fetchFields[field.key] as string}
+                                  onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                />
+                              ) : field.type === "checkbox" ? (
+                                <label className="admin-checkbox">
+                                  <input
+                                    type="checkbox"
+                                    checked={Boolean(fetchFields[field.key])}
+                                    onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                                      handleFetchFieldChange(field.key, event.target.checked)
+                                    }
+                                  />
+                                  <span>{fetchFields[field.key] ? "Yes" : "No"}</span>
+                                </label>
+                              ) : (
+                                <input
+                                  className="form-control"
+                                  value={fetchFields[field.key] as string}
+                                  onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <label className="book-match-review-flag">
+                        <input
+                          type="checkbox"
+                          checked={markForReview}
+                          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                            setMarkForReview(event.target.checked)
+                          }
+                        />
+                        <span>
+                          Flag for review
+                          <small>
+                            Adds the `review` tag so you can filter this title in the library view.
+                          </small>
+                        </span>
+                      </label>
+                    </div>
+                  </>
+                )}
+
+                <div className="book-match-actions">
+                  <button className="btn btn-secondary" type="button" onClick={onClose} disabled={saving}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-primary" type="button" onClick={handleSaveFetch} disabled={saving}>
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                    Submit
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            /* ── Desktop layout ── */
+            <>
+              <form className="book-match-search" onSubmit={runSearch}>
+                <div className="book-match-search-grid">
+                  <div className="form-group">
+                    <label>Provider</label>
+                    <select
+                      className="form-control"
+                      value={provider}
+                      onChange={(event) => handleProviderChange(event.target.value as MetadataProvider)}
+                    >
+                      {metadataProviderOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
                   </div>
+                  <div className="form-group">
+                    <label>Search Title or ASIN</label>
+                    <input
+                      className="form-control"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Title or ASIN"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Author</label>
+                    <input
+                      className="form-control"
+                      value={authorSearch}
+                      onChange={(event) => setAuthorSearch(event.target.value)}
+                      placeholder="Author"
+                    />
+                  </div>
+                </div>
+                <button className="btn btn-primary book-match-search-btn" type="submit" disabled={loading}>
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                  Search
+                </button>
+                <label className="book-match-auto-search-toggle">
+                  <input
+                    type="checkbox"
+                    checked={autoSearchQueue}
+                    onChange={handleAutoSearchQueueChange}
+                  />
+                  <span>Auto search</span>
+                </label>
+              </form>
 
-                  <div className="book-match-field-list">
-                    {FIELD_DEFINITIONS.map((field) => (
-                      <div key={field.key} className="book-match-field-row">
-                        <label className="book-match-select">
-                          <input
-                            type="checkbox"
-                            checked={selectedFields[field.key]}
-                            onChange={(event) =>
-                              setSelectedFields((current) => ({
-                                ...current,
-                                [field.key]: event.target.checked,
-                              }))
-                            }
-                          />
-                          <span>{field.label}</span>
-                        </label>
+              <div className="book-match-results">
+                <div className="book-match-results-list">
+                  {results.length === 0 && !loading ? (
+                    <div className="admin-empty-state">No metadata found for this search.</div>
+                  ) : (
+                    results.map((candidate) => {
+                      const isSelected = candidate.id === selectedCandidateId;
+                      const durationLabel = formatDuration(candidate.metadata.durationSeconds);
+                      return (
+                        <button
+                          key={candidate.id}
+                          type="button"
+                          className={`book-match-result-card ${isSelected ? "selected" : ""}`}
+                          onClick={() => handleSelectCandidate(candidate)}
+                        >
+                          <div className="book-match-result-cover">
+                            {candidate.metadata.imageUrl ? (
+                              <img
+                                src={candidate.metadata.imageUrl}
+                                alt={candidate.metadata.title || "Fetched title"}
+                              />
+                            ) : (
+                              <div className="book-cover-placeholder">No Cover</div>
+                            )}
+                          </div>
+                          <div className="book-match-result-copy">
+                            <div className="book-match-result-head">
+                              <div>
+                                <h3>{candidate.metadata.title || "Unknown title"}</h3>
+                                {candidate.metadata.subtitle && (
+                                  <p className="book-match-result-subcopy">{candidate.metadata.subtitle}</p>
+                                )}
+                              </div>
+                              <span className="book-match-confidence">{candidate.confidenceLabel}</span>
+                            </div>
+                            <p className="book-match-result-meta">
+                              {candidate.metadata.author || "Unknown author"}
+                              {candidate.metadata.narrator ? ` · Narrator: ${candidate.metadata.narrator}` : ""}
+                              {durationLabel ? ` · ${durationLabel}` : ""}
+                            </p>
+                            {candidate.metadata.seriesName && (
+                              <p className="book-match-result-subcopy">
+                                {candidate.metadata.seriesName}
+                                {candidate.metadata.seriesSequence
+                                  ? ` · Book ${candidate.metadata.seriesSequence}`
+                                  : ""}
+                              </p>
+                            )}
+                            {(candidate.metadata.genres || candidate.metadata.language) && (
+                              <p className="book-match-result-meta">
+                                {candidate.metadata.genres}
+                                {candidate.metadata.genres && candidate.metadata.language ? " · " : ""}
+                                {candidate.metadata.language ? candidate.metadata.language.toUpperCase() : ""}
+                              </p>
+                            )}
+                            {candidate.metadata.description && (
+                              <p className="book-match-result-desc">{candidate.metadata.description}</p>
+                            )}
+                            {isSelected && (
+                              <span className="book-match-selected-pill">
+                                <Check size={14} />
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
 
-                        <div className="book-match-field-control">
-                          {field.key === "imageUrl" && fetchFields.imageUrl ? (
-                            <div className="book-match-cover-preview">
-                              <img src={fetchFields.imageUrl} alt="Cover preview" />
+                {selectedCandidate && (
+                  <div className="book-match-fields">
+                    <div className="book-match-fields-header">
+                      <div>
+                        <span className="book-match-fields-kicker">Selected Metadata</span>
+                        <h3>{selectedCandidate.metadata.title}</h3>
+                      </div>
+                      {(selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl) && (
+                        <a
+                          className="book-match-link"
+                          href={selectedCandidate.metadata.audibleUrl || selectedCandidate.audibleUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <Sparkles size={14} />
+                          {getCandidateSourceLabel(selectedCandidate)}
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="book-match-field-list">
+                      {FIELD_DEFINITIONS.map((field) => (
+                        <div key={field.key} className="book-match-field-row">
+                          <label className="book-match-select">
+                            <input
+                              type="checkbox"
+                              checked={selectedFields[field.key]}
+                              onChange={(event) =>
+                                setSelectedFields((current) => ({
+                                  ...current,
+                                  [field.key]: event.target.checked,
+                                }))
+                              }
+                            />
+                            <span>{field.label}</span>
+                          </label>
+                          <div className="book-match-field-control">
+                            {field.key === "imageUrl" && fetchFields.imageUrl ? (
+                              <div className="book-match-cover-preview">
+                                <img src={fetchFields.imageUrl} alt="Cover preview" />
+                                <input
+                                  className="form-control"
+                                  value={fetchFields[field.key] as string}
+                                  onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                                />
+                              </div>
+                            ) : field.type === "textarea" ? (
+                              <textarea
+                                className="form-control"
+                                rows={5}
+                                value={fetchFields[field.key] as string}
+                                onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
+                              />
+                            ) : field.type === "checkbox" ? (
+                              <label className="admin-checkbox">
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(fetchFields[field.key])}
+                                  onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                                    handleFetchFieldChange(field.key, event.target.checked)
+                                  }
+                                />
+                                <span>{fetchFields[field.key] ? "Yes" : "No"}</span>
+                              </label>
+                            ) : (
                               <input
                                 className="form-control"
                                 value={fetchFields[field.key] as string}
                                 onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
                               />
-                            </div>
-                          ) : field.type === "textarea" ? (
-                            <textarea
-                              className="form-control"
-                              rows={5}
-                              value={fetchFields[field.key] as string}
-                              onChange={(event) =>
-                                handleFetchFieldChange(field.key, event.target.value)
-                              }
-                            />
-                          ) : field.type === "checkbox" ? (
-                            <label className="admin-checkbox">
-                              <input
-                                type="checkbox"
-                                checked={Boolean(fetchFields[field.key])}
-                                onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                                  handleFetchFieldChange(field.key, event.target.checked)
-                                }
-                              />
-                              <span>{fetchFields[field.key] ? "Yes" : "No"}</span>
-                            </label>
-                          ) : (
-                            <input
-                              className="form-control"
-                              value={fetchFields[field.key] as string}
-                              onChange={(event) =>
-                                handleFetchFieldChange(field.key, event.target.value)
-                              }
-                            />
-                          )}
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
 
-                  <label className="book-match-review-flag">
-                    <input
-                      type="checkbox"
-                      checked={markForReview}
-                      onChange={(event: ChangeEvent<HTMLInputElement>) =>
-                        setMarkForReview(event.target.checked)
-                      }
-                    />
-                    <span>
-                      Flag for review
-                      <small>
-                        Adds the `review` tag so you can filter this title in the library view.
-                      </small>
-                    </span>
-                  </label>
+                    <label className="book-match-review-flag">
+                      <input
+                        type="checkbox"
+                        checked={markForReview}
+                        onChange={(event: ChangeEvent<HTMLInputElement>) =>
+                          setMarkForReview(event.target.checked)
+                        }
+                      />
+                      <span>
+                        Flag for review
+                        <small>
+                          Adds the `review` tag so you can filter this title in the library view.
+                        </small>
+                      </span>
+                    </label>
 
-                  <div className="book-match-actions">
-                    <button
-                      className="btn btn-secondary"
-                      type="button"
-                      onClick={onClose}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      className="btn btn-primary"
-                      type="button"
-                      onClick={handleSaveFetch}
-                      disabled={saving}
-                    >
-                      {saving ? (
-                        <Loader2 size={16} className="animate-spin" />
-                      ) : (
-                        <Check size={16} />
-                      )}
-                      Submit
-                    </button>
+                    <div className="book-match-actions">
+                      <button
+                        className="btn btn-secondary"
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={handleSaveFetch}
+                        disabled={saving}
+                      >
+                        {saving ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Check size={16} />
+                        )}
+                        Submit
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </>
+                )}
+              </div>
+            </>
+          )
         ) : (
           <div className="metadata-edit-form">
+            {currentBook.coverPath && (
+              <div className="metadata-current-cover-row">
+                <div className="metadata-path-label">Cover Art</div>
+                <div className="metadata-current-cover">
+                  <img src={currentBook.coverPath} alt={`${currentBook.title} cover`} />
+                </div>
+              </div>
+            )}
+
             {currentBook.folderPath && (
               <div className="metadata-path-row">
                 <div className="metadata-path-label">File Path</div>

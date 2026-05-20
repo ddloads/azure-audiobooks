@@ -231,13 +231,13 @@ const AdminFileManagerPage = () => {
     setDeletePreview(null);
     setDeleteDialogOpen(false);
     setPermanentDeleteDialogOpen(false);
-  }, [currentRootId, viewMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentRootId, viewMode]);
 
   useEffect(() => {
     if (!currentRootId || !currentPath || viewMode !== "browse") return;
     void refreshCurrentView(currentRootId, currentPath, "browse");
     setSelectedPaths([]);
-  }, [currentPath]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPath]);
 
   if (user?.role !== "ADMIN") {
     return <Navigate to="/" replace />;

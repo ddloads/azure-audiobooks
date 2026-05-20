@@ -12,6 +12,7 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AdminFileManagerPage from "./pages/AdminFileManagerPage";
 import Player from "./components/Player";
 import InstallPrompt from "./components/InstallPrompt";
+import AccountEmailPrompt from "./components/AccountEmailPrompt";
 import MobilePrivateShell from "./mobile/MobileLayout";
 import MobileLibrary from "./mobile/MobileLibrary";
 import MobileBookDetails from "./mobile/MobileBookDetails";
@@ -104,6 +105,7 @@ function App() {
           <PlayerProvider>
             <Router>
               <AppRoutes />
+              <AccountEmailPrompt />
             </Router>
           </PlayerProvider>
         </TaskProvider>
