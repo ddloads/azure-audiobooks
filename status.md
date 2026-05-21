@@ -1,6 +1,6 @@
 # Azure Audiobooks Status
 
-Last updated: 2026-05-19
+Last updated: 2026-05-21
 
 ## Project State
 
@@ -30,6 +30,10 @@ The frontend is moving toward a feature-module structure. Shared metadata contra
   - Audible + Google combined search
 
 ## Latest Changes
+
+- Regenerated the Prisma client after the `add_user_email` migration added `User.email`; the stale generated client was missing the field, causing TypeScript errors in `authController.ts`.
+- Fixed Quick Match apply silently failing with a database unique-constraint error (P2002) when two books in the same library would end up with the same title and author after matching. `applyMatchedFieldsToBook` now mirrors the disambiguation retry logic from `applyBookMatch`: on a `[libraryId, title, authorId]` collision it appends the folder basename to the title and retries the update.
+- Added `title` to the `book` parameter type of `applyMatchedFieldsToBook` so the original title is available for the disambiguation fallback.
 
 - Added authenticated bug reporting with `POST /api/reports`, including issue type, optional comment, page path, user agent, and submitting user.
 - Added Prisma migration `20260519183000_add_bug_reports` and `BugReport` storage for user-submitted reports.

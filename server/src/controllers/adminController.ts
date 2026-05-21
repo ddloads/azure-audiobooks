@@ -2159,7 +2159,7 @@ const chooseQuickMatchCandidate = (
 };
 
 const applyMatchedFieldsToBook = async (
-  book: { id: string; folderPath: string; tags: string | null },
+  book: { id: string; title: string; folderPath: string; tags: string | null },
   selectedFields: Record<string, unknown>,
   sourceFields: Record<string, unknown>,
   managedTags: string[],
@@ -2234,16 +2234,39 @@ const applyMatchedFieldsToBook = async (
     }
   }
 
-  return prisma.book.update({
-    where: { id: book.id },
-    data: updateData,
-    include: {
-      author: true,
-      series: true,
-      library: true,
-      audioFiles: { orderBy: { index: "asc" } },
-    },
-  });
+  try {
+    return await prisma.book.update({
+      where: { id: book.id },
+      data: updateData,
+      include: {
+        author: true,
+        series: true,
+        library: true,
+        audioFiles: { orderBy: { index: "asc" } },
+      },
+    });
+  } catch (error: any) {
+    if (
+      error?.code === "P2002" &&
+      (error.meta?.target?.includes("title") || error.meta?.target?.includes("authorId"))
+    ) {
+      const disambiguatedTitle = `${updateData.title || book.title} (${path.basename(book.folderPath)})`;
+      console.log(
+        `Title collision on quick match for "${updateData.title || book.title}". Renaming to "${disambiguatedTitle}"`,
+      );
+      return await prisma.book.update({
+        where: { id: book.id },
+        data: { ...updateData, title: disambiguatedTitle },
+        include: {
+          author: true,
+          series: true,
+          library: true,
+          audioFiles: { orderBy: { index: "asc" } },
+        },
+      });
+    }
+    throw error;
+  }
 };
 
 export const quickMatchBooks = async (req: AuthRequest, res: Response): Promise<void> => {
