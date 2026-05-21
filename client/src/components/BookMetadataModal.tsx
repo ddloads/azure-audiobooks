@@ -208,6 +208,7 @@ const BookMetadataModal = ({
   const [autoSearchQueue, setAutoSearchQueue] = useState(() => localStorage.getItem(AUTO_SEARCH_QUEUE_KEY) === "true");
   const [query, setQuery] = useState(book.asin || book.title);
   const [authorSearch, setAuthorSearch] = useState(book.author.name);
+  const [languageFilter, setLanguageFilter] = useState(book.language ?? "");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [writingTags, setWritingTags] = useState(false);
@@ -279,6 +280,7 @@ const BookMetadataModal = ({
     const searchBookId = searchOverride?.bookId ?? currentBook.id;
     const searchQuery = searchOverride?.query ?? query;
     const searchAuthor = searchOverride?.author ?? authorSearch;
+    const searchLanguage = languageFilter.trim();
     setLoading(true);
     setError("");
 
@@ -286,6 +288,7 @@ const BookMetadataModal = ({
       const res = await api.post(`/admin/books/${searchBookId}/match/search`, {
         query: searchQuery,
         author: searchAuthor,
+        language: searchLanguage || undefined,
         provider: providerOverride,
       });
 
@@ -328,6 +331,7 @@ const BookMetadataModal = ({
     setCurrentBook(book);
     setQuery(book.asin || book.title);
     setAuthorSearch(book.author.name);
+    setLanguageFilter(book.language ?? "");
     setSearchCollapsed(false);
     setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(book.tags ?? ""));
     setEditFields(buildFieldsFromBook(book));
@@ -345,6 +349,7 @@ const BookMetadataModal = ({
         setCurrentBook(res.data);
         setQuery(res.data.asin || res.data.title);
         setAuthorSearch(res.data.author.name);
+        setLanguageFilter(res.data.language ?? "");
         setMarkForReview(/(?:^|,)\s*review\s*(?:,|$)/i.test(res.data.tags ?? ""));
         setEditFields(buildFieldsFromBook(res.data));
 
@@ -699,6 +704,15 @@ const BookMetadataModal = ({
                           placeholder="Author"
                         />
                       </div>
+                      <div className="form-group">
+                        <label>Language</label>
+                        <input
+                          className="form-control"
+                          value={languageFilter}
+                          onChange={(event) => setLanguageFilter(event.target.value)}
+                          placeholder="Any language"
+                        />
+                      </div>
                     </div>
                   )}
                   <div className="mobile-search-action-row">
@@ -918,6 +932,15 @@ const BookMetadataModal = ({
                       value={authorSearch}
                       onChange={(event) => setAuthorSearch(event.target.value)}
                       placeholder="Author"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Language</label>
+                    <input
+                      className="form-control"
+                      value={languageFilter}
+                      onChange={(event) => setLanguageFilter(event.target.value)}
+                      placeholder="Any language"
                     />
                   </div>
                 </div>

@@ -14,6 +14,10 @@ import {
 } from "./libraryConfig";
 
 const AUDIO_EXTENSIONS = [".mp3", ".m4a", ".m4b", ".aac", ".flac", ".wav", ".ogg"];
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+const PROTECTED_DIRECTORY_NAMES = new Set([".azure-trash", ".merged-backup"]);
+const COVER_NAME_HINTS = ["cover", "folder", "front", "poster", "artwork", "jacket"];
+const NON_COVER_NAME_HINTS = ["back", "spine", "logo", "banner", "thumbnail", "sample", "promo"];
 
 // Increment this when new metadata fields are added to force re-extraction on next scan
 const METADATA_VERSION = 3;
@@ -44,6 +48,99 @@ type ScanRunContext = {
 const canonicalizeFolderPath = (input: string) => {
   const normalized = normalizeSourcePath(input);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+};
+
+const isProtectedDirectory = (dirPath: string) => {
+  const segments = path.normalize(dirPath).split(path.sep).filter(Boolean);
+  return segments.some((segment) => PROTECTED_DIRECTORY_NAMES.has(segment));
+};
+
+const probeImageDimensions = async (filePath: string) => {
+  try {
+    const metadata = await probeFile(preparePathForTool(filePath, true));
+    const stream = metadata?.streams?.find((entry: any) => {
+      const width = Number(entry?.width);
+      const height = Number(entry?.height);
+      return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0;
+    });
+
+    if (!stream) {
+      return null;
+    }
+
+    const width = Number(stream.width);
+    const height = Number(stream.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      return null;
+    }
+
+    return { width, height };
+  } catch {
+    return null;
+  }
+};
+
+const looksLikeCoverImage = async (filePath: string) => {
+  const dimensions = await probeImageDimensions(filePath);
+  if (!dimensions) {
+    return true;
+  }
+
+  const { width, height } = dimensions;
+  const ratio = width / height;
+  const area = width * height;
+
+  return area >= 50_000 && ratio >= 0.65 && ratio <= 1.65;
+};
+
+const chooseFolderCoverImage = async (folderPath: string, files: string[]) => {
+  const imageFiles = files.filter((file) => IMAGE_EXTENSIONS.includes(path.extname(file).toLowerCase()));
+  if (imageFiles.length === 0) {
+    return null;
+  }
+
+  if (imageFiles.length === 1) {
+    return imageFiles[0];
+  }
+
+  const scored = await Promise.all(
+    imageFiles.map(async (file) => {
+      const name = path.parse(file).name.toLowerCase();
+      const fullPath = path.join(folderPath, file);
+      const dimensions = await probeImageDimensions(fullPath);
+      const size = fs.existsSync(fullPath) ? fs.statSync(fullPath).size : 0;
+
+      let score = 0;
+      if (COVER_NAME_HINTS.includes(name)) score += 100;
+      if (COVER_NAME_HINTS.some((hint) => name.includes(hint))) score += 40;
+      if (NON_COVER_NAME_HINTS.some((hint) => name.includes(hint))) score -= 80;
+
+      if (dimensions) {
+        const ratio = dimensions.width / dimensions.height;
+        const area = dimensions.width * dimensions.height;
+        if (ratio >= 0.75 && ratio <= 1.5) score += 40;
+        else score -= 20;
+
+        if (area >= 200_000) score += 20;
+        else if (area >= 80_000) score += 10;
+        else score -= 10;
+      } else {
+        score -= 5;
+      }
+
+      score += Math.min(20, Math.log10(Math.max(size, 1)) * 4);
+
+      return { file, score };
+    }),
+  );
+
+  scored.sort((a, b) => b.score - a.score);
+  const best = scored[0];
+  if (!best || best.score < 20) {
+    return null;
+  }
+
+  return best.file;
 };
 
 const probeFile = (toolPath: string): Promise<any> =>
@@ -100,6 +197,10 @@ const discoverBookFolders = (
         continue;
       }
 
+      if (isProtectedDirectory(currentDir)) {
+        continue;
+      }
+
       if (!fs.statSync(currentDir).isDirectory()) {
         continue;
       }
@@ -116,6 +217,9 @@ const discoverBookFolders = (
       let hasAudio = false;
       for (const entry of entries) {
         if (entry.isDirectory()) {
+          if (PROTECTED_DIRECTORY_NAMES.has(entry.name)) {
+            continue;
+          }
           stack.push(path.join(currentDir, entry.name));
           continue;
         }
@@ -382,23 +486,24 @@ const upsertBookFolder = async (
   title = cleanupBookTitle(title, { folderNameOrPath: folderName || folderPath });
 
   // Cover art resolution — store directly in the book's folder (persists with the library volume)
-  let hasCover = !!findCoverInFolder(folderPath);
+  const existingCoverFile = findCoverInFolder(folderPath);
+  let hasCover = existingCoverFile ? await looksLikeCoverImage(existingCoverFile) : false;
 
   if (!hasCover) {
-    const imageFiles = files.filter((f) => [".jpg", ".jpeg", ".png"].includes(path.extname(f).toLowerCase()));
-    const commonCoverNames = ["cover", "folder", "front", "poster"];
-    const foundCover =
-      imageFiles.find((f) => commonCoverNames.includes(path.parse(f).name.toLowerCase())) ||
-      imageFiles[0];
+    const foundCover = await chooseFolderCoverImage(folderPath, files);
 
     if (foundCover) {
       try {
         const coverExt = path.extname(foundCover).toLowerCase() || ".jpg";
         const coverDest = path.join(folderPath, `cover${coverExt}`);
+        const sourcePath = path.join(folderPath, foundCover);
         if (path.resolve(folderPath, foundCover) !== coverDest) {
-          fs.copyFileSync(path.join(folderPath, foundCover), coverDest);
+          fs.copyFileSync(sourcePath, coverDest);
         }
-        hasCover = true;
+        hasCover = await looksLikeCoverImage(coverDest);
+        if (!hasCover) {
+          fs.rmSync(coverDest, { force: true });
+        }
       } catch (err) {
         console.error(`Failed to copy cover image from ${folderPath}:`, err);
       }
@@ -416,7 +521,10 @@ const upsertBookFolder = async (
           const coverDest = path.join(folderPath, "cover.jpg");
           await extractCover(firstAudioPath, coverDest);
           if (fs.existsSync(coverDest) && fs.statSync(coverDest).size > 0) {
-            hasCover = true;
+            hasCover = await looksLikeCoverImage(coverDest);
+            if (!hasCover) {
+              fs.rmSync(coverDest, { force: true });
+            }
           }
         }
       } catch {

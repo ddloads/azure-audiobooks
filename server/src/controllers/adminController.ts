@@ -280,6 +280,72 @@ const parseMetadataProvider = (value: unknown) => {
 
 type MetadataProvider = ReturnType<typeof parseMetadataProvider>;
 
+const normalizeLanguageValue = (value: unknown) => {
+  if (typeof value !== "string") return "";
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  if (!normalized) return "";
+
+  const firstToken = normalized.split(/\s+/)[0];
+  const aliases: Record<string, string> = {
+    en: "en",
+    eng: "en",
+    english: "en",
+    fr: "fr",
+    fra: "fr",
+    fre: "fr",
+    french: "fr",
+    es: "es",
+    spa: "es",
+    spanish: "es",
+    de: "de",
+    deu: "de",
+    ger: "de",
+    german: "de",
+    it: "it",
+    ita: "it",
+    italian: "it",
+    pt: "pt",
+    por: "pt",
+    portuguese: "pt",
+    nl: "nl",
+    nld: "nl",
+    dutch: "nl",
+    ru: "ru",
+    rus: "ru",
+    russian: "ru",
+    ja: "ja",
+    jpn: "ja",
+    japanese: "ja",
+    zh: "zh",
+    zho: "zh",
+    chi: "zh",
+    chinese: "zh",
+  };
+
+  return aliases[firstToken] || firstToken;
+};
+
+const languageMatches = (candidateLanguage: unknown, requestedLanguage: unknown) => {
+  const filter = normalizeLanguageValue(requestedLanguage);
+  if (!filter) return true;
+
+  const candidate = normalizeLanguageValue(candidateLanguage);
+  if (!candidate) return true;
+
+  return candidate === filter;
+};
+
+const filterCandidatesByLanguage = <T extends { metadata: { language: string | null } }>(
+  candidates: T[],
+  requestedLanguage: unknown,
+) => candidates.filter((candidate) => languageMatches(candidate.metadata.language, requestedLanguage));
+
 const toNullableString = (value: unknown) => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -1930,6 +1996,7 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
         subtitle: true,
         asin: true,
         description: true,
+        language: true,
         duration: true,
         author: { select: { name: true } },
       },
@@ -1943,6 +2010,7 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
     const query =
       getOptionalBodyValue(req.body?.query) || book.asin || parseAsinValue(book.description) || book.title;
     const author = getOptionalBodyValue(req.body?.author) || book.author.name;
+    const language = getOptionalBodyValue(req.body?.language) || book.language || undefined;
     const provider = parseMetadataProvider(req.body?.provider);
     const catalogQuery = isAsinLike(query) ? book.title : query;
 
@@ -1994,10 +2062,13 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
       candidates = await searchGoodreads(catalogQuery, author);
     }
 
+    candidates = filterCandidatesByLanguage(candidates, language);
+
     res.json({
       provider,
       query: provider === "audible" ? query : catalogQuery,
       author,
+      language,
       candidates,
     });
   } catch (error) {
@@ -2016,6 +2087,7 @@ type MatchSearchBook = {
   subtitle?: string | null;
   asin?: string | null;
   description?: string | null;
+  language?: string | null;
   duration: number | null;
   author: { name: string };
 };
@@ -2025,10 +2097,12 @@ const findBookMatchCandidates = async (
   provider: MetadataProvider,
   queryOverride?: string | null,
   authorOverride?: string | null,
+  languageOverride?: string | null,
 ) => {
   const query = queryOverride || book.asin || parseAsinValue(book.description) || book.title;
   const author = authorOverride || book.author.name;
   const catalogQuery = isAsinLike(query) ? book.title : query;
+  const language = languageOverride || book.language || undefined;
   const context = {
     title: book.title,
     author: book.author.name,
@@ -2066,7 +2140,7 @@ const findBookMatchCandidates = async (
       if (!isDuplicate) candidates.push(google);
     }
 
-    return { provider, query: catalogQuery, author, candidates };
+    return { provider, query: catalogQuery, author, language, candidates: filterCandidatesByLanguage(candidates, language) };
   }
 
   const candidates = provider === "audible"
@@ -2075,7 +2149,13 @@ const findBookMatchCandidates = async (
       ? await searchGoogleBooks(catalogQuery, author)
       : await searchGoodreads(catalogQuery, author);
 
-  return { provider, query: provider === "audible" ? query : catalogQuery, author, candidates };
+  return {
+    provider,
+    query: provider === "audible" ? query : catalogQuery,
+    author,
+    language,
+    candidates: filterCandidatesByLanguage(candidates, language),
+  };
 };
 
 const buildFieldsFromMatchCandidate = (
@@ -2280,6 +2360,7 @@ export const quickMatchBooks = async (req: AuthRequest, res: Response): Promise<
     const minConfidence = Number.isFinite(parsedThreshold)
       ? Math.min(1, Math.max(0, parsedThreshold))
       : 0.9;
+    const language = getOptionalBodyValue(req.body?.language);
     const selectedFields = {
       ...defaultQuickMatchSelectedFields,
       ...(req.body?.selectedFields && typeof req.body.selectedFields === "object" ? req.body.selectedFields : {}),
@@ -2330,7 +2411,7 @@ export const quickMatchBooks = async (req: AuthRequest, res: Response): Promise<
       }
 
       try {
-        const searchResult = await findBookMatchCandidates(book, provider);
+        const searchResult = await findBookMatchCandidates(book, provider, undefined, undefined, language);
         const decision = chooseQuickMatchCandidate(book, searchResult.candidates, minConfidence);
 
         if (!decision.candidate) {
