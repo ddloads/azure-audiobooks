@@ -36,6 +36,7 @@ import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import AppLogo from "../components/AppLogo";
 import BookCard from "../components/BookCard";
+import RecommendationShelf, { type RecommendBook } from "../components/RecommendationShelf";
 import BookMetadataModal from "../components/BookMetadataModal";
 import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
@@ -260,6 +261,10 @@ const Library = () => {
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
   const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
+  const [recommendations, setRecommendations] = useState<{
+    nextInSeries: RecommendBook[];
+    youMightLike: RecommendBook[];
+  }>({ nextInSeries: [], youMightLike: [] });
   const [filters, setFilters] = useState<LibraryFilters>(() => getFiltersFromParams(searchParams));
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [search, setSearch] = useState(searchParams.get("search") || "");
@@ -403,12 +408,33 @@ const Library = () => {
     }
   };
 
+  const fetchRecommendations = async () => {
+    try {
+      const res = await api.get("/recommendations");
+      setRecommendations(res.data);
+    } catch (error) {
+      console.error("Failed to fetch recommendations", error);
+    }
+  };
+
   const handleContinuePlay = async (record: ProgressRecord) => {
     try {
       const bookRes = await api.get(`/library/${record.bookId}`);
       playBook(bookRes.data, record.currentTime);
     } catch (error) {
       console.error("Failed to resume playback", error);
+    }
+  };
+
+  const handleRecommendationPlay = async (bookId: string) => {
+    try {
+      const [bookRes, progressRes] = await Promise.all([
+        api.get(`/library/${bookId}`),
+        api.get(`/progress/${bookId}`),
+      ]);
+      playBook(bookRes.data, progressRes.data.currentTime || 0);
+    } catch (error) {
+      console.error("Failed to play recommended book", error);
     }
   };
 
@@ -581,6 +607,7 @@ const Library = () => {
 
   useEffect(() => {
     void fetchProgress();
+    void fetchRecommendations();
   }, []);
 
   useEffect(() => {
@@ -1496,6 +1523,20 @@ const Library = () => {
           </div>
         </section>
       )}
+
+      <RecommendationShelf
+        title="Up Next in Series"
+        icon={<BookMarked size={18} />}
+        books={recommendations.nextInSeries}
+        onBookClick={handleRecommendationPlay}
+      />
+
+      <RecommendationShelf
+        title="You Might Like"
+        icon={<Sparkles size={18} />}
+        books={recommendations.youMightLike}
+        onBookClick={handleRecommendationPlay}
+      />
 
       {loading ? (
         <div className="library-grid">
