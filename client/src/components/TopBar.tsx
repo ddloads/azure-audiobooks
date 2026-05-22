@@ -39,7 +39,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         onClick={() => navigate("/")}
         aria-label="Go to library"
       >
-        <AppLogo size={28} showWordmark />
+        <AppLogo size={40} showWordmark />
       </button>
 
       <div className="topbar-spacer" />

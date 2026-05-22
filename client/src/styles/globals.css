@@ -78,9 +78,10 @@
 body {
   background-color: var(--bg);
   background-image:
-    radial-gradient(ellipse 90% 65% at 50% -15%, rgba(56, 189, 248, 0.22), transparent),
-    radial-gradient(ellipse 55% 42% at 92% 80%, rgba(6, 182, 212, 0.10), transparent),
-    radial-gradient(ellipse 40% 30% at 5% 55%, rgba(30, 125, 201, 0.09), transparent);
+    radial-gradient(ellipse 110% 75% at 50% -20%, rgba(56, 189, 248, 0.30), transparent),
+    radial-gradient(ellipse 65% 55% at 92% 85%, rgba(6, 182, 212, 0.16), transparent),
+    radial-gradient(ellipse 45% 35% at 5% 60%, rgba(30, 125, 201, 0.13), transparent),
+    radial-gradient(ellipse 35% 28% at 72% 22%, rgba(103, 211, 251, 0.08), transparent);
   color: var(--text);
   font-family: var(--font-sans);
   line-height: 1.55;
