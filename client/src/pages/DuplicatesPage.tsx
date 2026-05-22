@@ -4,12 +4,14 @@ import {
   ArrowLeft,
   Check,
   Copy,
+  ExternalLink,
   Eye,
   EyeOff,
   HardDrive,
   Info,
   Loader2,
   Mic,
+  X,
 } from "lucide-react";
 import api from "../api/axios";
 import { useToast } from "../context/ToastContext";
@@ -263,6 +265,15 @@ const DuplicatesPage = () => {
     }
   };
 
+  const handleDismiss = () => {
+    if (selectedGroupIndex === null) return;
+    const next = [...groups];
+    next.splice(selectedGroupIndex, 1);
+    setGroups(next);
+    setSelectedGroupIndex(next.length > 0 ? Math.min(selectedGroupIndex, next.length - 1) : null);
+    showToast({ title: "Group dismissed", description: "It will reappear after a Refresh Scan.", tone: "info" });
+  };
+
   // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
@@ -307,10 +318,19 @@ const DuplicatesPage = () => {
               Refresh Scan
             </button>
             {currentGroup && (
-              <button className="btn btn-primary flex items-center gap-2 px-6 py-2" onClick={handleMerge} disabled={isMerging}>
-                {isMerging ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                Resolve &amp; Merge
-              </button>
+              <>
+                <button
+                  className="btn btn-secondary flex items-center gap-2 px-4 py-2"
+                  onClick={handleDismiss}
+                  title="Not actual duplicates — remove this group from the list"
+                >
+                  <X size={16} /> Not Duplicates
+                </button>
+                <button className="btn btn-primary flex items-center gap-2 px-6 py-2" onClick={handleMerge} disabled={isMerging}>
+                  {isMerging ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
+                  Resolve &amp; Merge
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -457,7 +477,26 @@ const DuplicatesPage = () => {
                         {/* ── Book details ── */}
                         <div className="flex flex-1 flex-col gap-3 p-4">
                           <div>
-                            <h3 className="text-base font-semibold leading-snug text-white">{book.title}</h3>
+                            <div className="flex items-start justify-between gap-2">
+                              <button
+                                className="group flex-1 text-left"
+                                onClick={() => window.open(`/book/${book.id}`, "_blank")}
+                                title="Open book details in new tab"
+                              >
+                                <h3 className="text-base font-semibold leading-snug text-white transition-colors group-hover:text-primary">
+                                  {book.title}
+                                </h3>
+                              </button>
+                              <a
+                                href={`/book/${book.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                title="Open book details in new tab"
+                                className="mt-0.5 flex-shrink-0 text-gray-500 transition-colors hover:text-primary"
+                              >
+                                <ExternalLink size={14} />
+                              </a>
+                            </div>
                             {book.subtitle && <p className="mt-0.5 text-sm text-gray-400">{book.subtitle}</p>}
                             <p className="mt-1 text-sm text-gray-300">{book.author.name}</p>
                             {book.series && (
@@ -599,7 +638,16 @@ const DuplicatesPage = () => {
                                   </span>
                                 )}
                               </div>
-                              <p className="truncate text-xs font-semibold text-white" title={book.title}>{book.title}</p>
+                              <a
+                                href={`/book/${book.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group flex items-center gap-1 truncate text-xs font-semibold text-white hover:text-primary transition-colors"
+                                title={`Open "${book.title}" in new tab`}
+                              >
+                                <span className="truncate">{book.title}</span>
+                                <ExternalLink size={10} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </a>
                               <p className="truncate text-[10px] text-gray-400">{book.author.name}</p>
                               <p className={`text-[10px] ${pal.textCls}`}>{book.library.name}</p>
                             </div>

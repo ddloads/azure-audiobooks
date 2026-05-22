@@ -7,6 +7,8 @@ type DuplicateCandidate = {
   author?: {
     name?: string | null;
   } | null;
+  seriesId?: string | null;
+  sequence?: number | null;
 };
 
 export type DuplicateGroupMatch<T> = {
@@ -65,6 +67,17 @@ export const booksArePotentialDuplicates = (
   const leftAuthor = normalizeAuthor(left);
   const rightAuthor = normalizeAuthor(right);
   if (!leftAuthor || !rightAuthor || leftAuthor !== rightAuthor) return false;
+
+  // Different series → different books, not duplicates
+  if (left.seriesId && right.seriesId && left.seriesId !== right.seriesId) return false;
+
+  // Same series but different sequence numbers → different volumes, not duplicates
+  if (
+    left.seriesId && right.seriesId &&
+    left.seriesId === right.seriesId &&
+    left.sequence != null && right.sequence != null &&
+    left.sequence !== right.sequence
+  ) return false;
 
   const rightTitleVariants = new Set(buildTitleVariants(right.title));
   return buildTitleVariants(left.title).some((variant) => rightTitleVariants.has(variant));
