@@ -56,7 +56,7 @@ export const getRecommendations = async (req: AuthRequest, res: Response) => {
             where: {
               seriesId: finished.seriesId,
               sequence: { gt: finished.sequence },
-              id: { notIn: finishedBookIds },
+              id: { notIn: [...engagedBookIds] },
             },
             orderBy: { sequence: "asc" },
             select: BOOK_SELECT,
