@@ -26,6 +26,7 @@ import {
   FileSearch,
   RefreshCw,
   Bug,
+  Search,
 } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
@@ -105,6 +106,7 @@ const BookDetailsPage: React.FC = () => {
   const [downloading, setDownloading] = useState(false);
   const [isCached, setIsCached] = useState(false);
   const [showMetadataModal, setShowMetadataModal] = useState(false);
+  const [metadataInitialTab, setMetadataInitialTab] = useState<"edit" | "fetch">("edit");
   const [showBugReportModal, setShowBugReportModal] = useState(false);
   const [showToolsMenu, setShowToolsMenu] = useState(false);
   const [merging, setMerging] = useState(false);
@@ -601,12 +603,24 @@ const BookDetailsPage: React.FC = () => {
                         <button
                           className="book-tools-option"
                           onClick={() => {
+                            setMetadataInitialTab("edit");
                             setShowMetadataModal(true);
                             setShowToolsMenu(false);
                           }}
                         >
                           <Pencil size={16} />
                           <span>Edit Metadata</span>
+                        </button>
+                        <button
+                          className="book-tools-option"
+                          onClick={() => {
+                            setMetadataInitialTab("fetch");
+                            setShowMetadataModal(true);
+                            setShowToolsMenu(false);
+                          }}
+                        >
+                          <Search size={16} />
+                          <span>Match Metadata</span>
                         </button>
                         <button
                           className="book-tools-option"
@@ -936,7 +950,7 @@ const BookDetailsPage: React.FC = () => {
           book={book}
           onClose={() => setShowMetadataModal(false)}
           onApplied={() => fetchBookDetails()}
-          initialTab="edit"
+          initialTab={metadataInitialTab}
         />
       )}
       {showBugReportModal && book && (
