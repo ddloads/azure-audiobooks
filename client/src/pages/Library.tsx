@@ -1,4 +1,3 @@
-import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
@@ -10,15 +9,9 @@ import {
   RefreshCw,
   LogOut,
   BookOpen,
-  Check,
-  EyeOff,
   FileSearch,
   FolderOpen,
   Loader2,
-  ListPlus,
-  MoreVertical,
-  Search,
-  Share2,
   Trash2,
   Settings,
   Save,
@@ -26,7 +19,6 @@ import {
   Sparkles,
   Bug,
   X,
-  Headphones,
   SlidersHorizontal,
 } from "lucide-react";
 import { io } from "socket.io-client";
@@ -36,14 +28,12 @@ import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import AppLogo from "../components/AppLogo";
 import BookCard from "../components/BookCard";
-import RecommendationShelf, { type RecommendBook } from "../components/RecommendationShelf";
 import BookMetadataModal from "../components/BookMetadataModal";
 import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
 import ConnectMobileModal from "../components/ConnectMobileModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import BugReportModal from "../components/BugReportModal";
-import { usePlayer } from "../context/PlayerContext";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
 import QuickMatchModal from "../features/quick-match/QuickMatchModal";
 import {
@@ -70,19 +60,6 @@ interface LibraryBook extends MetadataBook {
 }
 
 type DesktopViewMode = "books" | "list" | "series";
-
-interface ProgressRecord {
-  bookId: string;
-  currentTime: number;
-  lastUpdate: string;
-  book: {
-    id: string;
-    title: string;
-    duration: number;
-    coverPath?: string | null;
-    author: { name: string };
-  };
-}
 
 const formatTimeLeft = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -248,7 +225,6 @@ const Library = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { playBook } = usePlayer();
   const returnTo = `${location.pathname}${location.search}`;
 
   const filterAuthorId = searchParams.get("authorId") ?? undefined;
@@ -259,12 +235,7 @@ const Library = () => {
 
   const [books, setBooks] = useState<LibraryBook[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
-  const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
-  const [recommendations, setRecommendations] = useState<{
-    nextInSeries: RecommendBook[];
-    youMightLike: RecommendBook[];
-  }>({ nextInSeries: [], youMightLike: [] });
   const [filters, setFilters] = useState<LibraryFilters>(() => getFiltersFromParams(searchParams));
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [search, setSearch] = useState(searchParams.get("search") || "");
@@ -307,11 +278,7 @@ const Library = () => {
   const [quickMatchBusy, setQuickMatchBusy] = useState<QuickMatchBusyState>(null);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
-  const [openContinueMenuBookId, setOpenContinueMenuBookId] = useState<string | null>(null);
-  const [continueMenuPos, setContinueMenuPos] = useState<{ top: number; right: number } | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const continueMenuRef = useRef<HTMLDivElement | null>(null);
-  const continuePortalMenuRef = useRef<HTMLDivElement | null>(null);
   const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
   const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
   const activeBatchWriteRef = useRef<{
@@ -400,41 +367,9 @@ const Library = () => {
   const fetchProgress = async () => {
     try {
       const res = await api.get("/progress");
-      const records: ProgressRecord[] = res.data;
-      setProgressRecords(records);
-      setProgressMap(new Map(records.map((r) => [r.bookId, r.currentTime])));
+      setProgressMap(new Map((res.data as Array<{ bookId: string; currentTime: number }>).map((r) => [r.bookId, r.currentTime])));
     } catch (error) {
       console.error("Failed to fetch progress", error);
-    }
-  };
-
-  const fetchRecommendations = async () => {
-    try {
-      const res = await api.get("/recommendations");
-      setRecommendations(res.data);
-    } catch (error) {
-      console.error("Failed to fetch recommendations", error);
-    }
-  };
-
-  const handleContinuePlay = async (record: ProgressRecord) => {
-    try {
-      const bookRes = await api.get(`/library/${record.bookId}`);
-      playBook(bookRes.data, record.currentTime);
-    } catch (error) {
-      console.error("Failed to resume playback", error);
-    }
-  };
-
-  const handleRecommendationPlay = async (bookId: string) => {
-    try {
-      const [bookRes, progressRes] = await Promise.all([
-        api.get(`/library/${bookId}`),
-        api.get(`/progress/${bookId}`),
-      ]);
-      playBook(bookRes.data, progressRes.data.currentTime || 0);
-    } catch (error) {
-      console.error("Failed to play recommended book", error);
     }
   };
 
@@ -444,55 +379,6 @@ const Library = () => {
       next.delete(bookId);
       return next;
     });
-
-    setProgressRecords((current) => current.filter((record) => record.bookId !== bookId));
-  };
-
-  const handleQuickMenuPlaceholder = (label: string) => {
-    showToast({
-      title: `${label} not available`,
-      description: `${label} is not wired up in the web app yet.`,
-      tone: "info",
-    });
-  };
-
-  const handleShareBook = async (book: Pick<LibraryBook, "id" | "title" | "author">) => {
-    const shareUrl = `${window.location.origin}/book/${book.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: book.title,
-          text: `Listen to ${book.title} by ${book.author.name}`,
-          url: shareUrl,
-        });
-        return;
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(shareUrl);
-        showToast({
-          title: "Link copied",
-          description: `Copied a share link for "${book.title}".`,
-          tone: "success",
-        });
-        return;
-      }
-
-      showToast({
-        title: "Share unavailable",
-        description: "This browser does not support sharing or clipboard copy.",
-        tone: "error",
-      });
-    } catch (error) {
-      if ((error as { name?: string })?.name === "AbortError") {
-        return;
-      }
-      showToast({
-        title: "Share failed",
-        description: getErrorMessage(error, "Could not share this title."),
-        tone: "error",
-      });
-    }
   };
 
   const handleMarkBookFinished = async (book: Pick<LibraryBook, "id" | "title" | "duration">) => {
@@ -502,7 +388,6 @@ const Library = () => {
         isFinished: true,
       });
       removeBookFromInProgressState(book.id);
-      setOpenContinueMenuBookId(null);
       showToast({
         title: "Marked as finished",
         description: `"${book.title}" was removed from Continue Listening.`,
@@ -525,7 +410,6 @@ const Library = () => {
         isFinished: false,
       });
       removeBookFromInProgressState(book.id);
-      setOpenContinueMenuBookId(null);
       showToast({
         title: "Removed from Continue Listening",
         description: `"${book.title}" is no longer on this shelf.`,
@@ -540,19 +424,6 @@ const Library = () => {
       });
     }
   };
-
-  useEffect(() => {
-    if (!openContinueMenuBookId) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const inTrigger = continueMenuRef.current?.contains(event.target as Node);
-      const inMenu = continuePortalMenuRef.current?.contains(event.target as Node);
-      if (!inTrigger && !inMenu) setOpenContinueMenuBookId(null);
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [openContinueMenuBookId]);
 
   const handleScanProgress = (data: ScanProgress) => {
     setScanProgress(data);
@@ -607,7 +478,6 @@ const Library = () => {
 
   useEffect(() => {
     void fetchProgress();
-    void fetchRecommendations();
   }, []);
 
   useEffect(() => {
@@ -1456,88 +1326,6 @@ const Library = () => {
         </div>
       )}
 
-      {progressRecords.length > 0 && (
-        <section className="continue-listening-section">
-          <div className="continue-listening-header">
-            <Headphones size={18} className="continue-listening-icon" />
-            <h2 className="continue-listening-title">Continue Listening</h2>
-          </div>
-          <div className="continue-shelf">
-            {progressRecords.map((record) => {
-              const pct = Math.min(100, Math.round((record.currentTime / record.book.duration) * 100));
-              const remaining = Math.max(0, record.book.duration - record.currentTime);
-              return (
-                <div
-                  key={record.bookId}
-                  className="continue-card"
-                  onClick={() => handleContinuePlay(record)}
-                  title={`Resume ${record.book.title}`}
-                >
-                  <div className="continue-card-cover">
-                    <div
-                      className="book-card-menu-wrap"
-                      ref={openContinueMenuBookId === record.bookId ? continueMenuRef : null}
-                    >
-                      <button
-                        className="book-card-menu-trigger"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          if (openContinueMenuBookId === record.bookId) {
-                            setOpenContinueMenuBookId(null);
-                          } else {
-                            const rect = event.currentTarget.getBoundingClientRect();
-                            setContinueMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-                            setOpenContinueMenuBookId(record.bookId);
-                          }
-                        }}
-                        aria-label={`Open actions for ${record.book.title}`}
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-                    </div>
-
-                    <div className="continue-card-art-frame">
-                      {record.book.coverPath ? (
-                        <img src={record.book.coverPath} alt={record.book.title} />
-                      ) : (
-                        <div className="continue-card-cover-placeholder">
-                          <BookOpen size={24} />
-                        </div>
-                      )}
-                      <div className="continue-card-play-overlay">
-                        <Headphones size={18} />
-                      </div>
-                      <div className="continue-card-progress-bar">
-                        <div className="continue-card-progress-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="continue-card-info">
-                    <p className="continue-card-title">{record.book.title}</p>
-                    <p className="continue-card-author">{record.book.author.name}</p>
-                    <p className="continue-card-time">{formatTimeLeft(remaining)}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      <RecommendationShelf
-        title="Up Next in Series"
-        icon={<BookMarked size={18} />}
-        books={recommendations.nextInSeries}
-        onBookClick={handleRecommendationPlay}
-      />
-
-      <RecommendationShelf
-        title="You Might Like"
-        icon={<Sparkles size={18} />}
-        books={recommendations.youMightLike}
-        onBookClick={handleRecommendationPlay}
-      />
-
       {loading ? (
         <div className="library-grid">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -1924,60 +1712,7 @@ const Library = () => {
       )}
     </div>
 
-    {/* Continue-shelf context menu — rendered in a portal to escape overflow:auto clipping */}
-    {(() => {
-      const r = progressRecords.find((rec) => rec.bookId === openContinueMenuBookId);
-      if (!openContinueMenuBookId || !continueMenuPos || !r) return null;
-      return createPortal(
-        <div
-          className="book-card-menu"
-          ref={continuePortalMenuRef}
-          style={{ top: continueMenuPos.top, right: continueMenuPos.right }}
-        >
-          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); void handleMarkBookFinished({ id: r.bookId, title: r.book.title, duration: r.book.duration }); }}>
-            <Check size={14} /> Mark as Finished
-          </button>
-          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); handleQuickMenuPlaceholder("Add to Collection"); }}>
-            <BookMarked size={14} /> Add to Collection
-          </button>
-          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); handleQuickMenuPlaceholder("Add to Playlist"); }}>
-            <ListPlus size={14} /> Add to Playlist
-          </button>
-          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); void handleShareBook({ id: r.bookId, title: r.book.title, author: r.book.author }); }}>
-            <Share2 size={14} /> Share
-          </button>
-          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); navigate(`/book/${r.bookId}`, { state: { from: returnTo } }); }}>
-            <FolderOpen size={14} /> Files
-          </button>
-          {user?.role === "ADMIN" && (
-            <>
-              <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); setMatchBook({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); }}>
-                <Search size={14} /> Match
-              </button>
-              <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); setActionBook({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); setConfirmAction("rescan"); }}>
-                <RefreshCw size={14} /> Re-Scan
-              </button>
-              <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); handleFindDuplicates({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); }}>
-                <FileSearch size={14} /> Find Duplicates
-              </button>
-            </>
-          )}
-          <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); void handleRemoveBookFromContinueListening({ id: r.bookId, title: r.book.title }); }}>
-            <EyeOff size={14} /> Remove from Continue Listening
-          </button>
-          {user?.role === "ADMIN" && (
-            <>
-              <div className="book-card-menu-divider" />
-              <button className="book-card-menu-item text-danger" onClick={(e) => { e.stopPropagation(); setOpenContinueMenuBookId(null); setActionBook({ id: r.bookId, title: r.book.title, duration: r.book.duration, coverPath: r.book.coverPath ?? undefined, author: r.book.author, library: { id: "", name: "" } }); setDeleteFiles(false); setConfirmAction("delete"); }}>
-                <Trash2 size={14} /> Delete
-              </button>
-            </>
-          )}
-        </div>,
-        document.body,
-      );
-    })()}
-    </>
+</>
   );
 };
 

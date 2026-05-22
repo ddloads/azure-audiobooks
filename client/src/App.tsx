@@ -5,6 +5,7 @@ import { TaskProvider } from "./context/TaskContext";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Home from "./pages/Home";
 import Library from "./pages/Library";
 import DuplicatesPage from "./pages/DuplicatesPage";
 import BookDetailsPage from "./pages/BookDetailsPage";
@@ -46,6 +47,14 @@ function AppRoutes() {
       <Route element={<AppShell />}>
         <Route
           path="/"
+          element={
+            <PrivateRoute>
+              {isMobile ? <MobileLibrary /> : <Home />}
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/library"
           element={
             <PrivateRoute>
               {isMobile ? <MobileLibrary /> : <Library />}

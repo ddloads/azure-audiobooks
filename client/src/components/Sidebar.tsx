@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Copy,
   FolderOpen,
+  Home,
   LogOut,
   Settings,
   X,
@@ -27,7 +28,8 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { path: "/",           icon: <BookOpen size={18} />,   label: "Library" },
+  { path: "/",        icon: <Home size={18} />,     label: "Home" },
+  { path: "/library", icon: <BookOpen size={18} />, label: "Library" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
@@ -49,7 +51,9 @@ export default function Sidebar({
   const isAdmin = user?.role === "ADMIN";
 
   const isActive = (path: string) =>
-    path === "/" ? location.pathname === "/" : location.pathname.startsWith(path);
+    path === "/" || path === "/library"
+      ? location.pathname === path
+      : location.pathname.startsWith(path);
 
   const handleNav = (path: string) => {
     navigate(path);
