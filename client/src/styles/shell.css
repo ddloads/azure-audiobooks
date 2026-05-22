@@ -68,6 +68,11 @@
 
 .shell-main.has-player {
   padding-bottom: var(--tray-h-mini);
+  transition: padding-bottom 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-shell:has(.tray-expanded) .shell-main.has-player {
+  padding-bottom: var(--tray-h-full);
 }
 
 .shell-main > * {
@@ -821,8 +826,8 @@
 }
 
 .tray-play-btn {
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--glow) 0%, var(--bright) 50%, var(--az-400) 100%);
   border: none;
