@@ -4,6 +4,8 @@ interface AppLogoProps {
   size?: number;
   showWordmark?: boolean;
   className?: string;
+  imageClassName?: string;
+  textClassName?: string;
 }
 
 export default function AppLogo({ size = 26, showWordmark = true, className = "" }: AppLogoProps) {
