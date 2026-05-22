@@ -8445,9 +8445,13 @@ body {
 }
 
 .player-tray {
+  position: fixed;
   left: calc(var(--sidebar-w) + 14px);
   right: 14px;
   bottom: 14px;
+  z-index: 120;
+  max-height: calc(100dvh - 32px);
+  overflow: visible;
   border: 1px solid rgba(186, 201, 216, 0.16);
   border-radius: 8px;
   background:
@@ -8462,15 +8466,17 @@ body {
 
 .tray-static {
   display: grid;
-  grid-template-columns: 72px minmax(180px, 0.9fr) minmax(320px, 1.25fr) auto;
+  grid-template-columns: 70px minmax(180px, 0.85fr) minmax(340px, 1.35fr) minmax(252px, auto);
   align-items: center;
   gap: 16px;
-  height: 100%;
-  padding: 16px 18px;
+  min-height: 104px;
+  padding: 14px 16px;
+  overflow: visible;
 }
 
 .tray-static-info,
-.tray-static-center {
+.tray-static-center,
+.tray-secondary {
   min-width: 0;
 }
 
@@ -8569,8 +8575,8 @@ body {
 }
 
 .tray-cover-lg {
-  width: 70px;
-  height: 70px;
+  width: 68px;
+  height: 68px;
   padding: 0;
 }
 
@@ -8614,9 +8620,36 @@ body {
 }
 
 .tray-secondary {
+  display: flex;
+  align-items: center;
   grid-area: secondary;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: nowrap;
+  min-width: max-content;
+}
+
+.tray-popup-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.tray-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.tray-volume-slider {
+  width: 88px;
+  min-width: 72px;
+}
+
+.tray-stop-btn {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
 }
 
 .tray-speed-btn {
@@ -8635,9 +8668,55 @@ body {
 }
 
 .tray-popup {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  min-width: 180px;
+  max-height: min(58vh, 440px);
+  overflow: hidden;
+  z-index: 130;
   border-radius: 8px;
   background: rgba(13, 24, 35, 0.98);
   border-color: rgba(186, 201, 216, 0.16);
+}
+
+.tray-popup-scroll {
+  max-height: min(46vh, 340px);
+  overflow-y: auto;
+}
+
+@media (max-width: 1280px) {
+  .tray-static {
+    grid-template-columns: 64px minmax(160px, 0.85fr) minmax(280px, 1fr);
+    grid-template-areas:
+      "cover info center"
+      "cover info secondary";
+    gap: 10px 14px;
+  }
+
+  .tray-cover-lg {
+    grid-area: cover;
+    width: 62px;
+    height: 62px;
+  }
+
+  .tray-static-info {
+    grid-area: info;
+  }
+
+  .tray-static-center {
+    grid-area: center;
+    gap: 8px;
+  }
+
+  .tray-secondary {
+    grid-area: secondary;
+    justify-content: center;
+  }
+
+  .tray-progress {
+    padding-top: 0;
+  }
 }
 
 .mobile-mini-player {
