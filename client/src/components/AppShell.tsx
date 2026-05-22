@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { usePlayer } from "../context/PlayerContext";
+import { useIsMobile } from "../hooks/useIsMobile";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
 import PlayerTray from "./PlayerTray";
@@ -10,10 +11,16 @@ export default function AppShell() {
   const [collapsed, setCollapsed]     = useState(false);
   const [mobileOpen, setMobileOpen]   = useState(false);
   const { currentBook } = usePlayer();
+  const isMobile = useIsMobile();
+
+  const handleMenuToggle = () => {
+    if (isMobile) setMobileOpen((v) => !v);
+    else setCollapsed((v) => !v);
+  };
 
   return (
     <div className={`app-shell${collapsed ? " sidebar-collapsed" : ""}`}>
-      <TopBar onMenuToggle={() => setMobileOpen((v) => !v)} />
+      <TopBar onMenuToggle={handleMenuToggle} />
 
       <div className="shell-body">
         <Sidebar
