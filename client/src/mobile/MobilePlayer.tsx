@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, Moon, Pause, Play, RotateCcw, RotateCw } from 'lucide-react';
+import { BookOpen, ChevronDown, Moon, Pause, Play, Redo2, SkipBack, SkipForward, Undo2 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 
 interface Props {
@@ -109,24 +109,24 @@ const MobilePlayer = ({ onClose }: Props) => {
 
       <div className="mobile-player-controls">
         <button className="mobile-player-ctrl-btn" onClick={prevTrack} aria-label="Previous track">
-          <ChevronLeft size={30} />
+          <SkipBack size={30} />
         </button>
-        <button className="mobile-player-ctrl-btn" onClick={() => skipBackward(30)} aria-label="Skip back 30s">
-          <RotateCcw size={26} />
-          <span className="mobile-player-ctrl-label">30</span>
+        <button className="mobile-player-ctrl-btn" onClick={() => skipBackward(15)} aria-label="Skip back 15s">
+          <Undo2 size={26} />
+          <span className="mobile-player-ctrl-label">15</span>
         </button>
         <button className="mobile-player-play-btn" onClick={togglePlay} aria-label={isPlaying ? 'Pause' : 'Play'}>
           {isPlaying
-            ? <Pause size={28} fill="var(--bg)" color="var(--bg)" />
-            : <Play size={28} fill="var(--bg)" color="var(--bg)" style={{ marginLeft: 3 }} />
+            ? <Pause size={28} fill="#042233" color="#042233" />
+            : <Play size={28} fill="#042233" color="#042233" style={{ marginLeft: 3 }} />
           }
         </button>
         <button className="mobile-player-ctrl-btn" onClick={() => skipForward(30)} aria-label="Skip forward 30s">
-          <RotateCw size={26} />
+          <Redo2 size={26} />
           <span className="mobile-player-ctrl-label">30</span>
         </button>
         <button className="mobile-player-ctrl-btn" onClick={nextTrack} aria-label="Next track">
-          <ChevronRight size={30} />
+          <SkipForward size={30} />
         </button>
       </div>
 

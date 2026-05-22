@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Play, Pause, SkipForward, SkipBack,
-  Volume2, VolumeX, X, Moon, RotateCcw, RotateCw, List,
+  Volume2, VolumeX, X, Moon, Undo2, Redo2, List,
 } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 
@@ -92,7 +92,7 @@ const Player = () => {
         togglePlay();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        skipBackward(30);
+        skipBackward(15);
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
         skipForward(30);
@@ -150,11 +150,11 @@ const Player = () => {
           <div className="player-buttons">
             <button
               className="player-skip-btn player-step-btn"
-              onClick={() => skipBackward(30)}
-              title="Back 30 seconds (←)"
+              onClick={() => skipBackward(15)}
+              title="Back 15 seconds (←)"
             >
-              <RotateCcw size={14} />
-              <span>30</span>
+              <Undo2 size={14} />
+              <span>15</span>
             </button>
 
             <button className="player-skip-btn" onClick={prevTrack} aria-label="Previous track">
@@ -181,7 +181,7 @@ const Player = () => {
               onClick={() => skipForward(30)}
               title="Forward 30 seconds (→)"
             >
-              <RotateCw size={14} />
+              <Redo2 size={14} />
               <span>30</span>
             </button>
           </div>

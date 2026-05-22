@@ -159,6 +159,8 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     const duplicatesOnly = getQueryBoolean(req.query.duplicatesOnly);
     const search = getQueryString(req.query.search);
     const sortBy = getQueryString(req.query.sortBy) || "newest";
+    const page = getQueryNumber(req.query.page);
+    const limit = getQueryNumber(req.query.limit);
     const appearanceSettings = await getAppearanceSettings();
 
     const where: any = { AND: [] };
@@ -318,6 +320,19 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         : cover === "missing"
           ? matchFilteredBooks.filter((book) => !hasAvailableCover(book.coverPath))
           : matchFilteredBooks;
+
+    if (page !== undefined || limit !== undefined) {
+      const safeLimit = Math.min(Math.max(Math.floor(limit ?? 50), 1), 100);
+      const safePage = Math.max(Math.floor(page ?? 0), 0);
+      const start = safePage * safeLimit;
+      res.json({
+        results: filteredBooks.slice(start, start + safeLimit),
+        total: filteredBooks.length,
+        page: safePage,
+        limit: safeLimit,
+      });
+      return;
+    }
 
     res.json(filteredBooks);
   } catch (error) {

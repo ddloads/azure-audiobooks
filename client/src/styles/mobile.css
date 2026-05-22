@@ -36,7 +36,7 @@
   right: 0;
   height: calc(60px + env(safe-area-inset-bottom, 0px));
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--bg-1);
+  background: rgba(3, 17, 30, 0.94);
   border-top: 1px solid var(--border);
   display: flex;
   align-items: stretch;
@@ -64,7 +64,7 @@
 }
 
 .mobile-nav-tab.active { color: var(--primary); }
-.mobile-nav-tab.active svg { filter: drop-shadow(0 0 4px rgba(124,58,237,0.5)); }
+.mobile-nav-tab.active svg { filter: drop-shadow(0 0 4px rgba(56,189,248,0.5)); }
 
 /* ═══════════════════════════════════════════════════
    MINI PLAYER
@@ -353,16 +353,16 @@
 .mobile-player-play-btn {
   width: 68px;
   height: 68px;
-  background: white;
+  background: var(--grad-primary);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  box-shadow: var(--shadow-primary);
   transition: transform 0.1s, opacity 0.15s;
-  color: var(--bg);
+  color: #042233;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -408,7 +408,7 @@
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--surface);
+  background: rgba(12, 34, 56, 0.98);
   border: 1px solid var(--border-strong);
   border-radius: 12px;
   padding: 6px;

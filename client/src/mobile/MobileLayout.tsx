@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Library, Headphones, User } from 'lucide-react';
+import { Library, Headphones, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import MobileMiniPlayer from './MobileMiniPlayer';
@@ -26,7 +26,7 @@ const MobilePrivateShell = () => {
   const tabs = [
     { path: '/', icon: Library, label: 'Library', exact: true },
     { path: '__player__', icon: Headphones, label: 'Player', exact: false },
-    { path: '/menu', icon: User, label: 'Menu', exact: false },
+    { path: '/menu', icon: Menu, label: 'Menu', exact: false },
   ];
 
   const isTabActive = (path: string, exact: boolean) => {
