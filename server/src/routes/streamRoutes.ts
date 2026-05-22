@@ -3,6 +3,7 @@ import { streamAudio } from "../controllers/streamController";
 import { authenticate } from "../middleware/authMiddleware";
 
 const router = Router();
+router.get("/file/:fileId/:filename", authenticate, streamAudio);
 router.get("/file/:fileId", authenticate, streamAudio);
 
 export default router;

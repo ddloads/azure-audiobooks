@@ -1,16 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Check,
+  CheckCircle2,
   Copy,
   ExternalLink,
   Eye,
   EyeOff,
+  FileAudio,
+  FolderOpen,
   HardDrive,
   Info,
   Loader2,
-  Mic,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
 import api from "../api/axios";
@@ -65,6 +70,7 @@ interface DuplicateGroup {
   books: Book[];
 }
 
+type FileAction = "keep" | "delete" | "keep_sub";
 type ComparableField =
   | "title"
   | "subtitle"
@@ -77,9 +83,15 @@ type ComparableField =
   | "language";
 
 const duplicateTypeLabel: Record<DuplicateGroup["type"], string> = {
-  asin: "ASIN match",
-  isbn: "ISBN match",
-  "title-author": "Title and author match",
+  asin: "Same ASIN",
+  isbn: "Same ISBN",
+  "title-author": "Same title and author",
+};
+
+const duplicateTypeDescription: Record<DuplicateGroup["type"], string> = {
+  asin: "These books share the same Audible identifier.",
+  isbn: "These books share the same ISBN.",
+  "title-author": "These books have matching normalized title and author data.",
 };
 
 const comparisonFields: Array<
@@ -88,8 +100,8 @@ const comparisonFields: Array<
 > = [
   { label: "Title", key: "title" },
   { label: "Subtitle", key: "subtitle" },
-  { label: "Series", key: "series", val: (book: Book) => book.series?.name },
-  { label: "Sequence #", key: "sequence" },
+  { label: "Series", key: "series", val: (book) => book.series?.name },
+  { label: "Sequence", key: "sequence" },
   { label: "Narrator", key: "narrator" },
   { label: "Publisher", key: "publisher" },
   { label: "Year", key: "year" },
@@ -98,6 +110,8 @@ const comparisonFields: Array<
   { label: "Language", key: "language" },
 ];
 
+const versionLabels = ["A", "B", "C", "D", "E", "F"];
+
 const formatDuration = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
@@ -105,64 +119,17 @@ const formatDuration = (seconds: number) => {
   return `${m}m`;
 };
 
-// Per-book slot colours — inline styles so they always render regardless of Tailwind scan
-const PALETTE = [
-  {
-    label: "A",
-    hex: "#3b82f6",      // blue-500
-    textCls: "text-blue-400",
-    badgeCls: "bg-blue-500 text-white",
-    cardBg: "rgba(59,130,246,0.08)",
-    cardBorder: "rgba(59,130,246,0.55)",
-    headerBg: "rgba(59,130,246,0.10)",
-    cellBg: "rgba(59,130,246,0.10)",
-    cellBorderLeft: "2px solid rgba(59,130,246,0.55)",
-    btnActive: "bg-blue-600 hover:bg-blue-500 border-blue-500 text-white",
-    coverGradient: "linear-gradient(135deg, rgba(59,130,246,0.35) 0%, rgba(59,130,246,0.05) 100%)",
-  },
-  {
-    label: "B",
-    hex: "#f59e0b",      // amber-500
-    textCls: "text-amber-400",
-    badgeCls: "bg-amber-500 text-white",
-    cardBg: "rgba(245,158,11,0.08)",
-    cardBorder: "rgba(245,158,11,0.55)",
-    headerBg: "rgba(245,158,11,0.10)",
-    cellBg: "rgba(245,158,11,0.10)",
-    cellBorderLeft: "2px solid rgba(245,158,11,0.55)",
-    btnActive: "bg-amber-600 hover:bg-amber-500 border-amber-500 text-white",
-    coverGradient: "linear-gradient(135deg, rgba(245,158,11,0.35) 0%, rgba(245,158,11,0.05) 100%)",
-  },
-  {
-    label: "C",
-    hex: "#22c55e",      // green-500
-    textCls: "text-green-400",
-    badgeCls: "bg-green-500 text-white",
-    cardBg: "rgba(34,197,94,0.08)",
-    cardBorder: "rgba(34,197,94,0.55)",
-    headerBg: "rgba(34,197,94,0.10)",
-    cellBg: "rgba(34,197,94,0.10)",
-    cellBorderLeft: "2px solid rgba(34,197,94,0.55)",
-    btnActive: "bg-green-600 hover:bg-green-500 border-green-500 text-white",
-    coverGradient: "linear-gradient(135deg, rgba(34,197,94,0.35) 0%, rgba(34,197,94,0.05) 100%)",
-  },
-  {
-    label: "D",
-    hex: "#f43f5e",      // rose-500
-    textCls: "text-rose-400",
-    badgeCls: "bg-rose-500 text-white",
-    cardBg: "rgba(244,63,94,0.08)",
-    cardBorder: "rgba(244,63,94,0.55)",
-    headerBg: "rgba(244,63,94,0.10)",
-    cellBg: "rgba(244,63,94,0.10)",
-    cellBorderLeft: "2px solid rgba(244,63,94,0.55)",
-    btnActive: "bg-rose-600 hover:bg-rose-500 border-rose-500 text-white",
-    coverGradient: "linear-gradient(135deg, rgba(244,63,94,0.35) 0%, rgba(244,63,94,0.05) 100%)",
-  },
-];
+const formatFileAction = (action: FileAction) => {
+  if (action === "keep") return "Keep in primary";
+  if (action === "keep_sub") return "Keep in subfolder";
+  return "Delete file";
+};
 
+const getStateValue = (state: unknown, key: string) =>
+  typeof state === "object" && state !== null && key in state
+    ? (state as Record<string, unknown>)[key]
+    : null;
 
-// ── Main component ────────────────────────────────────────────────────────────
 const DuplicatesPage = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -174,37 +141,71 @@ const DuplicatesPage = () => {
   const [primaryBookId, setPrimaryBookId] = useState<string | null>(null);
   const [metadataSourceId, setMetadataSourceId] = useState<string | null>(null);
   const [progressSourceId, setProgressSourceId] = useState<string | null>(null);
-  const [fileActions, setFileActions] = useState<Record<string, "keep" | "delete" | "keep_sub">>({});
+  const [fileActions, setFileActions] = useState<Record<string, FileAction>>({});
   const [isMerging, setIsMerging] = useState(false);
   const [showIdentical, setShowIdentical] = useState(false);
 
-  const backTarget =
-    typeof location.state === "object" &&
-    location.state !== null &&
-    "from" in location.state &&
-    typeof location.state.from === "string"
-      ? location.state.from
-      : "/settings";
+  const backTargetValue = getStateValue(location.state, "from");
+  const initialBookIdValue = getStateValue(location.state, "initialBookId");
+  const backTarget = typeof backTargetValue === "string" ? backTargetValue : "/settings";
+  const initialBookId = typeof initialBookIdValue === "string" ? initialBookIdValue : null;
 
-  const initialBookId =
-    typeof location.state === "object" &&
-    location.state !== null &&
-    "initialBookId" in location.state &&
-    typeof location.state.initialBookId === "string"
-      ? location.state.initialBookId
-      : null;
+  const currentGroup = selectedGroupIndex !== null ? groups[selectedGroupIndex] : null;
+
+  const filePlan = useMemo(() => {
+    const values = Object.values(fileActions);
+    return {
+      keep: values.filter((value) => value === "keep").length,
+      keepSub: values.filter((value) => value === "keep_sub").length,
+      delete: values.filter((value) => value === "delete").length,
+      total: values.length,
+    };
+  }, [fileActions]);
+
+  const affectedBookCount = useMemo(
+    () => groups.reduce((count, group) => count + group.books.length, 0),
+    [groups],
+  );
+
+  const selectedBooks = currentGroup?.books ?? [];
+  const primaryBook = selectedBooks.find((book) => book.id === primaryBookId) ?? selectedBooks[0] ?? null;
+  const metadataBook = selectedBooks.find((book) => book.id === metadataSourceId) ?? primaryBook;
+  const progressBook = selectedBooks.find((book) => book.id === progressSourceId) ?? primaryBook;
+
+  const comparisonRows = useMemo(() => {
+    if (!currentGroup) return [];
+
+    return comparisonFields
+      .map((field) => {
+        const values = currentGroup.books.map((book) =>
+          "val" in field ? field.val(book) : book[field.key],
+        );
+        const normalized = values.map((value) => String(value ?? ""));
+        const identical = normalized.every((value) => value === normalized[0]);
+        return { field, values, identical };
+      })
+      .filter((row) => showIdentical || !row.identical);
+  }, [currentGroup, showIdentical]);
 
   const fetchGroups = async () => {
     setLoading(true);
     try {
       const res = await api.get<DuplicateGroup[]>("/admin/duplicates");
       setGroups(res.data);
-      if (res.data.length === 0) { setSelectedGroupIndex(null); return; }
-      if (initialBookId) {
-        const idx = res.data.findIndex((g) => g.books.some((b) => b.id === initialBookId));
-        setSelectedGroupIndex(idx >= 0 ? idx : 0);
+
+      if (res.data.length === 0) {
+        setSelectedGroupIndex(null);
         return;
       }
+
+      if (initialBookId) {
+        const index = res.data.findIndex((group) =>
+          group.books.some((book) => book.id === initialBookId),
+        );
+        setSelectedGroupIndex(index >= 0 ? index : 0);
+        return;
+      }
+
       setSelectedGroupIndex(0);
     } catch {
       showToast({ title: "Failed to load duplicates", tone: "error" });
@@ -213,51 +214,90 @@ const DuplicatesPage = () => {
     }
   };
 
-  useEffect(() => { void fetchGroups(); }, []);
-
-  const currentGroup = selectedGroupIndex !== null ? groups[selectedGroupIndex] : null;
-  const keptCount        = Object.values(fileActions).filter((v) => v === "keep").length;
-  const keptSubCount     = Object.values(fileActions).filter((v) => v === "keep_sub").length;
-  const deletedCount     = Object.values(fileActions).filter((v) => v === "delete").length;
-  const affectedBookCount = groups.reduce((n, g) => n + g.books.length, 0);
+  useEffect(() => {
+    void fetchGroups();
+  }, []);
 
   useEffect(() => {
     if (!currentGroup?.books.length) return;
-    setPrimaryBookId(currentGroup.books[0].id);
-    setMetadataSourceId(currentGroup.books[0].id);
-    setProgressSourceId(currentGroup.books[0].id);
-    const acts: Record<string, "keep" | "delete" | "keep_sub"> = {};
-    currentGroup.books.forEach((book, bi) => {
-      book.audioFiles.forEach((f) => { acts[f.id] = bi === 0 ? "keep" : "delete"; });
+
+    const recommendedPrimary = currentGroup.books
+      .slice()
+      .sort((a, b) => {
+        const progressDiff = b.progress.length - a.progress.length;
+        if (progressDiff !== 0) return progressDiff;
+        const fileDiff = b.audioFiles.length - a.audioFiles.length;
+        if (fileDiff !== 0) return fileDiff;
+        return b.duration - a.duration;
+      })[0];
+
+    const initialId = recommendedPrimary?.id ?? currentGroup.books[0].id;
+    setPrimaryBookId(initialId);
+    setMetadataSourceId(initialId);
+    setProgressSourceId(initialId);
+
+    const nextActions: Record<string, FileAction> = {};
+    currentGroup.books.forEach((book) => {
+      book.audioFiles.forEach((file) => {
+        nextActions[file.id] = book.id === initialId ? "keep" : "delete";
+      });
     });
-    setFileActions(acts);
+    setFileActions(nextActions);
   }, [currentGroup]);
+
+  const setAllFilesForBook = (book: Book, action: FileAction) => {
+    setFileActions((current) => {
+      const next = { ...current };
+      book.audioFiles.forEach((file) => {
+        next[file.id] = action;
+      });
+      return next;
+    });
+  };
 
   const handleMerge = async () => {
     if (!currentGroup || !primaryBookId) return;
     setIsMerging(true);
+
     try {
-      const metaBook = currentGroup.books.find((b) => b.id === metadataSourceId);
       await api.post("/admin/duplicates/resolve", {
         primaryBookId,
-        secondaryBookIds: currentGroup.books.filter((b) => b.id !== primaryBookId).map((b) => b.id),
-        metadata: metaBook
+        secondaryBookIds: currentGroup.books
+          .filter((book) => book.id !== primaryBookId)
+          .map((book) => book.id),
+        metadata: metadataBook
           ? {
-              title: metaBook.title, subtitle: metaBook.subtitle, authorId: metaBook.author.id,
-              seriesId: metaBook.series?.id, sequence: metaBook.sequence, narrator: metaBook.narrator,
-              publisher: metaBook.publisher, year: metaBook.year, genres: metaBook.genres,
-              tags: metaBook.tags, language: metaBook.language, isbn: metaBook.isbn,
-              asin: metaBook.asin, abridged: metaBook.abridged,
+              title: metadataBook.title,
+              subtitle: metadataBook.subtitle,
+              authorId: metadataBook.author.id,
+              seriesId: metadataBook.series?.id,
+              sequence: metadataBook.sequence,
+              narrator: metadataBook.narrator,
+              publisher: metadataBook.publisher,
+              year: metadataBook.year,
+              genres: metadataBook.genres,
+              tags: metadataBook.tags,
+              language: metadataBook.language,
+              isbn: metadataBook.isbn,
+              asin: metadataBook.asin,
+              abridged: metadataBook.abridged,
             }
           : undefined,
         keepProgressFromBookId: progressSourceId,
-        audioFileActions: Object.entries(fileActions).map(([id, action]) => ({ audioFileId: id, action })),
+        audioFileActions: Object.entries(fileActions).map(([audioFileId, action]) => ({
+          audioFileId,
+          action,
+        })),
       });
-      showToast({ title: "Duplicates resolved successfully", tone: "success" });
-      const next = [...groups];
-      next.splice(selectedGroupIndex!, 1);
-      setGroups(next);
-      setSelectedGroupIndex(next.length > 0 ? Math.min(selectedGroupIndex!, next.length - 1) : null);
+
+      showToast({ title: "Duplicates resolved", tone: "success" });
+
+      const nextGroups = [...groups];
+      nextGroups.splice(selectedGroupIndex ?? 0, 1);
+      setGroups(nextGroups);
+      setSelectedGroupIndex(
+        nextGroups.length > 0 ? Math.min(selectedGroupIndex ?? 0, nextGroups.length - 1) : null,
+      );
     } catch {
       showToast({ title: "Resolution failed", tone: "error" });
     } finally {
@@ -267,583 +307,332 @@ const DuplicatesPage = () => {
 
   const handleDismiss = () => {
     if (selectedGroupIndex === null) return;
-    const next = [...groups];
-    next.splice(selectedGroupIndex, 1);
-    setGroups(next);
-    setSelectedGroupIndex(next.length > 0 ? Math.min(selectedGroupIndex, next.length - 1) : null);
-    showToast({ title: "Group dismissed", description: "It will reappear after a Refresh Scan.", tone: "info" });
+
+    const nextGroups = [...groups];
+    nextGroups.splice(selectedGroupIndex, 1);
+    setGroups(nextGroups);
+    setSelectedGroupIndex(
+      nextGroups.length > 0 ? Math.min(selectedGroupIndex, nextGroups.length - 1) : null,
+    );
+    showToast({
+      title: "Group dismissed",
+      description: "It will reappear after a refresh scan.",
+      tone: "info",
+    });
   };
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-background text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.14),transparent_32%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]" />
-        <div className="relative flex min-h-screen flex-col items-center justify-center gap-5 px-4 text-center">
-          <div className="relative">
-            <Loader2 className="animate-spin text-primary" size={64} strokeWidth={1.5} />
-            <Copy className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-primary/35" size={24} />
-          </div>
-          <div className="max-w-lg space-y-2">
-            <h2 className="text-2xl font-semibold tracking-tight">Scanning for duplicates</h2>
-            <p className="text-sm text-gray-400">Comparing ASINs, ISBNs, and normalised title + author data across your libraries.</p>
-          </div>
+      <div className="duplicates-page duplicates-page--centered">
+        <div className="duplicates-loading">
+          <Loader2 className="animate-spin" size={42} />
+          <Copy size={22} />
         </div>
+        <h1>Scanning duplicate candidates</h1>
+        <p>Checking ASIN, ISBN, title, and author matches across your libraries.</p>
       </div>
     );
   }
 
-  // ── Main render ───────────────────────────────────────────────────────────
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background text-white">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,92,246,0.14),transparent_32%),radial-gradient(circle_at_top_right,rgba(59,130,246,0.10),transparent_28%)]" />
+    <div className="duplicates-page">
+      <header className="duplicates-header">
+        <div className="duplicates-title-row">
+          <button className="btn btn-secondary duplicates-back-btn" onClick={() => navigate(backTarget)}>
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <span className="duplicates-kicker">Library maintenance</span>
+            <h1>Duplicate Resolver</h1>
+            <p>
+              {groups.length} {groups.length === 1 ? "group" : "groups"} · {affectedBookCount} affected books
+            </p>
+          </div>
+        </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 py-6 md:px-6 lg:py-8">
+        <div className="duplicates-header-actions">
+          <button className="btn btn-secondary" onClick={() => void fetchGroups()} disabled={loading}>
+            <RefreshCw size={15} />
+            Refresh
+          </button>
+          {currentGroup && (
+            <>
+              <button className="btn btn-secondary" onClick={handleDismiss}>
+                <X size={15} />
+                Not Duplicates
+              </button>
+              <button className="btn btn-primary" onClick={handleMerge} disabled={isMerging || !primaryBookId}>
+                {isMerging ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
+                Resolve Group
+              </button>
+            </>
+          )}
+        </div>
+      </header>
 
-        {/* Header */}
-        <header className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => navigate(backTarget)} className="btn btn-secondary rounded-full p-2">
-              <ArrowLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Duplicate Resolver</h1>
-              <p className="mt-0.5 text-sm text-gray-400">
-                {groups.length} group{groups.length !== 1 ? "s" : ""} · {affectedBookCount} affected books
-              </p>
+      {!currentGroup ? (
+        <section className="duplicates-empty">
+          <CheckCircle2 size={52} />
+          <h2>No duplicate groups found</h2>
+          <p>Your library looks clean right now.</p>
+          <button className="btn btn-primary" onClick={() => navigate("/")}>
+            Return Home
+          </button>
+        </section>
+      ) : (
+        <div className="duplicates-layout">
+          <aside className="duplicates-sidebar">
+            <div className="duplicates-sidebar-head">
+              <span>Duplicate Groups</span>
+              <strong>{groups.length}</strong>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button className="btn btn-secondary px-4 py-2" onClick={() => void fetchGroups()} disabled={loading}>
-              Refresh Scan
-            </button>
-            {currentGroup && (
-              <>
-                <button
-                  className="btn btn-secondary flex items-center gap-2 px-4 py-2"
-                  onClick={handleDismiss}
-                  title="Not actual duplicates — remove this group from the list"
-                >
-                  <X size={16} /> Not Duplicates
-                </button>
-                <button className="btn btn-primary flex items-center gap-2 px-6 py-2" onClick={handleMerge} disabled={isMerging}>
-                  {isMerging ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                  Resolve &amp; Merge
-                </button>
-              </>
-            )}
-          </div>
-        </header>
-
-        {/* Empty state */}
-        {!currentGroup ? (
-          <div className="mt-16 rounded-2xl border border-white/10 bg-white/5 p-12 text-center">
-            <Check size={56} className="mx-auto mb-4 text-green-400" />
-            <h2 className="text-2xl font-semibold">No duplicates found</h2>
-            <p className="mt-2 text-sm text-gray-400">Your library looks clean.</p>
-            <button onClick={() => navigate("/")} className="btn btn-primary mt-6 px-8">Return to Library</button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)]">
-
-            {/* ── Sidebar: group list ── */}
-            <aside className="xl:sticky xl:top-6 xl:h-fit">
-              <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface/95 shadow-2xl shadow-black/30">
-                <div className="border-b border-white/10 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Duplicate Groups</p>
-                </div>
-                <div className="max-h-[75vh] overflow-y-auto p-2">
-                  {groups.map((group, idx) => {
-                    const active = selectedGroupIndex === idx;
-                    const first = group.books[0];
-                    const pal = PALETTE[0];
-                    return (
-                      <button
-                        key={`${group.type}-${group.key}-${idx}`}
-                        className={`mb-1.5 flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                          active
-                            ? "border-primary/50 bg-primary/10"
-                            : "border-transparent bg-white/5 hover:bg-white/10"
-                        }`}
-                        onClick={() => setSelectedGroupIndex(idx)}
-                      >
-                        {/* Mini cover */}
-                        <div className="h-12 w-9 flex-shrink-0 overflow-hidden rounded-lg border border-white/10" style={{ background: pal.coverGradient }}>
-                          {first?.coverPath
-                            ? <img src={first.coverPath} alt="" className="h-full w-full object-cover" />
-                            : <div className="flex h-full w-full items-center justify-center"><span className="text-sm font-black text-white/20">{String.fromCharCode(65)}</span></div>
-                          }
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-white" title={first?.title}>{first?.title ?? "Untitled"}</p>
-                          <p className="mt-0.5 text-xs text-gray-500">{group.books.length} versions · {duplicateTypeLabel[group.type]}</p>
-                        </div>
-                        {active && <div className="h-2 w-2 flex-shrink-0 rounded-full bg-primary" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </aside>
-
-            {/* ── Main panel ── */}
-            <main className="min-w-0 space-y-6">
-
-              {/* Match type badge row */}
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-primary">
-                  {duplicateTypeLabel[currentGroup.type]}
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                  {currentGroup.books.length} versions detected
-                </span>
-                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-gray-300">
-                  {keptCount} keep · {keptSubCount} subfolder · {deletedCount} delete
-                </span>
-              </div>
-
-              {/* ══════════════════════════════════════════════════
-                  SECTION 1 — Side-by-side book cards
-              ══════════════════════════════════════════════════ */}
-              <section>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-widest text-gray-400">
-                  Compare Versions
-                </h2>
-
-                <div
-                  className="grid gap-4"
-                  style={{ gridTemplateColumns: `repeat(${Math.min(currentGroup.books.length, 2)}, minmax(0,1fr))` }}
-                >
-                  {currentGroup.books.map((book, bi) => {
-                    const pal = PALETTE[bi % PALETTE.length];
-                    const isPrimary  = primaryBookId    === book.id;
-                    const isMeta     = metadataSourceId === book.id;
-                    const isProgress = progressSourceId === book.id;
-
-                    return (
-                      <article
-                        key={book.id}
-                        className="flex flex-col overflow-hidden rounded-2xl shadow-2xl shadow-black/30 transition-all"
-                        style={{
-                          background: isPrimary ? pal.cardBg : "rgba(16,29,53,0.95)",
-                          border: `2px solid ${isPrimary ? pal.cardBorder : "rgba(148,163,184,0.12)"}`,
-                        }}
-                      >
-                        {/* Slot header bar */}
-                        <div
-                          className="flex items-center gap-2.5 px-4 py-2.5"
-                          style={{ background: pal.cardBg, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-                        >
-                          <span className={`inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${pal.badgeCls}`}>
-                            {pal.label}
-                          </span>
-                          <span className={`text-xs font-medium ${pal.textCls}`}>
-                            Book {pal.label} — {book.library.name}
-                          </span>
-                          {isPrimary && (
-                            <span className="ml-auto rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-white">
-                              Primary
-                            </span>
-                          )}
-                        </div>
-
-                        {/* ── Cover art area ── */}
-                        <div
-                          className="relative flex h-56 w-full items-center justify-center overflow-hidden"
-                          style={{ background: pal.coverGradient }}
-                        >
-                          {book.coverPath ? (
-                            <img
-                              src={book.coverPath}
-                              alt={book.title}
-                              className="h-full w-full object-contain p-4 drop-shadow-2xl"
-                            />
-                          ) : (
-                            /* Rich no-cover placeholder */
-                            <div className="flex flex-col items-center gap-3">
-                              <div
-                                className="flex h-28 w-20 items-center justify-center rounded-xl shadow-lg"
-                                style={{ background: "rgba(0,0,0,0.25)", border: `1px solid ${pal.hex}44` }}
-                              >
-                                <span className="select-none text-5xl font-black" style={{ color: `${pal.hex}55` }}>
-                                  {pal.label}
-                                </span>
-                              </div>
-                              <span className="text-xs text-white/30">No cover art</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* ── Book details ── */}
-                        <div className="flex flex-1 flex-col gap-3 p-4">
-                          <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <button
-                                className="group flex-1 text-left"
-                                onClick={() => window.open(`/book/${book.id}`, "_blank")}
-                                title="Open book details in new tab"
-                              >
-                                <h3 className="text-base font-semibold leading-snug text-white transition-colors group-hover:text-primary">
-                                  {book.title}
-                                </h3>
-                              </button>
-                              <a
-                                href={`/book/${book.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                title="Open book details in new tab"
-                                className="mt-0.5 flex-shrink-0 text-gray-500 transition-colors hover:text-primary"
-                              >
-                                <ExternalLink size={14} />
-                              </a>
-                            </div>
-                            {book.subtitle && <p className="mt-0.5 text-sm text-gray-400">{book.subtitle}</p>}
-                            <p className="mt-1 text-sm text-gray-300">{book.author.name}</p>
-                            {book.series && (
-                              <p className="mt-0.5 text-xs text-gray-500">
-                                {book.series.name}{book.sequence ? ` · Book ${book.sequence}` : ""}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Metadata pills */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {book.year && (
-                              <span className="rounded-full bg-black/30 px-2.5 py-0.5 text-xs text-gray-300">{book.year}</span>
-                            )}
-                            <span className="rounded-full bg-black/30 px-2.5 py-0.5 text-xs text-gray-300">{formatDuration(book.duration)}</span>
-                            <span className="flex items-center gap-1 rounded-full bg-black/30 px-2.5 py-0.5 text-xs text-gray-300">
-                              <HardDrive size={9} />{book.audioFiles.length} file{book.audioFiles.length !== 1 ? "s" : ""}
-                            </span>
-                            {book.progress.length > 0 && (
-                              <span className="rounded-full bg-black/30 px-2.5 py-0.5 text-xs text-gray-300">
-                                {book.progress.length} listener{book.progress.length !== 1 ? "s" : ""}
-                              </span>
-                            )}
-                            {book.narrator && (
-                              <span className="max-w-[200px] truncate rounded-full bg-black/30 px-2.5 py-0.5 text-xs text-gray-300" title={book.narrator}>
-                                {book.narrator}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Folder path */}
-                          <p className="break-all text-[11px] leading-relaxed text-gray-600">{book.folderPath}</p>
-
-                          {/* Action buttons */}
-                          <div className="mt-auto space-y-2 pt-1">
-                            <button
-                              onClick={() => setPrimaryBookId(book.id)}
-                              className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all ${
-                                isPrimary
-                                  ? `${pal.btnActive} border`
-                                  : "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"
-                              }`}
-                            >
-                              {isPrimary && <Check size={15} />}
-                              {isPrimary ? "Primary Target" : "Set as Primary"}
-                            </button>
-
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                onClick={() => setMetadataSourceId(book.id)}
-                                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-medium transition-all ${
-                                  isMeta
-                                    ? "border-white/20 bg-white/15 text-white"
-                                    : "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10"
-                                }`}
-                              >
-                                {isMeta && <Check size={10} />}
-                                Use Metadata
-                              </button>
-                              <button
-                                onClick={() => setProgressSourceId(book.id)}
-                                className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 text-xs font-medium transition-all ${
-                                  isProgress
-                                    ? "border-white/20 bg-white/15 text-white"
-                                    : "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10"
-                                }`}
-                              >
-                                {isProgress && <Check size={10} />}
-                                Use Progress
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* ══════════════════════════════════════════════════
-                  SECTION 2 — Field-by-field metadata comparison
-              ══════════════════════════════════════════════════ */}
-              <section>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-400">
-                    <Info size={13} /> Metadata Comparison
-                  </h2>
+            <div className="duplicates-group-list">
+              {groups.map((group, index) => {
+                const active = index === selectedGroupIndex;
+                const first = group.books[0];
+                return (
                   <button
-                    onClick={() => setShowIdentical(!showIdentical)}
-                    className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-400 transition-colors hover:bg-white/10 hover:text-gray-200"
+                    key={`${group.type}-${group.key}-${index}`}
+                    className={`duplicates-group-item${active ? " active" : ""}`}
+                    onClick={() => setSelectedGroupIndex(index)}
                   >
-                    {showIdentical ? <EyeOff size={11} /> : <Eye size={11} />}
-                    {showIdentical ? "Hide identical" : "Show all fields"}
-                  </button>
-                </div>
-
-                <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface/95 shadow-xl shadow-black/20">
-                  {/* Column headers — one per book with cover + title + author */}
-                  <div
-                    className="grid border-b border-white/10"
-                    style={{ gridTemplateColumns: `160px repeat(${currentGroup.books.length}, minmax(0,1fr))` }}
-                  >
-                    <div className="flex items-end border-r border-white/10 px-4 py-3">
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">Field</span>
+                    <div className="duplicates-group-cover">
+                      {first?.coverPath ? <img src={first.coverPath} alt="" /> : <Copy size={18} />}
                     </div>
-                    {currentGroup.books.map((book, bi) => {
-                      const pal = PALETTE[bi % PALETTE.length];
-                      const isSource = book.id === metadataSourceId;
-                      return (
-                        <div
-                          key={book.id}
-                          className="border-r border-white/10 px-4 py-3 last:border-r-0"
-                          style={{ background: isSource ? pal.headerBg : "transparent" }}
-                        >
-                          <div className="flex items-start gap-3">
-                            {/* Cover thumbnail */}
-                            <div
-                              className="h-16 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 shadow-md"
-                              style={{ background: pal.coverGradient }}
-                            >
-                              {book.coverPath ? (
-                                <img src={book.coverPath} alt="" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center">
-                                  <span className="text-xl font-black" style={{ color: `${pal.hex}44` }}>{pal.label}</span>
-                                </div>
-                              )}
-                            </div>
+                    <div>
+                      <strong>{first?.title ?? "Untitled"}</strong>
+                      <span>{group.books.length} versions · {duplicateTypeLabel[group.type]}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
 
-                            <div className="min-w-0">
-                              {/* Badge row */}
-                              <div className="mb-1 flex items-center gap-1.5 flex-wrap">
-                                <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${pal.badgeCls}`}>
-                                  {pal.label}
-                                </span>
-                                {isSource && (
-                                  <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-primary">
-                                    Metadata source
-                                  </span>
-                                )}
-                              </div>
-                              <a
-                                href={`/book/${book.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="group flex items-center gap-1 truncate text-xs font-semibold text-white hover:text-primary transition-colors"
-                                title={`Open "${book.title}" in new tab`}
-                              >
-                                <span className="truncate">{book.title}</span>
-                                <ExternalLink size={10} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </a>
-                              <p className="truncate text-[10px] text-gray-400">{book.author.name}</p>
-                              <p className={`text-[10px] ${pal.textCls}`}>{book.library.name}</p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+          <main className="duplicates-main">
+            <section className="duplicates-summary">
+              <div>
+                <span className="duplicates-pill">{duplicateTypeLabel[currentGroup.type]}</span>
+                <h2>{currentGroup.books[0]?.title ?? "Duplicate group"}</h2>
+                <p>{duplicateTypeDescription[currentGroup.type]}</p>
+              </div>
+              <div className="duplicates-stats">
+                <div><span>Versions</span><strong>{currentGroup.books.length}</strong></div>
+                <div><span>Files kept</span><strong>{filePlan.keep + filePlan.keepSub}</strong></div>
+                <div><span>Files deleted</span><strong>{filePlan.delete}</strong></div>
+              </div>
+            </section>
 
-                  {/* Rows */}
-                  <div className="divide-y divide-white/5">
-                    {(() => {
-                      const rows = comparisonFields.map((field) => {
-                        const values = currentGroup.books.map((b) =>
-                          "val" in field ? field.val(b) : b[field.key],
-                        );
-                        const strs = values.map((v) => String(v ?? ""));
-                        const allSame = strs.every((s) => s === strs[0]);
-                        return { field, values, allSame };
-                      });
+            <section className="duplicates-decision-panel">
+              <div className="duplicates-decision-card">
+                <span>Primary book</span>
+                <strong>{primaryBook?.title ?? "Choose a primary"}</strong>
+                <p>This record survives the merge.</p>
+              </div>
+              <div className="duplicates-decision-card">
+                <span>Metadata source</span>
+                <strong>{metadataBook?.title ?? "Choose metadata"}</strong>
+                <p>Title, author, series, IDs, and tags copy from here.</p>
+              </div>
+              <div className="duplicates-decision-card">
+                <span>Progress source</span>
+                <strong>{progressBook?.title ?? "Choose progress"}</strong>
+                <p>Listening progress is preserved from this version.</p>
+              </div>
+            </section>
 
-                      const visibleRows = rows.filter((r) => !r.allSame || showIdentical);
-
-                      if (visibleRows.length === 0) {
-                        return (
-                          <div className="px-4 py-8 text-center text-sm text-gray-500">
-                            All metadata fields are identical.{" "}
-                            <button className="text-gray-300 underline hover:text-white" onClick={() => setShowIdentical(true)}>
-                              Show all fields
-                            </button>
-                          </div>
-                        );
-                      }
-
-                      return visibleRows.map(({ field, values, allSame }) => (
-                        <div
-                          key={field.key}
-                          className="grid"
-                          style={{
-                            gridTemplateColumns: `160px repeat(${currentGroup.books.length}, minmax(0,1fr))`,
-                            opacity: allSame ? 0.55 : 1,
-                            background: allSame ? "transparent" : "rgba(250,204,21,0.025)",
-                          }}
-                        >
-                          {/* Field label */}
-                          <div className="flex flex-col justify-center border-r border-white/10 px-4 py-3">
-                            <span className="text-sm font-medium text-gray-300">{field.label}</span>
-                            {!allSame && (
-                              <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-wider text-yellow-400/80">
-                                differs
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Per-book value cells */}
-                          {currentGroup.books.map((book, bi) => {
-                            const pal = PALETTE[bi % PALETTE.length];
-                            const value = values[bi];
-                            const isSource = book.id === metadataSourceId;
-                            return (
-                              <div
-                                key={book.id}
-                                className="border-r border-white/10 px-3 py-3 text-sm last:border-r-0"
-                                style={isSource ? { background: pal.cellBg, borderLeft: pal.cellBorderLeft } : {}}
-                              >
-                                {value != null && String(value) !== "" ? (
-                                  <span className={isSource ? "text-white" : "text-gray-300"}>{String(value)}</span>
-                                ) : (
-                                  <span className="italic text-gray-600">—</span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ));
-                    })()}
-                  </div>
+            <section className="duplicates-section">
+              <div className="duplicates-section-head">
+                <div>
+                  <h2>Choose The Winning Version</h2>
+                  <p>Select the record, metadata, and progress source before merging.</p>
                 </div>
-              </section>
+              </div>
 
-              {/* ══════════════════════════════════════════════════
-                  SECTION 3 — Audio files
-              ══════════════════════════════════════════════════ */}
-              <section>
-                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-widest text-gray-400">
-                    <Mic size={13} /> Audio Files
-                  </h2>
-                  <span className="text-xs text-gray-500">
-                    {keptCount} keeping · {keptSubCount} subfolder · {deletedCount} deleting
-                  </span>
-                </div>
-
-                <div className="space-y-4">
-                  {currentGroup.books.map((book, bi) => {
-                    const pal = PALETTE[bi % PALETTE.length];
-                    return (
-                      <div
-                        key={book.id}
-                        className="overflow-hidden rounded-2xl shadow-xl shadow-black/20"
-                        style={{ border: `2px solid ${pal.cardBorder}` }}
-                      >
-                        {/* Book group header */}
-                        <div
-                          className="flex items-center gap-3 border-b border-white/10 px-4 py-3"
-                          style={{ background: pal.cardBg }}
-                        >
-                          {/* Cover thumbnail */}
-                          <div
-                            className="h-12 w-9 flex-shrink-0 overflow-hidden rounded-lg border border-white/10"
-                            style={{ background: pal.coverGradient }}
-                          >
-                            {book.coverPath ? (
-                              <img src={book.coverPath} alt="" className="h-full w-full object-cover" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center">
-                                <span className="text-base font-black" style={{ color: `${pal.hex}55` }}>{pal.label}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${pal.badgeCls}`}>
-                                {pal.label}
-                              </span>
-                              <span className="truncate text-sm font-semibold text-white" title={book.title}>{book.title}</span>
-                            </div>
-                            <p className={`mt-0.5 text-xs ${pal.textCls}`}>
-                              {book.library.name} · {book.audioFiles.length} file{book.audioFiles.length !== 1 ? "s" : ""} · {formatDuration(book.duration)}
-                            </p>
-                          </div>
-
-                          <button
-                            className={`flex-shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                              primaryBookId === book.id
-                                ? `${pal.btnActive} border`
-                                : "border-white/10 bg-white/5 text-gray-400 hover:bg-white/10"
-                            }`}
-                            onClick={() => setPrimaryBookId(book.id)}
-                          >
-                            {primaryBookId === book.id ? "Primary" : "Set Primary"}
-                          </button>
+              <div className="duplicates-version-grid">
+                {currentGroup.books.map((book, index) => {
+                  const label = versionLabels[index] ?? String(index + 1);
+                  return (
+                    <article
+                      key={book.id}
+                      className={`duplicates-version-card${book.id === primaryBookId ? " primary" : ""}`}
+                    >
+                      <div className="duplicates-version-top">
+                        <div className="duplicates-version-cover">
+                          {book.coverPath ? <img src={book.coverPath} alt={book.title} /> : <Copy size={24} />}
                         </div>
-
-                        {/* File rows */}
-                        <div className="divide-y divide-white/5 bg-surface/90">
-                          {book.audioFiles.map((file) => (
-                            <div
-                              key={file.id}
-                              className="grid items-center gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_140px_170px]"
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-gray-100" title={file.filename}>{file.filename}</p>
-                                <p className="truncate text-[11px] text-gray-600" title={file.path}>{file.path}</p>
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                {file.title
-                                  ? <p className="truncate">{file.title}</p>
-                                  : <p className="italic text-gray-600">No title tag</p>
-                                }
-                                <p className="text-gray-500">{formatDuration(file.duration)}</p>
-                              </div>
-                              <select
-                                className={`w-full rounded-lg border bg-black/40 px-3 py-2 text-xs outline-none focus:border-primary ${
-                                  fileActions[file.id] === "delete"
-                                    ? "border-red-500/40 text-red-300"
-                                    : fileActions[file.id] === "keep_sub"
-                                      ? "border-yellow-400/40 text-yellow-300"
-                                      : "border-green-500/30 text-green-300"
-                                }`}
-                                value={fileActions[file.id]}
-                                onChange={(e) =>
-                                  setFileActions((prev) => ({
-                                    ...prev,
-                                    [file.id]: e.target.value as "keep" | "delete" | "keep_sub",
-                                  }))
-                                }
-                              >
-                                <option value="keep">Keep in primary</option>
-                                <option value="keep_sub">Keep in subfolder</option>
-                                <option value="delete">Delete file</option>
-                              </select>
-                            </div>
-                          ))}
+                        <div>
+                          <span className="duplicates-version-label">Version {label}</span>
+                          <h3>{book.title}</h3>
+                          <p>{book.author.name}</p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </section>
 
-            </main>
+                      <div className="duplicates-version-meta">
+                        <span>{book.library.name}</span>
+                        <span>{formatDuration(book.duration)}</span>
+                        <span>{book.audioFiles.length} files</span>
+                        <span>{book.progress.length} progress</span>
+                      </div>
+
+                      <p className="duplicates-folder" title={book.folderPath}>
+                        <FolderOpen size={13} />
+                        {book.folderPath}
+                      </p>
+
+                      <div className="duplicates-version-actions">
+                        <button
+                          className={`duplicates-choice-btn${book.id === primaryBookId ? " active" : ""}`}
+                          onClick={() => setPrimaryBookId(book.id)}
+                        >
+                          {book.id === primaryBookId && <Check size={14} />}
+                          Primary
+                        </button>
+                        <button
+                          className={`duplicates-choice-btn${book.id === metadataSourceId ? " active" : ""}`}
+                          onClick={() => setMetadataSourceId(book.id)}
+                        >
+                          {book.id === metadataSourceId && <Check size={14} />}
+                          Metadata
+                        </button>
+                        <button
+                          className={`duplicates-choice-btn${book.id === progressSourceId ? " active" : ""}`}
+                          onClick={() => setProgressSourceId(book.id)}
+                        >
+                          {book.id === progressSourceId && <Check size={14} />}
+                          Progress
+                        </button>
+                      </div>
+
+                      <a className="duplicates-open-link" href={`/book/${book.id}`} target="_blank" rel="noreferrer">
+                        Open details <ExternalLink size={13} />
+                      </a>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="duplicates-section">
+              <div className="duplicates-section-head">
+                <div>
+                  <h2>Metadata Differences</h2>
+                  <p>Only differing fields are shown by default.</p>
+                </div>
+                <button className="btn btn-secondary" onClick={() => setShowIdentical((value) => !value)}>
+                  {showIdentical ? <EyeOff size={15} /> : <Eye size={15} />}
+                  {showIdentical ? "Hide Identical" : "Show All"}
+                </button>
+              </div>
+
+              <div className="duplicates-comparison">
+                {comparisonRows.length === 0 ? (
+                  <div className="duplicates-comparison-empty">
+                    <Info size={18} />
+                    All visible metadata fields are identical.
+                  </div>
+                ) : (
+                  comparisonRows.map(({ field, values, identical }) => (
+                    <div key={field.key} className={`duplicates-compare-row${identical ? " identical" : ""}`}>
+                      <div className="duplicates-compare-field">
+                        <strong>{field.label}</strong>
+                        {!identical && <span>differs</span>}
+                      </div>
+                      <div className="duplicates-compare-values">
+                        {currentGroup.books.map((book, index) => (
+                          <div
+                            key={book.id}
+                            className={book.id === metadataSourceId ? "selected" : ""}
+                          >
+                            <span>{versionLabels[index] ?? index + 1}</span>
+                            <p>{values[index] != null && String(values[index]) !== "" ? String(values[index]) : "Empty"}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="duplicates-section">
+              <div className="duplicates-section-head">
+                <div>
+                  <h2>Audio File Plan</h2>
+                  <p>Choose which files survive and where they should land.</p>
+                </div>
+                <div className="duplicates-file-counts">
+                  <span>{filePlan.keep} keep</span>
+                  <span>{filePlan.keepSub} subfolder</span>
+                  <span>{filePlan.delete} delete</span>
+                </div>
+              </div>
+
+              <div className="duplicates-file-books">
+                {currentGroup.books.map((book, index) => (
+                  <div key={book.id} className="duplicates-file-book">
+                    <div className="duplicates-file-book-head">
+                      <div>
+                        <span>Version {versionLabels[index] ?? index + 1}</span>
+                        <strong>{book.title}</strong>
+                      </div>
+                      <div className="duplicates-file-bulk">
+                        <button onClick={() => setAllFilesForBook(book, "keep")}>Keep all</button>
+                        <button onClick={() => setAllFilesForBook(book, "keep_sub")}>Subfolder</button>
+                        <button onClick={() => setAllFilesForBook(book, "delete")}>Delete all</button>
+                      </div>
+                    </div>
+
+                    {book.audioFiles.map((file) => (
+                      <div key={file.id} className="duplicates-file-row">
+                        <div className="duplicates-file-main">
+                          <FileAudio size={17} />
+                          <div>
+                            <strong>{file.filename}</strong>
+                            <span>{file.title || "No title tag"} · {formatDuration(file.duration)}</span>
+                            <p>{file.path}</p>
+                          </div>
+                        </div>
+                        <label className={`duplicates-action-select action-${fileActions[file.id]}`}>
+                          {fileActions[file.id] === "delete" ? <Trash2 size={15} /> : <HardDrive size={15} />}
+                          <select
+                            value={fileActions[file.id]}
+                            onChange={(event) =>
+                              setFileActions((current) => ({
+                                ...current,
+                                [file.id]: event.target.value as FileAction,
+                              }))
+                            }
+                          >
+                            <option value="keep">{formatFileAction("keep")}</option>
+                            <option value="keep_sub">{formatFileAction("keep_sub")}</option>
+                            <option value="delete">{formatFileAction("delete")}</option>
+                          </select>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
+
+          <div className="duplicates-action-bar">
+            <div>
+              <strong>{primaryBook ? `Merging into ${primaryBook.title}` : "Choose a primary book"}</strong>
+              <span>{filePlan.keep + filePlan.keepSub} files kept, {filePlan.delete} marked for deletion</span>
+            </div>
+            <button className="btn btn-secondary" onClick={handleDismiss}>
+              <X size={15} />
+              Not Duplicates
+            </button>
+            <button className="btn btn-primary" onClick={handleMerge} disabled={isMerging || !primaryBookId}>
+              {isMerging ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
+              Resolve & Merge
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
