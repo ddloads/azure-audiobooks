@@ -48,6 +48,7 @@ const BookCard: React.FC<{
   onSelect?: (selected: boolean, shiftKey: boolean) => void;
   onMatch?: () => void;
   onRescan?: () => void;
+  onAutoChapterize?: () => void;
   onFindDuplicates?: () => void;
   onDelete?: () => void;
   onMarkFinished?: () => void;
@@ -63,6 +64,7 @@ const BookCard: React.FC<{
   onSelect,
   onMatch,
   onRescan,
+  onAutoChapterize,
   onFindDuplicates,
   onDelete,
   onMarkFinished,
@@ -276,6 +278,9 @@ const BookCard: React.FC<{
             </button>
             <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onRescan?.(); }}>
               <RefreshCw size={14} /> Re-Scan
+            </button>
+            <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onAutoChapterize?.(); }}>
+              <ListPlus size={14} /> Auto Chapterize
             </button>
             <button className="book-card-menu-item" onClick={(e) => { e.stopPropagation(); setMenuOpen(false); onFindDuplicates?.(); }}>
               <FileSearch size={14} /> Find Duplicates

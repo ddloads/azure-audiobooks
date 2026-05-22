@@ -5,6 +5,7 @@ import ffmpeg from "./ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import prisma from "../lib/prisma";
 import { extractCover } from "./processor";
+import { generateSmartChapters, type ChapterInputAudioFile } from "./chapterizer";
 import { getCoverUrl, findCoverInFolder } from "./covers";
 import { cleanupBookTitle } from "./titleCleanup";
 import {
@@ -379,12 +380,16 @@ const upsertBookFolder = async (
       audioFiles: {
         select: {
           filename: true,
+          title: true,
+          path: true,
+          duration: true,
+          index: true,
         },
         orderBy: {
           index: "asc",
         },
       },
-      _count: { select: { audioFiles: true } },
+      _count: { select: { audioFiles: true, chapters: true } },
     },
   });
 
@@ -651,16 +656,32 @@ const upsertBookFolder = async (
   }
 
   if (canReuseAudioIndex) {
+    if (existingBook._count.chapters === 0 && existingBook.audioFiles.length > 0) {
+      const generatedChapters = await generateSmartChapters(
+        existingBook.audioFiles,
+        existingBook.audioFiles.reduce((sum, audioFile) => sum + audioFile.duration, 0),
+      );
+
+      if (generatedChapters.length > 0) {
+        await prisma.chapter.createMany({
+          data: generatedChapters.map((chapter) => ({
+            ...chapter,
+            bookId: book.id,
+          })),
+        });
+      }
+    }
     return;
   }
 
   let totalDuration = 0;
   const allChapters: { title: string; start: number; end: number }[] = [];
+  const processedAudioFiles: ChapterInputAudioFile[] = [];
 
   if (shouldStop()) return;
 
   await prisma.audioFile.deleteMany({ where: { bookId: book.id } });
-  await (prisma as any).chapter.deleteMany({ where: { bookId: book.id } });
+  await prisma.chapter.deleteMany({ where: { bookId: book.id } });
 
   for (let index = 0; index < audioFiles.length; index++) {
     if (shouldStop()) return;
@@ -705,12 +726,24 @@ const upsertBookFolder = async (
       },
     });
 
+    processedAudioFiles.push({
+      filename,
+      path: filePath,
+      duration,
+      index,
+      title: trackTitle,
+    });
+
     totalDuration += duration;
+  }
+
+  if (allChapters.length === 0) {
+    allChapters.push(...(await generateSmartChapters(processedAudioFiles, totalDuration)));
   }
 
   // Save chapters
   if (allChapters.length > 0) {
-    await (prisma as any).chapter.createMany({
+    await prisma.chapter.createMany({
       data: allChapters.map((c) => ({
         ...c,
         bookId: book.id,
@@ -826,5 +859,49 @@ export const rescanBook = async (bookId: string, forceMetadata: boolean = false)
     () => false,
     forceMetadata,
   );
+};
+
+export const autoChapterizeBook = async (bookId: string, replaceExisting = true) => {
+  const book = await prisma.book.findUnique({
+    where: { id: bookId },
+    select: {
+      id: true,
+      title: true,
+      duration: true,
+      audioFiles: {
+        select: {
+          filename: true,
+          title: true,
+          path: true,
+          duration: true,
+          index: true,
+        },
+        orderBy: { index: "asc" },
+      },
+      _count: { select: { chapters: true } },
+    },
+  });
+
+  if (!book) {
+    throw new Error("Book not found");
+  }
+
+  if (!replaceExisting && book._count.chapters > 0) {
+    return { created: 0, skipped: true };
+  }
+
+  const chapters = await generateSmartChapters(book.audioFiles, book.duration);
+  await prisma.chapter.deleteMany({ where: { bookId: book.id } });
+
+  if (chapters.length > 0) {
+    await prisma.chapter.createMany({
+      data: chapters.map((chapter) => ({
+        ...chapter,
+        bookId: book.id,
+      })),
+    });
+  }
+
+  return { created: chapters.length, skipped: false };
 };
 

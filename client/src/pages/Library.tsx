@@ -5,6 +5,7 @@ import {
   BookMarked,
   Boxes,
   LayoutList,
+  ListPlus,
   Plus,
   RefreshCw,
   LogOut,
@@ -565,6 +566,27 @@ const Library = () => {
       showToast({ title: "Search failed", description: "Check server logs.", tone: "error" });
     } finally {
       setIsActionBusy(false);
+    }
+  };
+
+  const handleAutoChapterize = async (book: LibraryBook) => {
+    try {
+      const res = await api.post<{ message?: string; created?: number }>(
+        `/admin/books/${book.id}/auto-chapterize`,
+        { replaceExisting: true },
+      );
+      showToast({
+        title: "Chapters generated",
+        description: res.data.message || `Updated chapters for "${book.title}".`,
+        tone: "success",
+      });
+    } catch (error) {
+      console.error("Auto chapterize failed", error);
+      showToast({
+        title: "Chapterization failed",
+        description: getErrorMessage(error, "Could not generate chapters for this book."),
+        tone: "error",
+      });
     }
   };
 
@@ -1482,6 +1504,7 @@ const Library = () => {
                       <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
                         <button className="btn btn-secondary library-list-icon-btn" title="Match metadata" onClick={() => setMatchBook(book)}><Sparkles size={14} /></button>
                         <button className="btn btn-secondary library-list-icon-btn" title="Re-scan folder" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}><RefreshCw size={14} /></button>
+                        <button className="btn btn-secondary library-list-icon-btn" title="Auto chapterize" onClick={() => void handleAutoChapterize(book)}><ListPlus size={14} /></button>
                         <button className="btn btn-secondary library-list-icon-btn" title="Find duplicates" onClick={() => handleFindDuplicates(book)}><FileSearch size={14} /></button>
                         <button className="btn btn-danger library-list-icon-btn" title="Delete" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}><Trash2 size={14} /></button>
                       </div>
@@ -1507,6 +1530,7 @@ const Library = () => {
                     setActionBook(book);
                     setConfirmAction("rescan");
                   }}
+                  onAutoChapterize={() => void handleAutoChapterize(book)}
                   onFindDuplicates={() => handleFindDuplicates(book)}
                   onDelete={() => {
                     setActionBook(book);

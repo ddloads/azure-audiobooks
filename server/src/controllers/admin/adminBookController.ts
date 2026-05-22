@@ -13,7 +13,7 @@ import {
 import { GoogleBooksSearchError, searchGoogleBooks } from "../../utils/googleBooks";
 import { GoodreadsSearchError, searchGoodreads } from "../../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../../utils/covers";
-import { rescanBook } from "../../utils/scanner";
+import { autoChapterizeBook, rescanBook } from "../../utils/scanner";
 import { invalidateFilterOptionsCache } from "../libraryController";
 import { setLogTitle } from "../../middleware/loggingMiddleware";
 import { booksArePotentialDuplicates, findDuplicateGroups } from "../../utils/duplicates";
@@ -246,6 +246,29 @@ export const rescanSingleBookHandler = async (req: AuthRequest, res: Response): 
   } catch (error) {
     console.error("Rescan book error:", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to rescan book" });
+  }
+};
+
+export const autoChapterizeBookHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const bookId = getSingleParam(req.params.bookId);
+    if (!bookId) {
+      res.status(400).json({ error: "Invalid book id" });
+      return;
+    }
+
+    const replaceExisting = req.body?.replaceExisting !== false;
+    const result = await autoChapterizeBook(bookId, replaceExisting);
+
+    res.json({
+      message: result.skipped
+        ? "Book already has chapters"
+        : `Generated ${result.created} ${result.created === 1 ? "chapter" : "chapters"}`,
+      ...result,
+    });
+  } catch (error) {
+    console.error("Auto chapterize book error:", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to auto chapterize book" });
   }
 };
 
