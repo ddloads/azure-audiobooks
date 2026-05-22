@@ -401,6 +401,12 @@ const MobileLibrary = () => {
       )}
 
       <div className="mobile-library-body">
+        <section className="mobile-library-hero">
+          <span>Azure Audiobooks</span>
+          <h1>{user?.username ? `${user.username}'s library` : 'Your library'}</h1>
+          <p>{books.length} {books.length === 1 ? 'title' : 'titles'} ready for your next listen</p>
+        </section>
+
         {/* Continue Listening */}
         {progressRecords.length > 0 && (
           <section className="mobile-continue-section">

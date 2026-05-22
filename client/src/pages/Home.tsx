@@ -9,6 +9,7 @@ import {
   Headphones,
   Library,
   MoreVertical,
+  PlayCircle,
   Sparkles,
 } from "lucide-react";
 import api from "../api/axios";
@@ -62,6 +63,22 @@ export default function Home() {
   const menuTriggerRef = useRef<HTMLDivElement | null>(null);
   const menuPortalRef = useRef<HTMLDivElement | null>(null);
 
+  async function loadHome() {
+    setLoading(true);
+    try {
+      const [progressRes, recRes] = await Promise.all([
+        api.get("/progress"),
+        api.get("/recommendations"),
+      ]);
+      setProgressRecords(progressRes.data);
+      setRecommendations(recRes.data);
+    } catch (err) {
+      console.error("Failed to load home data", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     void loadHome();
   }, []);
@@ -76,22 +93,6 @@ export default function Home() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [openMenuId]);
-
-  const loadHome = async () => {
-    setLoading(true);
-    try {
-      const [progressRes, recRes] = await Promise.all([
-        api.get("/progress"),
-        api.get("/recommendations"),
-      ]);
-      setProgressRecords(progressRes.data);
-      setRecommendations(recRes.data);
-    } catch (err) {
-      console.error("Failed to load home data", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePlay = async (record: ProgressRecord) => {
     try {
@@ -147,10 +148,55 @@ export default function Home() {
     recommendations.nextInSeries.length > 0 ||
     recommendations.youMightLike.length > 0;
 
+  const recommendationCount =
+    recommendations.nextInSeries.length + recommendations.youMightLike.length;
+
   const menuRecord = progressRecords.find((r) => r.bookId === openMenuId);
 
   return (
     <div className="home-page">
+      <section className="home-hero">
+        <div className="home-greeting">
+          <span className="home-kicker">Azure Audiobooks</span>
+          <h1 className="home-greeting-title">
+            {greeting()}{user?.username ? `, ${user.username}` : ""}
+          </h1>
+          <p className="home-greeting-sub">
+            {loading
+              ? "Loading your listening room..."
+              : hasContent
+              ? "Pick up your story, discover the next chapter, and keep your library moving."
+              : "Start your first audiobook and this space will become your listening dashboard."}
+          </p>
+          <div className="home-hero-actions">
+            <button className="btn btn-primary" type="button" onClick={() => navigate("/library")}>
+              <Library size={16} />
+              Browse Library
+            </button>
+            {progressRecords[0] && (
+              <button className="btn btn-secondary" type="button" onClick={() => handlePlay(progressRecords[0])}>
+                <PlayCircle size={16} />
+                Resume Latest
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="home-hero-stats" aria-label="Library overview">
+          <div className="home-stat-card">
+            <span>In progress</span>
+            <strong>{loading ? "--" : progressRecords.length}</strong>
+          </div>
+          <div className="home-stat-card accent">
+            <span>Recommended</span>
+            <strong>{loading ? "--" : recommendationCount}</strong>
+          </div>
+          <div className="home-stat-card warm">
+            <span>Next up</span>
+            <strong>{loading ? "--" : recommendations.nextInSeries.length}</strong>
+          </div>
+        </div>
+      </section>
       {/* Greeting */}
       <div className="home-greeting">
         <h1 className="home-greeting-title">
