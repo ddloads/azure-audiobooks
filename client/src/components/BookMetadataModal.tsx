@@ -404,6 +404,18 @@ const BookMetadataModal = ({
     localStorage.setItem(AUTO_SEARCH_QUEUE_KEY, String(autoSearchQueue));
   }, [autoSearchQueue]);
 
+  // When the user switches TO the fetch tab with auto-search already enabled,
+  // fire the search immediately (mirrors what handleAutoSearchQueueChange does when
+  // the toggle is turned on, but for the tab-switch direction).
+  useEffect(() => {
+    if (activeTab !== "fetch" || !autoSearchQueueRef.current) return;
+    const autoSearchKey = `${currentBook.id}:${providerRef.current}`;
+    if (autoSearchKeyRef.current === autoSearchKey) return;
+    autoSearchKeyRef.current = autoSearchKey;
+    void runSearch(undefined, providerRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
