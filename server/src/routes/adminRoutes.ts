@@ -1,50 +1,60 @@
 import { Router } from "express";
 import {
-  applyBookMatch,
+  createUser,
+  deleteUser,
+  listUsers,
+  updateUser,
+} from "../controllers/admin/adminUserController";
+import {
   browseLibraryFolders,
   checkLibraryStructure,
-  completeAudibleCliAuth,
-  createBackup,
   createLibrary,
   createLibrarySource,
-  createUser,
-  deleteBook,
-  deleteAudibleCliProfileHandler,
   deleteLibrary,
   deleteLibrarySource,
-  deleteUser,
-  getAdminDashboard,
-  getBookHasBackup,
-  cleanupMergedBackupsHandler,
-  findBookDuplicatesHandler,
-  listAllDuplicatesHandler,
-  resolveDuplicatesHandler,
-  mergeBooksHandler,
-  rescanSingleBookHandler,
-  listAdminTasks,
-  getAudibleCliStatusHandler,
-  listWriteTagsJobs,
   listLibraries,
-  listAdminBooks,
-  listBackups,
-  listUsers,
-  mergeBookFiles,
-  undoMergeBookFiles,
-  renameAudibleCliProfileHandler,
   purgeLibrary,
-  quickMatchBooks,
-  rescanLibrary,
-  rescanSingleLibrary,
-  searchBookMatches,
-  setActiveAudibleCliProfileHandler,
-  startAudibleCliAuth,
-  updateBookMetadata,
   updateLibrary,
   updateLibrarySource,
-  updateUser,
+} from "../controllers/admin/adminLibraryController";
+import {
+  applyBookMatch,
+  deleteBook,
+  findBookDuplicatesHandler,
+  listAdminBooks,
+  listAllDuplicatesHandler,
+  mergeBooksHandler,
+  quickMatchBooks,
+  rescanLibrary,
+  rescanSingleBookHandler,
+  rescanSingleLibrary,
+  resolveDuplicatesHandler,
+  searchBookMatches,
+  updateBookMetadata,
+} from "../controllers/admin/adminBookController";
+import {
+  cleanupMergedBackupsHandler,
+  getBookHasBackup,
   getWriteTagsJobStatus,
+  listWriteTagsJobs,
+  mergeBookFiles,
+  undoMergeBookFiles,
   writeBookMetadataToFile,
-} from "../controllers/adminController";
+} from "../controllers/admin/adminFileController";
+import {
+  completeAudibleCliAuth,
+  deleteAudibleCliProfileHandler,
+  getAudibleCliStatusHandler,
+  renameAudibleCliProfileHandler,
+  setActiveAudibleCliProfileHandler,
+  startAudibleCliAuth,
+} from "../controllers/admin/adminAudibleController";
+import {
+  createBackup,
+  getAdminDashboard,
+  listAdminTasks,
+  listBackups,
+} from "../controllers/admin/adminDashboardController";
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
 import { listBugReports } from "../controllers/reportController";
 import { updateAppearanceSettingsHandler } from "../controllers/settingsController";
