@@ -6,7 +6,6 @@ import prisma from "../lib/prisma";
 import { AUTH_COOKIE_NAME, AuthRequest } from "../middleware/authMiddleware";
 import {
   findUserByEmailInsensitive,
-  findUserCredentialsByUsernameInsensitive,
   findUserByUsernameInsensitive,
   isValidEmail,
   sanitizeEmail,
@@ -118,7 +117,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await findUserCredentialsByUsernameInsensitive(username);
+    const user = await findUserByUsernameInsensitive(username);
     if (!user) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
@@ -144,6 +143,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error("Login error:", error);
+    process.stderr.write(
+      `[auth] Login error: ${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+    );
     res.status(500).json({ error: "Internal server error" });
   }
 };

@@ -1,5 +1,4 @@
 import prisma from "../lib/prisma";
-import type { User } from "../generated/prisma/client";
 
 export const normalizeUsername = (username: string) => username.trim().toLowerCase();
 
@@ -25,53 +24,26 @@ export const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test
 
 export const findUserByUsernameInsensitive = async (username: string) => {
   const normalized = normalizeUsername(username);
-  const matches = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT id
-    FROM "User"
-    WHERE lower(username) = ${normalized}
-    ORDER BY "createdAt" ASC
-    LIMIT 1
-  `;
-
-  const userId = matches[0]?.id;
-  if (!userId) {
-    return null;
-  }
-
-  return prisma.user.findUnique({ where: { id: userId } });
-};
-
-export const findUserCredentialsByUsernameInsensitive = async (
-  username: string,
-): Promise<Pick<User, "id" | "username" | "email" | "password" | "role"> | null> => {
-  const normalized = normalizeUsername(username);
-  const matches = await prisma.$queryRaw<
-    Array<Pick<User, "id" | "username" | "email" | "password" | "role">>
-  >`
-    SELECT id, username, email, password, role
-    FROM "User"
-    WHERE lower(username) = ${normalized}
-    ORDER BY "createdAt" ASC
-    LIMIT 1
-  `;
-
-  return matches[0] || null;
+  return prisma.user.findFirst({
+    where: {
+      username: {
+        equals: normalized,
+        mode: "insensitive",
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
 };
 
 export const findUserByEmailInsensitive = async (email: string) => {
   const normalized = email.trim().toLowerCase();
-  const matches = await prisma.$queryRaw<Array<{ id: string }>>`
-    SELECT id
-    FROM "User"
-    WHERE lower(email) = ${normalized}
-    ORDER BY "createdAt" ASC
-    LIMIT 1
-  `;
-
-  const userId = matches[0]?.id;
-  if (!userId) {
-    return null;
-  }
-
-  return prisma.user.findUnique({ where: { id: userId } });
+  return prisma.user.findFirst({
+    where: {
+      email: {
+        equals: normalized,
+        mode: "insensitive",
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
 };
