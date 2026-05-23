@@ -16,7 +16,14 @@ import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } fro
 import { autoChapterizeBook, rescanBook } from "../../utils/scanner";
 import { invalidateFilterOptionsCache } from "../libraryController";
 import { setLogTitle } from "../../middleware/loggingMiddleware";
-import { booksArePotentialDuplicates, findDuplicateGroups } from "../../utils/duplicates";
+import {
+  booksArePotentialDuplicates,
+  buildDuplicatePairKey,
+  buildDuplicatePairKeys,
+  buildIgnoredDuplicatePairKeySet,
+  filterIgnoredDuplicateGroups,
+  findDuplicateGroups,
+} from "../../utils/duplicates";
 import {
   getSingleParam,
   getOptionalBodyValue,
@@ -1152,11 +1159,18 @@ export const listAllDuplicatesHandler = async (req: AuthRequest, res: Response):
       orderBy: [{ title: "asc" }, { createdAt: "asc" }],
     });
 
-    const duplicateGroups = findDuplicateGroups(
+    const ignoredPairs = await prisma.ignoredDuplicatePair.findMany({
+      select: { bookAId: true, bookBId: true },
+    });
+
+    const duplicateGroups = filterIgnoredDuplicateGroups(
+      findDuplicateGroups(
       books.map((book) => ({
         ...book,
         coverPath: normalizeCoverPath(book.coverPath),
       })),
+      ),
+      buildIgnoredDuplicatePairKeySet(ignoredPairs),
     );
 
     res.json(duplicateGroups);
@@ -1442,6 +1456,50 @@ export const resolveDuplicatesHandler = async (req: AuthRequest, res: Response):
   }
 };
 
+export const dismissDuplicateGroupHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { bookIds, reason } = req.body as { bookIds?: string[]; reason?: string };
+
+    if (!Array.isArray(bookIds) || bookIds.length < 2) {
+      res.status(400).json({ error: "At least two book IDs are required" });
+      return;
+    }
+
+    const uniqueBookIds = Array.from(new Set(bookIds.filter((id) => typeof id === "string" && id.trim())));
+    if (uniqueBookIds.length < 2) {
+      res.status(400).json({ error: "At least two unique book IDs are required" });
+      return;
+    }
+
+    const existingBooks = await prisma.book.findMany({
+      where: { id: { in: uniqueBookIds } },
+      select: { id: true },
+    });
+
+    if (existingBooks.length !== uniqueBookIds.length) {
+      res.status(404).json({ error: "One or more books were not found" });
+      return;
+    }
+
+    const pairKeys = buildDuplicatePairKeys(uniqueBookIds);
+    await prisma.$transaction(
+      pairKeys.map((pairKey) => {
+        const [bookAId, bookBId] = pairKey.split("|");
+        return prisma.ignoredDuplicatePair.upsert({
+          where: { bookAId_bookBId: { bookAId, bookBId } },
+          update: { reason: reason ?? null },
+          create: { bookAId, bookBId, reason: reason ?? null },
+        });
+      }),
+    );
+
+    res.json({ message: "Duplicate group dismissed", ignoredPairs: pairKeys.length });
+  } catch (error) {
+    console.error("Dismiss duplicate group error:", error);
+    res.status(500).json({ error: "Failed to dismiss duplicate group" });
+  }
+};
+
 export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const bookId = getSingleParam(req.params.bookId);
@@ -1474,8 +1532,19 @@ export const findBookDuplicatesHandler = async (req: AuthRequest, res: Response)
       },
     });
 
+    const ignoredPairs = await prisma.ignoredDuplicatePair.findMany({
+      where: {
+        OR: [{ bookAId: bookId }, { bookBId: bookId }],
+      },
+      select: { bookAId: true, bookBId: true },
+    });
+    const ignoredPairKeys = buildIgnoredDuplicatePairKeySet(ignoredPairs);
+
     const result = candidates
-      .filter((candidate) => booksArePotentialDuplicates(book, candidate))
+      .filter((candidate) =>
+        booksArePotentialDuplicates(book, candidate) &&
+        !ignoredPairKeys.has(buildDuplicatePairKey(book.id, candidate.id))
+      )
       .map((candidate) => ({
         ...candidate,
         coverPath: normalizeCoverPath(candidate.coverPath),

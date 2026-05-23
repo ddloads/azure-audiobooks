@@ -91,6 +91,8 @@ model Book {
   indexedFiles     IndexedAudioFile[]
   chapters         Chapter[]
   progress         Progress[]
+  ignoredDuplicateAsA IgnoredDuplicatePair[] @relation("IgnoredDuplicateBookA")
+  ignoredDuplicateAsB IgnoredDuplicatePair[] @relation("IgnoredDuplicateBookB")
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
@@ -106,6 +108,21 @@ model Book {
   @@index([asin])
   @@index([isbn])
   @@index([abridged])
+}
+
+model IgnoredDuplicatePair {
+  id        String   @id @default(uuid())
+  bookA     Book     @relation("IgnoredDuplicateBookA", fields: [bookAId], references: [id], onDelete: Cascade)
+  bookAId   String
+  bookB     Book     @relation("IgnoredDuplicateBookB", fields: [bookBId], references: [id], onDelete: Cascade)
+  bookBId   String
+  reason    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookAId, bookBId])
+  @@index([bookAId])
+  @@index([bookBId])
 }
 
 model LibraryScanJob {

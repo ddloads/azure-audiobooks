@@ -6,7 +6,11 @@ import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { setLogTitle } from "../middleware/loggingMiddleware";
-import { findDuplicateGroups } from "../utils/duplicates";
+import {
+  buildIgnoredDuplicatePairKeySet,
+  filterIgnoredDuplicateGroups,
+  findDuplicateGroups,
+} from "../utils/duplicates";
 import { cleanupBookTitle } from "../utils/titleCleanup";
 import { getAppearanceSettings } from "../utils/appSettings";
 
@@ -180,9 +184,15 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
           },
         },
       });
+      const ignoredPairs = await prisma.ignoredDuplicatePair.findMany({
+        select: { bookAId: true, bookBId: true },
+      });
 
       const duplicateBookIds = new Set(
-        findDuplicateGroups(duplicateCandidates)
+        filterIgnoredDuplicateGroups(
+          findDuplicateGroups(duplicateCandidates),
+          buildIgnoredDuplicatePairKeySet(ignoredPairs),
+        )
           .flatMap((group) => group.books.map((book) => book.id)),
       );
 

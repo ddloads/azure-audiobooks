@@ -17,6 +17,11 @@ export type DuplicateGroupMatch<T> = {
   books: T[];
 };
 
+export type IgnoredDuplicatePair = {
+  bookAId: string;
+  bookBId: string;
+};
+
 const collapseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
 
 const stripDiacritics = (value: string) =>
@@ -49,6 +54,37 @@ const normalizeAuthor = (book: DuplicateCandidate) =>
 
 const buildGroupKey = (type: DuplicateGroupMatch<unknown>["type"], ids: string[]) =>
   `${type}:${ids.slice().sort().join("|")}`;
+
+export const sortDuplicatePairIds = (leftId: string, rightId: string): [string, string] =>
+  leftId.localeCompare(rightId) <= 0 ? [leftId, rightId] : [rightId, leftId];
+
+export const buildDuplicatePairKey = (leftId: string, rightId: string) =>
+  sortDuplicatePairIds(leftId, rightId).join("|");
+
+export const buildDuplicatePairKeys = (bookIds: string[]) => {
+  const uniqueIds = Array.from(new Set(bookIds));
+  const pairKeys: string[] = [];
+
+  for (let leftIndex = 0; leftIndex < uniqueIds.length; leftIndex += 1) {
+    for (let rightIndex = leftIndex + 1; rightIndex < uniqueIds.length; rightIndex += 1) {
+      pairKeys.push(buildDuplicatePairKey(uniqueIds[leftIndex], uniqueIds[rightIndex]));
+    }
+  }
+
+  return pairKeys;
+};
+
+export const buildIgnoredDuplicatePairKeySet = (pairs: IgnoredDuplicatePair[]) =>
+  new Set(pairs.map((pair) => buildDuplicatePairKey(pair.bookAId, pair.bookBId)));
+
+export const filterIgnoredDuplicateGroups = <T extends DuplicateCandidate>(
+  groups: DuplicateGroupMatch<T>[],
+  ignoredPairKeys: Set<string>,
+) =>
+  groups.filter((group) => {
+    const pairKeys = buildDuplicatePairKeys(group.books.map((book) => book.id));
+    return pairKeys.length === 0 || !pairKeys.every((pairKey) => ignoredPairKeys.has(pairKey));
+  });
 
 export const booksArePotentialDuplicates = (
   left: DuplicateCandidate,

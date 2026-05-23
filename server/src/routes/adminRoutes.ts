@@ -21,6 +21,7 @@ import {
   applyBookMatch,
   autoChapterizeBookHandler,
   deleteBook,
+  dismissDuplicateGroupHandler,
   findBookDuplicatesHandler,
   listAdminBooks,
   listAllDuplicatesHandler,
@@ -123,6 +124,7 @@ router.post("/books/:bookId/undo-merge", undoMergeBookFiles);
 router.post("/books/:bookId/cleanup-backup", cleanupMergedBackupsHandler);
 router.get("/books/:bookId/duplicates", findBookDuplicatesHandler);
 router.get("/duplicates", listAllDuplicatesHandler);
+router.post("/duplicates/dismiss", dismissDuplicateGroupHandler);
 router.post("/duplicates/resolve", resolveDuplicatesHandler);
 router.post("/books/:bookId/merge-with", mergeBooksHandler);
 router.post("/books/:bookId/rescan", rescanSingleBookHandler);

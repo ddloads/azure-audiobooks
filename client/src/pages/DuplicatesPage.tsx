@@ -330,20 +330,39 @@ const DuplicatesPage = () => {
     }
   };
 
-  const handleDismiss = () => {
-    if (selectedGroupIndex === null) return;
+  const handleDismiss = async () => {
+    if (selectedGroupIndex === null || !currentGroup) return;
+    setIsMerging(true);
 
-    const nextGroups = [...groups];
-    nextGroups.splice(selectedGroupIndex, 1);
-    setGroups(nextGroups);
-    setSelectedGroupIndex(
-      nextGroups.length > 0 ? Math.min(selectedGroupIndex, nextGroups.length - 1) : null,
-    );
-    showToast({
-      title: "Group dismissed",
-      description: "It will reappear after a refresh scan.",
-      tone: "info",
-    });
+    try {
+      await api.post("/admin/duplicates/dismiss", {
+        bookIds: currentGroup.books.map((book) => book.id),
+        reason: "not_duplicates",
+      });
+
+      const nextGroups = [...groups];
+      nextGroups.splice(selectedGroupIndex, 1);
+      setGroups(nextGroups);
+      setSelectedGroupIndex(
+        nextGroups.length > 0 ? Math.min(selectedGroupIndex, nextGroups.length - 1) : null,
+      );
+      showToast({
+        title: "Group dismissed",
+        description: "These editions will stay out of duplicate results after rescans.",
+        tone: "success",
+      });
+    } catch (error) {
+      const message = isAxiosError<{ error?: string }>(error)
+        ? error.response?.data?.error
+        : null;
+      showToast({
+        title: "Dismiss failed",
+        description: message ?? "Could not save this duplicate decision.",
+        tone: "error",
+      });
+    } finally {
+      setIsMerging(false);
+    }
   };
 
   const handlePreviewBook = (book: Book) => {
@@ -406,7 +425,7 @@ const DuplicatesPage = () => {
           </button>
           {currentGroup && (
             <>
-              <button className="btn btn-secondary" onClick={handleDismiss}>
+              <button className="btn btn-secondary" onClick={() => void handleDismiss()} disabled={isMerging}>
                 <X size={15} />
                 Not Duplicates
               </button>
@@ -687,7 +706,7 @@ const DuplicatesPage = () => {
               <strong>{primaryBook ? `Merging into ${primaryBook.title}` : "Choose a primary book"}</strong>
               <span>{filePlan.keep + filePlan.keepSub} files kept, {filePlan.delete} marked for deletion</span>
             </div>
-            <button className="btn btn-secondary" onClick={handleDismiss}>
+            <button className="btn btn-secondary" onClick={() => void handleDismiss()} disabled={isMerging}>
               <X size={15} />
               Not Duplicates
             </button>
