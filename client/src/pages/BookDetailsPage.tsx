@@ -119,7 +119,7 @@ const BookDetailsPage: React.FC = () => {
   const [isSearchingDuplicates, setIsSearchingDuplicates] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
-  const { playBook, currentBook, isPlaying, togglePlay } = usePlayer();
+  const { playBook, currentBook, isPlaying, togglePlay, stopPlayer } = usePlayer();
   const { upsertTask, removeTask } = useTasks();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -365,6 +365,9 @@ const BookDetailsPage: React.FC = () => {
     if (!book) return;
     setIsDeleting(true);
     try {
+      if (deleteFiles && currentBook?.id === book.id) {
+        stopPlayer();
+      }
       await api.delete(`/admin/books/${book.id}`, { data: { deleteFiles } });
       showToast({
         title: "Title removed",
@@ -374,10 +377,14 @@ const BookDetailsPage: React.FC = () => {
       navigate(backTarget);
     } catch (error) {
       console.error("Delete failed", error);
+      const message = isAxiosError<{ error?: string }>(error)
+        ? error.response?.data?.error || "Could not remove the title from your library."
+        : "Could not remove the title from your library.";
       showToast({
         title: "Delete failed",
-        description: "Could not remove the title from your library.",
+        description: message,
         tone: "error",
+        durationMs: 7000,
       });
     } finally {
       setIsDeleting(false);

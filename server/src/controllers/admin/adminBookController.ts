@@ -206,19 +206,38 @@ export const deleteBook = async (req: AuthRequest, res: Response): Promise<void>
 
     setLogTitle(book.title);
 
-    // Delete from DB first
-    await prisma.book.delete({ where: { id: bookId } });
-
     // Delete physical files if requested
     if (deleteFiles) {
       const matchingSource = book.library.sources.find((source) =>
         pathBelongsToRoot(book.folderPath, source.path),
       );
 
-      if (matchingSource && fs.existsSync(book.folderPath)) {
-        fs.rmSync(book.folderPath, { recursive: true, force: true });
+      if (!matchingSource) {
+        res.status(400).json({ error: "Book folder is outside configured library sources" });
+        return;
+      }
+
+      if (fs.existsSync(book.folderPath)) {
+        try {
+          fs.rmSync(book.folderPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 250 });
+        } catch (error) {
+          adminLogger.error("Book file deletion failed", error, {
+            bookId,
+            title: book.title,
+            folderPath: book.folderPath,
+          });
+          res.status(409).json({
+            error:
+              error instanceof Error
+                ? `Could not delete physical files: ${error.message}`
+                : "Could not delete physical files",
+          });
+          return;
+        }
       }
     }
+
+    await prisma.book.delete({ where: { id: bookId } });
 
     adminLogger.info("Book deleted", {
       bookId,

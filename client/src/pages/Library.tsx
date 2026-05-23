@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
+import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
@@ -289,6 +290,7 @@ const Library = () => {
     total: number;
     title: string;
   } | null>(null);
+  const { currentBook, stopPlayer } = usePlayer();
 
   const buildBookParams = () => ({
     libraryId: filters.libraryId !== "all" ? filters.libraryId : undefined,
@@ -617,6 +619,9 @@ const Library = () => {
     if (!actionBook) return;
     setIsActionBusy(true);
     try {
+      if (deleteFiles && currentBook?.id === actionBook.id) {
+        stopPlayer();
+      }
       await api.delete(`/admin/books/${actionBook.id}`, { data: { deleteFiles } });
       showToast({
         title: "Title removed",
@@ -627,7 +632,10 @@ const Library = () => {
       await fetchBooks();
     } catch (error) {
       console.error("Delete failed", error);
-      showToast({ title: "Delete failed", description: "Check server logs.", tone: "error" });
+      const message = isAxiosError<{ error?: string }>(error)
+        ? error.response?.data?.error || "Could not remove the title."
+        : "Could not remove the title.";
+      showToast({ title: "Delete failed", description: message, tone: "error", durationMs: 7000 });
     } finally {
       setIsActionBusy(false);
     }

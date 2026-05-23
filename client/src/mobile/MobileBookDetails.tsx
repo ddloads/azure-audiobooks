@@ -73,7 +73,7 @@ const MobileBookDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { playBook, currentBook, isPlaying, togglePlay } = usePlayer();
+  const { playBook, currentBook, isPlaying, togglePlay, stopPlayer } = usePlayer();
   const { upsertTask, removeTask } = useTasks();
   const { showToast } = useToast();
 
@@ -254,11 +254,17 @@ const MobileBookDetails = () => {
     if (!book) return;
     setIsDeleting(true);
     try {
+      if (deleteFiles && currentBook?.id === book.id) {
+        stopPlayer();
+      }
       await api.delete(`/admin/books/${book.id}`, { data: { deleteFiles } });
       showToast({ title: 'Title removed', tone: 'success' });
       navigate(backTarget);
-    } catch {
-      showToast({ title: 'Delete failed', tone: 'error' });
+    } catch (error) {
+      const message = isAxiosError<{ error?: string }>(error)
+        ? error.response?.data?.error || 'Could not remove the title.'
+        : 'Could not remove the title.';
+      showToast({ title: 'Delete failed', description: message, tone: 'error', durationMs: 7000 });
     } finally { setIsDeleting(false); }
   };
 
