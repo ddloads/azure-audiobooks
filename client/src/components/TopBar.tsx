@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Menu, Settings, User } from "lucide-react";
+import { CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, User, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useScanProgress } from "../context/ScanProgressContext";
 import AppLogo from "./AppLogo";
 
 interface TopBarProps {
@@ -10,9 +11,27 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { user, logout } = useAuth();
+  const { scanProgress } = useScanProgress();
   const navigate = useNavigate();
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+
+  const isActiveScan = scanProgress?.status === "starting" || scanProgress?.status === "scanning";
+  const scanProgressValue = Math.max(0, Math.min(100, Math.round(scanProgress?.progress ?? 0)));
+  const scanLabel = !scanProgress
+    ? ""
+    : scanProgress.status === "starting"
+      ? "Preparing library scan"
+      : scanProgress.status === "completed"
+        ? "Library scan complete"
+        : scanProgress.status === "failed"
+          ? "Library scan stopped"
+          : scanProgress.currentFolder
+            ? `Scanning ${scanProgress.currentFolder}`
+            : "Scanning library";
+  const scanDetail = scanProgress?.status === "scanning" && scanProgress.totalFolders
+    ? `${scanProgress.scannedFolders ?? 0}/${scanProgress.totalFolders} folders`
+    : `${scanProgressValue}%`;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -43,6 +62,36 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       </button>
 
       <div className="topbar-spacer" />
+
+      {scanProgress && (
+        <div
+          className={`topbar-scan-progress topbar-scan-progress-${scanProgress.status}`}
+          role="status"
+          aria-live="polite"
+          aria-label={`${scanLabel}, ${scanProgressValue}%`}
+        >
+          <div className="topbar-scan-icon">
+            {isActiveScan ? (
+              scanProgress.status === "starting" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <ScanLine size={14} />
+              )
+            ) : scanProgress.status === "completed" ? (
+              <CheckCircle2 size={14} />
+            ) : (
+              <XCircle size={14} />
+            )}
+          </div>
+          <div className="topbar-scan-copy">
+            <span className="topbar-scan-label">{scanLabel}</span>
+            <span className="topbar-scan-detail">{scanDetail}</span>
+          </div>
+          <div className="topbar-scan-track">
+            <div className="topbar-scan-fill" style={{ width: `${scanProgressValue}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="topbar-actions">
         {user && (

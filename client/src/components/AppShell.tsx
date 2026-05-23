@@ -6,6 +6,7 @@ import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
 import PlayerTray from "./PlayerTray";
 import InstallPrompt from "./InstallPrompt";
+import { ScanProgressProvider } from "../context/ScanProgressContext";
 
 export default function AppShell() {
   const [collapsed, setCollapsed]     = useState(false);
@@ -19,31 +20,33 @@ export default function AppShell() {
   };
 
   return (
-    <div className={`app-shell${collapsed ? " sidebar-collapsed" : ""}`}>
-      <TopBar onMenuToggle={handleMenuToggle} />
+    <ScanProgressProvider>
+      <div className={`app-shell${collapsed ? " sidebar-collapsed" : ""}`}>
+        <TopBar onMenuToggle={handleMenuToggle} />
 
-      <div className="shell-body">
-        <Sidebar
-          collapsed={collapsed}
-          mobileOpen={mobileOpen}
-          onCollapseToggle={() => setCollapsed((v) => !v)}
-          onMobileClose={() => setMobileOpen(false)}
-        />
-
-        {mobileOpen && (
-          <div
-            className="sidebar-overlay"
-            onClick={() => setMobileOpen(false)}
+        <div className="shell-body">
+          <Sidebar
+            collapsed={collapsed}
+            mobileOpen={mobileOpen}
+            onCollapseToggle={() => setCollapsed((v) => !v)}
+            onMobileClose={() => setMobileOpen(false)}
           />
-        )}
 
-        <main className={`shell-main${currentBook ? " has-player" : ""}`}>
-          <Outlet />
-        </main>
+          {mobileOpen && (
+            <div
+              className="sidebar-overlay"
+              onClick={() => setMobileOpen(false)}
+            />
+          )}
+
+          <main className={`shell-main${currentBook ? " has-player" : ""}`}>
+            <Outlet />
+          </main>
+        </div>
+
+        <PlayerTray />
+        <InstallPrompt />
       </div>
-
-      <PlayerTray />
-      <InstallPrompt />
-    </div>
+    </ScanProgressProvider>
   );
 }
