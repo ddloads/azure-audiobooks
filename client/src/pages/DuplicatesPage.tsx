@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { isAxiosError } from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -261,9 +262,22 @@ const DuplicatesPage = () => {
 
   const handleMerge = async () => {
     if (!currentGroup || !primaryBookId) return;
+    if (filePlan.keep + filePlan.keepSub === 0) {
+      showToast({
+        title: "Choose at least one file to keep",
+        description: "A resolved duplicate group must keep one playable audio file.",
+        tone: "error",
+      });
+      return;
+    }
+
     setIsMerging(true);
 
     try {
+      if (currentBook && currentGroup.books.some((book) => book.id === currentBook.id)) {
+        stopPlayer();
+      }
+
       await api.post("/admin/duplicates/resolve", {
         primaryBookId,
         secondaryBookIds: currentGroup.books
@@ -274,7 +288,7 @@ const DuplicatesPage = () => {
               title: metadataBook.title,
               subtitle: metadataBook.subtitle,
               authorId: metadataBook.author.id,
-              seriesId: metadataBook.series?.id,
+              seriesId: metadataBook.series?.id ?? null,
               sequence: metadataBook.sequence,
               narrator: metadataBook.narrator,
               publisher: metadataBook.publisher,
@@ -302,8 +316,15 @@ const DuplicatesPage = () => {
       setSelectedGroupIndex(
         nextGroups.length > 0 ? Math.min(selectedGroupIndex ?? 0, nextGroups.length - 1) : null,
       );
-    } catch {
-      showToast({ title: "Resolution failed", tone: "error" });
+    } catch (error) {
+      const message = isAxiosError<{ error?: string }>(error)
+        ? error.response?.data?.error
+        : null;
+      showToast({
+        title: "Resolution failed",
+        description: message ?? "Could not resolve this duplicate group.",
+        tone: "error",
+      });
     } finally {
       setIsMerging(false);
     }
@@ -389,7 +410,11 @@ const DuplicatesPage = () => {
                 <X size={15} />
                 Not Duplicates
               </button>
-              <button className="btn btn-primary" onClick={handleMerge} disabled={isMerging || !primaryBookId}>
+              <button
+                className="btn btn-primary"
+                onClick={handleMerge}
+                disabled={isMerging || !primaryBookId || filePlan.keep + filePlan.keepSub === 0}
+              >
                 {isMerging ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
                 Resolve Group
               </button>
@@ -666,7 +691,11 @@ const DuplicatesPage = () => {
               <X size={15} />
               Not Duplicates
             </button>
-            <button className="btn btn-primary" onClick={handleMerge} disabled={isMerging || !primaryBookId}>
+            <button
+              className="btn btn-primary"
+              onClick={handleMerge}
+              disabled={isMerging || !primaryBookId || filePlan.keep + filePlan.keepSub === 0}
+            >
               {isMerging ? <Loader2 className="animate-spin" size={16} /> : <ShieldCheck size={16} />}
               Resolve & Merge
             </button>
