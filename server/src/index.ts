@@ -5,6 +5,7 @@ import app from "./app";
 import { initSocket } from "./lib/socket";
 import { backupDatabase } from "./utils/backup";
 import { installConsoleLogger, installProcessLogger, logger } from "./lib/logger";
+import { pool } from "./lib/prisma";
 
 console.log("[startup] importing modules complete");
 
@@ -18,6 +19,14 @@ installProcessLogger();
 initSocket(server);
 
 const startServer = async () => {
+  console.log("[startup] warming database connections...");
+  try {
+    await pool.query("SELECT 1");
+    console.log("[startup] database connection ready");
+  } catch (error) {
+    console.warn("[startup] database warmup failed, continuing anyway:", error);
+  }
+
   server.listen(Number(PORT), HOST, () => {
     logger.info(`Server is running on http://${HOST}:${PORT}`, { host: HOST, port: Number(PORT) });
   });
