@@ -24,26 +24,36 @@ export const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test
 
 export const findUserByUsernameInsensitive = async (username: string) => {
   const normalized = normalizeUsername(username);
-  return prisma.user.findFirst({
-    where: {
-      username: {
-        equals: normalized,
-        mode: "insensitive",
-      },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const matches = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM "User"
+    WHERE lower(username) = ${normalized}
+    ORDER BY "createdAt" ASC
+    LIMIT 1
+  `;
+
+  const userId = matches[0]?.id;
+  if (!userId) {
+    return null;
+  }
+
+  return prisma.user.findUnique({ where: { id: userId } });
 };
 
 export const findUserByEmailInsensitive = async (email: string) => {
   const normalized = email.trim().toLowerCase();
-  return prisma.user.findFirst({
-    where: {
-      email: {
-        equals: normalized,
-        mode: "insensitive",
-      },
-    },
-    orderBy: { createdAt: "asc" },
-  });
+  const matches = await prisma.$queryRaw<Array<{ id: string }>>`
+    SELECT id
+    FROM "User"
+    WHERE lower(email) = ${normalized}
+    ORDER BY "createdAt" ASC
+    LIMIT 1
+  `;
+
+  const userId = matches[0]?.id;
+  if (!userId) {
+    return null;
+  }
+
+  return prisma.user.findUnique({ where: { id: userId } });
 };
