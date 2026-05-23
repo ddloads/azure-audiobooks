@@ -6,7 +6,7 @@ import { listAdminScripts, runAdminScript } from "../utils/adminScripts";
 const scriptLogger = createLogger("admin-scripts");
 
 export const listAdminScriptsHandler = async (_req: AuthRequest, res: Response) => {
-  res.json({ scripts: listAdminScripts() });
+  res.json(listAdminScripts());
 };
 
 export const runAdminScriptHandler = async (req: AuthRequest, res: Response) => {
