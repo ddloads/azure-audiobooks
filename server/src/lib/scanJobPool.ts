@@ -163,8 +163,12 @@ class ScanJobPool {
     slot.busy = false;
     slot.currentJob = null;
 
-    slot.worker = createWorkerSlot().worker;
-    this.attachWorker(slot);
+    try {
+      slot.worker = createWorkerSlot().worker;
+      this.attachWorker(slot);
+    } catch (error) {
+      console.error("Failed to reset scan worker slot:", error);
+    }
   }
 
   private handleWorkerMessage(slot: WorkerSlot, message: WorkerResponse) {
