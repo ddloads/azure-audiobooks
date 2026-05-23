@@ -49,7 +49,7 @@ function AppRoutes() {
           path="/"
           element={
             <PrivateRoute>
-              {isMobile ? <MobileLibrary /> : <Home />}
+              <Home />
             </PrivateRoute>
           }
         />

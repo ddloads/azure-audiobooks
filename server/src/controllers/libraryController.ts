@@ -109,17 +109,17 @@ const hasTag = (value: string | null | undefined, tagName: string) =>
 const isReviewBook = (value: string | null | undefined) => hasTag(value, "review");
 
 const BOOKS_CACHE_TTL_MS = 60_000;
-type CachedBook = {
+export type CachedBook = {
   id: string; title: string; subtitle: string | null; asin: string | null;
   duration: number; coverPath: string | null; folderPath: string;
   series: { id: string; name: string } | null; sequence: number | null;
   narrator: string | null; publisher: string | null; genres: string | null;
   tags: string | null; library: { id: string; name: string };
-  author: { name: string };
+  author: { name: string }; authorId: string;
 };
 let booksCache: { createdAt: number; value: CachedBook[] } | null = null;
 
-const getOrFetchBooks = async (): Promise<CachedBook[]> => {
+export const getOrFetchBooks = async (): Promise<CachedBook[]> => {
   const now = Date.now();
   if (booksCache && now - booksCache.createdAt < BOOKS_CACHE_TTL_MS) {
     return booksCache.value;
@@ -131,7 +131,7 @@ const getOrFetchBooks = async (): Promise<CachedBook[]> => {
       series: { select: { id: true, name: true } },
       sequence: true, narrator: true, publisher: true, genres: true, tags: true,
       library: { select: { id: true, name: true } },
-      author: { select: { name: true } },
+      author: { select: { name: true } }, authorId: true,
     },
     orderBy: { createdAt: "desc" },
   });
