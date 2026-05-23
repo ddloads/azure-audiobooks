@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import libraryRoutes from "./routes/libraryRoutes";
@@ -15,6 +16,7 @@ import {
 } from "./middleware/loggingMiddleware";
 
 const app = express();
+app.use(compression());
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGIN || "http://localhost:5173")
     .split(",")

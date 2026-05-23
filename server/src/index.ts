@@ -31,6 +31,15 @@ const startServer = async () => {
     logger.info(`Server is running on http://${HOST}:${PORT}`, { host: HOST, port: Number(PORT) });
   });
 
+  // Keep Supabase awake — free tier pauses after 5 min of inactivity
+  setInterval(async () => {
+    try {
+      await pool.query("SELECT 1");
+    } catch {
+      // ignore — next real request will reconnect
+    }
+  }, 4 * 60 * 1000);
+
   setInterval(() => {
     backupDatabase();
   }, 24 * 60 * 60 * 1000);
