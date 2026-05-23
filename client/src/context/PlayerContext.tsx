@@ -36,7 +36,9 @@ interface PlayerContextType {
   volume: number;
   playbackRate: number;
   sleepRemaining: number | null;
+  isPreviewMode: boolean;
   playBook: (book: Book, startTime?: number) => void;
+  playPreviewBook: (book: Book, startTime?: number) => void;
   togglePlay: () => void;
   seek: (time: number) => void;
   skipForward: (seconds: number) => void;
@@ -68,6 +70,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const [volume, _setVolume] = useState(1);
   const [playbackRate, _setPlaybackRate] = useState(1);
   const [sleepRemaining, setSleepRemaining] = useState<number | null>(null);
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -77,6 +80,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const fileIndexRef = useRef(0);
   const timeRef = useRef(0);
   const playbackRateRef = useRef(1);
+  const previewModeRef = useRef(false);
 
   const setCurrentBook = (book: Book | null) => {
     bookRef.current = book;
@@ -114,6 +118,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const saveProgress = () => {
+    if (previewModeRef.current) return;
     const book = bookRef.current;
     if (!book) return;
     const total = getElapsedBeforeIndex(book, fileIndexRef.current) + timeRef.current;
@@ -165,7 +170,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
       if (book) {
         setCurrentTime(book.duration);
-        void api.post(`/progress/${book.id}`, { currentTime: book.duration, isFinished: true });
+        if (!previewModeRef.current) {
+          void api.post(`/progress/${book.id}`, { currentTime: book.duration, isFinished: true });
+        }
       }
 
       setIsPlaying(false);
@@ -188,6 +195,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
 
     syncTimerRef.current = setInterval(() => {
       const book = bookRef.current;
+      if (previewModeRef.current) return;
       if (!book) return;
       const total = getElapsedBeforeIndex(book, fileIndexRef.current) + timeRef.current;
       void api.post(`/progress/${book.id}`, { currentTime: total, isFinished: false });
@@ -198,7 +206,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [isPlaying, currentBook]);
 
-  const playBook = (book: Book, startTime = 0) => {
+  const playBookInternal = (book: Book, startTime = 0, preview = false) => {
+    previewModeRef.current = preview;
+    setIsPreviewMode(preview);
     setCurrentBook(book);
     setDuration(book.duration);
     setCurrentTime(startTime);
@@ -220,6 +230,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     timeRef.current = fileStart;
     setCurrentFileIndex(fileIndex);
     loadAudio(book.audioFiles[fileIndex].id, fileStart);
+  };
+
+  const playBook = (book: Book, startTime = 0) => {
+    playBookInternal(book, startTime, false);
+  };
+
+  const playPreviewBook = (book: Book, startTime = 0) => {
+    playBookInternal(book, startTime, true);
   };
 
   const togglePlay = () => {
@@ -355,6 +373,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       clearInterval(sleepIntervalRef.current);
       sleepIntervalRef.current = null;
     }
+    previewModeRef.current = false;
+    setIsPreviewMode(false);
     setSleepRemaining(null);
     const audio = audioRef.current;
     if (audio) {
@@ -378,7 +398,9 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
         volume,
         playbackRate,
         sleepRemaining,
+        isPreviewMode,
         playBook,
+        playPreviewBook,
         togglePlay,
         seek,
         skipForward,

@@ -13,12 +13,15 @@ import {
   HardDrive,
   Info,
   Loader2,
+  Pause,
+  Play,
   RefreshCw,
   ShieldCheck,
   Trash2,
   X,
 } from "lucide-react";
 import api from "../api/axios";
+import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 
 interface AudioFile {
@@ -132,6 +135,7 @@ const getStateValue = (state: unknown, key: string) =>
 
 const DuplicatesPage = () => {
   const { showToast } = useToast();
+  const { currentBook, isPlaying, isPreviewMode, playPreviewBook, stopPlayer } = usePlayer();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -321,6 +325,30 @@ const DuplicatesPage = () => {
     });
   };
 
+  const handlePreviewBook = (book: Book) => {
+    const isCurrentPreview = isPreviewMode && currentBook?.id === book.id && isPlaying;
+    if (isCurrentPreview) {
+      stopPlayer();
+      return;
+    }
+
+    playPreviewBook({
+      id: book.id,
+      title: book.title,
+      author: { name: book.author.name },
+      coverPath: book.coverPath ?? undefined,
+      duration: book.duration,
+      audioFiles: book.audioFiles.map((file) => ({
+        id: file.id,
+        filename: file.filename,
+        title: file.title,
+        duration: file.duration,
+        index: file.index,
+      })),
+      chapters: [],
+    });
+  };
+
   if (loading) {
     return (
       <div className="duplicates-page duplicates-page--centered">
@@ -452,6 +480,7 @@ const DuplicatesPage = () => {
               <div className="duplicates-version-grid">
                 {currentGroup.books.map((book, index) => {
                   const label = versionLabels[index] ?? String(index + 1);
+                  const isCurrentPreview = isPreviewMode && currentBook?.id === book.id && isPlaying;
                   return (
                     <article
                       key={book.id}
@@ -481,6 +510,17 @@ const DuplicatesPage = () => {
                       </p>
 
                       <div className="duplicates-version-actions">
+                        <button
+                          className={`duplicates-choice-btn${isCurrentPreview ? " active" : ""}`}
+                          type="button"
+                          onClick={() => handlePreviewBook(book)}
+                          disabled={book.audioFiles.length === 0}
+                          style={{ gridColumn: "1 / -1" }}
+                          title="Preview without saving listening progress"
+                        >
+                          {isCurrentPreview ? <Pause size={14} /> : <Play size={14} />}
+                          {isCurrentPreview ? "Stop Preview" : "Preview"}
+                        </button>
                         <button
                           className={`duplicates-choice-btn${book.id === primaryBookId ? " active" : ""}`}
                           onClick={() => setPrimaryBookId(book.id)}
