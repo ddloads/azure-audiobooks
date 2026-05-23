@@ -140,7 +140,7 @@ export default function LogsTab() {
   const handleClearLogs = async () => {
     setActionLoading("clear-logs");
     try {
-      await api.post("/admin/logs/clear");
+      await api.delete("/admin/logs");
       showToast({
         title: "Logs cleared",
         tone: "success",
