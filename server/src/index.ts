@@ -53,6 +53,7 @@ const startServer = async () => {
   }
 
   server.listen(Number(PORT), HOST, () => {
+    console.log(`[startup] server listening on http://${HOST}:${PORT}`);
     logger.info(`Server is running on http://${HOST}:${PORT}`, { host: HOST, port: Number(PORT) });
   });
 
@@ -66,10 +67,18 @@ const startServer = async () => {
   }, 4 * 60 * 1000);
 
   setInterval(() => {
-    backupDatabase();
+    try {
+      backupDatabase();
+    } catch (error) {
+      console.warn("[backup] scheduled backup failed:", error);
+    }
   }, 24 * 60 * 60 * 1000);
 
-  backupDatabase();
+  try {
+    backupDatabase();
+  } catch (error) {
+    console.warn("[backup] startup backup failed:", error);
+  }
 };
 
 startServer().catch((error) => {
