@@ -20,10 +20,6 @@ COPY server/ ./server/
 # Generate Prisma client
 RUN cd server && npx prisma generate
 
-# Build the server (assuming a build script exists or we just use ts-node in production)
-# For a production container, we should ideally transpile to JS
-RUN cd server && npx tsc
-
 # --- Production Image ---
 FROM node:22-slim
 
@@ -61,11 +57,13 @@ RUN set -eux; \
     /usr/local/bin/tone --help >/dev/null; \
     rm -rf /tmp/tone /tmp/tone.tar.gz
 
-# Copy built assets and production node_modules from builder
-COPY --from=builder /app/server/dist ./dist
+# Copy source and all dependencies from builder (tsx runs TypeScript directly)
+COPY --from=builder /app/server/src ./src
 COPY --from=builder /app/server/node_modules ./node_modules
 COPY --from=builder /app/server/package.json ./package.json
+COPY --from=builder /app/server/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/server/prisma ./prisma
+COPY --from=builder /app/server/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/server/scripts ./scripts
 
 # Environment variable for tone path (Linux location)
@@ -75,5 +73,5 @@ ENV NODE_ENV=production
 
 EXPOSE 4000
 
-# Run migrations and start the server
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Run migrations and start the server with tsx
+CMD ["sh", "-c", "npx prisma migrate deploy && npx tsx src/index.ts"]
