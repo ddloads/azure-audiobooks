@@ -12,11 +12,36 @@ console.log("[startup] importing modules complete");
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
 const server = http.createServer(app);
+let shuttingDown = false;
 
 installConsoleLogger();
 installProcessLogger();
 
 initSocket(server);
+
+const shutdown = (signal: string) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  logger.info(`Received ${signal}, shutting down`);
+  server.close(async () => {
+    try {
+      await pool.end();
+    } catch (error) {
+      logger.error("Failed to close database pool", error);
+    } finally {
+      process.exit(0);
+    }
+  });
+
+  setTimeout(() => {
+    logger.error("Forced shutdown after timeout");
+    process.exit(1);
+  }, 10_000).unref();
+};
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));
 
 const startServer = async () => {
   console.log("[startup] warming database connections...");

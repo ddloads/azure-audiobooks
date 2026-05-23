@@ -1,4 +1,5 @@
 import prisma from "../lib/prisma";
+import type { User } from "../generated/prisma/client";
 
 export const normalizeUsername = (username: string) => username.trim().toLowerCase();
 
@@ -38,6 +39,23 @@ export const findUserByUsernameInsensitive = async (username: string) => {
   }
 
   return prisma.user.findUnique({ where: { id: userId } });
+};
+
+export const findUserCredentialsByUsernameInsensitive = async (
+  username: string,
+): Promise<Pick<User, "id" | "username" | "email" | "password" | "role"> | null> => {
+  const normalized = normalizeUsername(username);
+  const matches = await prisma.$queryRaw<
+    Array<Pick<User, "id" | "username" | "email" | "password" | "role">>
+  >`
+    SELECT id, username, email, password, role
+    FROM "User"
+    WHERE lower(username) = ${normalized}
+    ORDER BY "createdAt" ASC
+    LIMIT 1
+  `;
+
+  return matches[0] || null;
 };
 
 export const findUserByEmailInsensitive = async (email: string) => {

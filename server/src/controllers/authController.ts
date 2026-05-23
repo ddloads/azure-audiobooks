@@ -6,6 +6,7 @@ import prisma from "../lib/prisma";
 import { AUTH_COOKIE_NAME, AuthRequest } from "../middleware/authMiddleware";
 import {
   findUserByEmailInsensitive,
+  findUserCredentialsByUsernameInsensitive,
   findUserByUsernameInsensitive,
   isValidEmail,
   sanitizeEmail,
@@ -117,7 +118,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await findUserByUsernameInsensitive(username);
+    const user = await findUserCredentialsByUsernameInsensitive(username);
     if (!user) {
       res.status(401).json({ error: "Invalid credentials" });
       return;
