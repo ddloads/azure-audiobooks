@@ -2,11 +2,13 @@ import fs from "fs";
 import path from "path";
 import { Worker } from "worker_threads";
 import { emitScanProgress } from "./socket";
+import prisma from "./prisma";
 import type { ScanProgressPayload } from "../utils/scanner";
 
 type ScanJobRequest = {
   id: string;
   libraryId?: string;
+  trigger: string;
   enqueuedAt: string;
 };
 
@@ -64,18 +66,26 @@ class ScanJobPool {
 
   private readonly queue: ScanJobRequest[] = [];
 
-  private nextJobId = 0;
-
   constructor(private readonly size: number) {
     for (let index = 0; index < this.size; index++) {
       this.workers.push(this.attachWorker(createWorkerSlot()));
     }
   }
 
-  enqueue(libraryId?: string) {
+  async enqueue(libraryId?: string, trigger = "manual") {
+    const persistedJob = await prisma.libraryScanJob.create({
+      data: {
+        libraryId,
+        trigger,
+        status: "queued",
+      },
+      select: { id: true },
+    });
+
     const job: ScanJobRequest = {
-      id: `scan-${Date.now()}-${++this.nextJobId}`,
+      id: persistedJob.id,
       libraryId,
+      trigger,
       enqueuedAt: new Date().toISOString(),
     };
 
@@ -91,14 +101,28 @@ class ScanJobPool {
     };
   }
 
-  stopAll() {
-    this.queue.length = 0;
+  async stopAll() {
+    const queuedJobs = this.queue.splice(0);
+    const queuedJobIds = queuedJobs.map((job) => job.id);
+
+    if (queuedJobIds.length > 0) {
+      await prisma.libraryScanJob.updateMany({
+        where: { id: { in: queuedJobIds } },
+        data: {
+          status: "cancelled",
+          finishedAt: new Date(),
+        },
+      });
+    }
 
     for (const slot of this.workers) {
       if (!slot.busy || !slot.currentJob) {
         continue;
       }
 
+      void this.updateJob(slot.currentJob.id, {
+        status: "cancelling",
+      });
       slot.worker.postMessage({
         type: "cancel",
         jobId: slot.currentJob.id,
@@ -153,11 +177,17 @@ class ScanJobPool {
     }
 
     if (message.type === "progress") {
+      void this.updateJobProgress(message.jobId, message.data);
       emitScanProgress(message.data);
       return;
     }
 
     if (message.type === "failed") {
+      void this.updateJob(message.jobId, {
+        status: "failed",
+        error: message.error,
+        finishedAt: new Date(),
+      });
       emitScanProgress({
         libraryId: slot.currentJob.libraryId,
         status: "failed",
@@ -168,7 +198,21 @@ class ScanJobPool {
       return;
     }
 
-    if (message.type === "completed" || message.type === "cancelled") {
+    if (message.type === "completed") {
+      void this.updateJob(message.jobId, {
+        status: "completed",
+        finishedAt: new Date(),
+      });
+      this.clearSlot(slot);
+      this.dispatch();
+      return;
+    }
+
+    if (message.type === "cancelled") {
+      void this.updateJob(message.jobId, {
+        status: "cancelled",
+        finishedAt: new Date(),
+      });
       this.clearSlot(slot);
       this.dispatch();
     }
@@ -180,6 +224,11 @@ class ScanJobPool {
     }
 
     console.error("Scan worker error:", error);
+    void this.updateJob(slot.currentJob.id, {
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+      finishedAt: new Date(),
+    });
     emitScanProgress({
       libraryId: slot.currentJob.libraryId,
       status: "failed",
@@ -207,6 +256,10 @@ class ScanJobPool {
 
       slot.busy = true;
       slot.currentJob = job;
+      void this.updateJob(job.id, {
+        status: "running",
+        startedAt: new Date(),
+      });
       slot.worker.postMessage({
         type: "run",
         jobId: job.id,
@@ -217,10 +270,71 @@ class ScanJobPool {
 
     return dispatched;
   }
+
+  private async updateJob(jobId: string, data: {
+    status?: string;
+    error?: string | null;
+    startedAt?: Date;
+    finishedAt?: Date;
+    totalFolders?: number | null;
+    scannedFolders?: number;
+  }) {
+    try {
+      await prisma.libraryScanJob.update({
+        where: { id: jobId },
+        data,
+      });
+    } catch (error) {
+      console.error(`Failed to update scan job ${jobId}:`, error);
+    }
+  }
+
+  private async updateJobProgress(jobId: string, data: ScanProgressPayload) {
+    const updateData: {
+      status?: string;
+      totalFolders?: number;
+      scannedFolders?: number;
+      startedAt?: Date;
+      finishedAt?: Date;
+    } = {};
+
+    if (data.status === "starting") {
+      updateData.status = "running";
+      updateData.startedAt = new Date();
+    }
+
+    if (data.status === "scanning") {
+      updateData.status = "running";
+    }
+
+    if (data.status === "completed") {
+      updateData.status = "completed";
+      updateData.finishedAt = new Date();
+    }
+
+    if (data.status === "failed") {
+      updateData.status = "failed";
+      updateData.finishedAt = new Date();
+    }
+
+    if (data.totalFolders !== undefined) {
+      updateData.totalFolders = data.totalFolders;
+    }
+
+    if (data.scannedFolders !== undefined) {
+      updateData.scannedFolders = data.scannedFolders;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return;
+    }
+
+    await this.updateJob(jobId, updateData);
+  }
 }
 
 const pool = new ScanJobPool(configuredPoolSize);
 
-export const requestLibraryScan = (libraryId?: string) => pool.enqueue(libraryId);
+export const requestLibraryScan = (libraryId?: string, trigger?: string) => pool.enqueue(libraryId, trigger);
 
 export const stopScanning = () => pool.stopAll();

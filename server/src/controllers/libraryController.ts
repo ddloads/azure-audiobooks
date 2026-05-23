@@ -561,17 +561,18 @@ export const triggerScan = async (req: Request, res: Response) => {
         return;
       }
 
-      const scanRequest = requestLibraryScan(libraryId);
+      const scanRequest = await requestLibraryScan(libraryId);
       res.status(202).json({
         message:
           scanRequest.status === "queued" ? `${library.name} scan queued` : `${library.name} scan started`,
         status: scanRequest.status,
+        jobId: scanRequest.jobId,
       });
       return;
     }
 
-    const scanRequest = requestLibraryScan();
-    res.status(202).json({ message: scanRequest.message, status: scanRequest.status });
+    const scanRequest = await requestLibraryScan();
+    res.status(202).json({ message: scanRequest.message, status: scanRequest.status, jobId: scanRequest.jobId });
   } catch (error) {
     res.status(500).json({ error: "Scan failed" });
   }
@@ -579,7 +580,7 @@ export const triggerScan = async (req: Request, res: Response) => {
 
 export const stopScan = async (_req: Request, res: Response) => {
   try {
-    stopScanning();
+    await stopScanning();
     res.json({ message: "Scan stop requested" });
   } catch (error) {
     res.status(500).json({ error: "Failed to stop scan" });

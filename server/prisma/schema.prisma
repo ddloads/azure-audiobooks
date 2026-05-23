@@ -28,6 +28,8 @@ model Library {
   folderPattern String?
   books         Book[]
   sources       LibrarySource[]
+  scanJobs      LibraryScanJob[]
+  indexedFiles  IndexedAudioFile[]
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 }
@@ -86,6 +88,7 @@ model Book {
   folderPath       String      @unique
   metadataVersion  Int         @default(0)
   audioFiles       AudioFile[]
+  indexedFiles     IndexedAudioFile[]
   chapters         Chapter[]
   progress         Progress[]
   createdAt        DateTime    @default(now())
@@ -103,6 +106,59 @@ model Book {
   @@index([asin])
   @@index([isbn])
   @@index([abridged])
+}
+
+model LibraryScanJob {
+  id             String             @id @default(uuid())
+  library        Library?           @relation(fields: [libraryId], references: [id], onDelete: SetNull)
+  libraryId      String?
+  status         String             @default("queued")
+  trigger        String?
+  totalFolders   Int?
+  scannedFolders Int                @default(0)
+  totalFiles     Int?
+  scannedFiles   Int                @default(0)
+  retryCount     Int                @default(0)
+  error          String?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  indexedFiles   IndexedAudioFile[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([libraryId, status])
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+model IndexedAudioFile {
+  id            String          @id @default(uuid())
+  library       Library         @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  libraryId     String
+  book          Book?           @relation(fields: [bookId], references: [id], onDelete: SetNull)
+  bookId        String?
+  lastScanJob   LibraryScanJob? @relation(fields: [lastScanJobId], references: [id], onDelete: SetNull)
+  lastScanJobId String?
+  path          String          @unique
+  fileName      String
+  extension     String
+  sizeBytes     BigInt
+  modifiedAt    DateTime
+  checksum      String?
+  durationSec   Int?
+  codec         String?
+  bitrate       Int?
+  scanStatus    String          @default("pending")
+  error         String?
+  lastScannedAt DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([libraryId, scanStatus])
+  @@index([bookId])
+  @@index([lastScanJobId])
+  @@index([modifiedAt])
+  @@index([checksum])
 }
 
 model Chapter {

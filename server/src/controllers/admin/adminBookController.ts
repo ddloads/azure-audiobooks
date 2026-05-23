@@ -274,11 +274,11 @@ export const autoChapterizeBookHandler = async (req: AuthRequest, res: Response)
 
 export const rescanLibrary = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const scanRequest = requestLibraryScan();
+    const scanRequest = await requestLibraryScan();
     adminLogger.info("Full library rescan requested", {
       status: scanRequest.status,
     });
-    res.status(202).json({ message: scanRequest.message, status: scanRequest.status });
+    res.status(202).json({ message: scanRequest.message, status: scanRequest.status, jobId: scanRequest.jobId });
   } catch (error) {
     console.error("Rescan library error:", error);
     res.status(500).json({ error: "Failed to rescan library" });
@@ -303,7 +303,7 @@ export const rescanSingleLibrary = async (req: AuthRequest, res: Response): Prom
       return;
     }
 
-    const scanRequest = requestLibraryScan(libraryId);
+    const scanRequest = await requestLibraryScan(libraryId);
     adminLogger.info("Single library rescan requested", {
       libraryId: library.id,
       name: library.name,
@@ -313,6 +313,7 @@ export const rescanSingleLibrary = async (req: AuthRequest, res: Response): Prom
       message:
         scanRequest.status === "queued" ? `${library.name} scan queued` : `${library.name} scan started`,
       status: scanRequest.status,
+      jobId: scanRequest.jobId,
     });
   } catch (error) {
     console.error("Rescan single library error:", error);

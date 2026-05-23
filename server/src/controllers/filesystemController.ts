@@ -25,7 +25,7 @@ const getStringArray = (value: unknown) =>
 const queueRootRescan = async (rootId: string) => {
   const root = await getManagedRootById(rootId);
   if (!root) throw new Error("Library root not found");
-  const scanRequest = requestLibraryScan(root.libraryId);
+  const scanRequest = await requestLibraryScan(root.libraryId, "filesystem");
   return { root, scanRequest };
 };
 
@@ -92,7 +92,7 @@ export const createFilesystemFolder = async (req: AuthRequest, res: Response): P
       actorUserId: req.user?.userId,
       scanStatus: scanRequest.status,
     });
-    res.status(201).json({ path: result.targetPath, scanStatus: scanRequest.status });
+    res.status(201).json({ path: result.targetPath, scanStatus: scanRequest.status, scanJobId: scanRequest.jobId });
   } catch (error) {
     console.error("Create filesystem folder error:", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create folder" });
@@ -119,7 +119,7 @@ export const renameFilesystemItem = async (req: AuthRequest, res: Response): Pro
       actorUserId: req.user?.userId,
       scanStatus: scanRequest.status,
     });
-    res.json({ path: result.nextPath, scanStatus: scanRequest.status });
+    res.json({ path: result.nextPath, scanStatus: scanRequest.status, scanJobId: scanRequest.jobId });
   } catch (error) {
     console.error("Rename filesystem item error:", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to rename item" });
@@ -146,7 +146,7 @@ export const moveFilesystemItems = async (req: AuthRequest, res: Response): Prom
       actorUserId: req.user?.userId,
       scanStatus: scanRequest.status,
     });
-    res.json({ scanStatus: scanRequest.status });
+    res.json({ scanStatus: scanRequest.status, scanJobId: scanRequest.jobId });
   } catch (error) {
     console.error("Move filesystem items error:", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to move items" });
@@ -171,7 +171,7 @@ export const deleteFilesystemItems = async (req: AuthRequest, res: Response): Pr
       actorUserId: req.user?.userId,
       scanStatus: scanRequest.status,
     });
-    res.json({ trashed: result.trashed, scanStatus: scanRequest.status });
+    res.json({ trashed: result.trashed, scanStatus: scanRequest.status, scanJobId: scanRequest.jobId });
   } catch (error) {
     console.error("Delete filesystem items error:", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to delete items" });
@@ -212,7 +212,7 @@ export const restoreFilesystemTrash = async (req: AuthRequest, res: Response): P
       actorUserId: req.user?.userId,
       scanStatus: scanRequest.status,
     });
-    res.json({ restored: result.restored, scanStatus: scanRequest.status });
+    res.json({ restored: result.restored, scanStatus: scanRequest.status, scanJobId: scanRequest.jobId });
   } catch (error) {
     console.error("Restore filesystem trash error:", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to restore trash items" });
@@ -257,7 +257,7 @@ export const rescanFilesystemRoot = async (req: AuthRequest, res: Response): Pro
       actorUserId: req.user?.userId,
       scanStatus: scanRequest.status,
     });
-    res.status(202).json({ message: scanRequest.message, status: scanRequest.status });
+    res.status(202).json({ message: scanRequest.message, status: scanRequest.status, jobId: scanRequest.jobId });
   } catch (error) {
     console.error("Filesystem rescan error:", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to queue rescan" });
