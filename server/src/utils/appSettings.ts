@@ -24,12 +24,26 @@ const parseAppearanceSettings = (value: string | null | undefined): AppearanceSe
   }
 };
 
-export const getAppearanceSettings = async (): Promise<AppearanceSettings> => {
-  const rows = await prisma.$queryRaw<Array<{ value: string }>>`
-    SELECT "value" FROM "AppSetting" WHERE "key" = ${APPEARANCE_SETTINGS_KEY} LIMIT 1
-  `;
+let appearanceCache: { value: AppearanceSettings; expiresAt: number } | null = null;
 
-  return parseAppearanceSettings(rows[0]?.value);
+export const invalidateAppearanceCache = () => {
+  appearanceCache = null;
+};
+
+export const getAppearanceSettings = async (): Promise<AppearanceSettings> => {
+  const now = Date.now();
+  if (appearanceCache && now < appearanceCache.expiresAt) {
+    return appearanceCache.value;
+  }
+
+  const row = await prisma.appSetting.findUnique({
+    where: { key: APPEARANCE_SETTINGS_KEY },
+    select: { value: true },
+  });
+
+  const value = parseAppearanceSettings(row?.value);
+  appearanceCache = { value, expiresAt: now + 60_000 };
+  return value;
 };
 
 export const updateAppearanceSettings = async (
@@ -43,11 +57,12 @@ export const updateAppearanceSettings = async (
       : {}),
   };
 
-  await prisma.$executeRaw`
-    INSERT INTO "AppSetting" ("key", "value", "updatedAt")
-    VALUES (${APPEARANCE_SETTINGS_KEY}, ${JSON.stringify(next)}, NOW())
-    ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW()
-  `;
+  await prisma.appSetting.upsert({
+    where: { key: APPEARANCE_SETTINGS_KEY },
+    create: { key: APPEARANCE_SETTINGS_KEY, value: JSON.stringify(next) },
+    update: { value: JSON.stringify(next) },
+  });
 
+  invalidateAppearanceCache();
   return next;
 };
