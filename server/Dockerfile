@@ -74,4 +74,4 @@ ENV NODE_ENV=production
 EXPOSE 4000
 
 # Run migrations and start the server with tsx
-CMD ["sh", "-c", "npx prisma migrate deploy && npx tsx src/index.ts"]
+CMD ["sh", "-c", "DATABASE_URL=${DIRECT_URL:-$DATABASE_URL} npx prisma migrate deploy && npx tsx src/index.ts"]
