@@ -1,5 +1,5 @@
 import prisma from "../../lib/prisma";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { createLogger } from "../../lib/logger";

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import type { CookieOptions } from "express";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma";
 import { AUTH_COOKIE_NAME, AuthRequest } from "../middleware/authMiddleware";
