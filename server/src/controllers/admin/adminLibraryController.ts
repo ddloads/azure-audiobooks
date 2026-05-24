@@ -4,6 +4,7 @@ import path from "path";
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { createLogger } from "../../lib/logger";
+import { refreshLibraryWatchers } from "../../lib/libraryWatcher";
 import { normalizeSourcePath } from "../../utils/libraryConfig";
 import {
   getSingleParam,
@@ -47,6 +48,12 @@ const getParentFolder = (folderPath: string) => {
   const normalizedPath = normalizeSourcePath(folderPath);
   const parentPath = path.dirname(normalizedPath);
   return parentPath === normalizedPath ? null : parentPath;
+};
+
+const refreshWatchersSoon = () => {
+  refreshLibraryWatchers().catch((error) => {
+    adminLogger.error("Failed to refresh library watchers", error);
+  });
 };
 
 export const browseLibraryFolders = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -210,6 +217,7 @@ export const updateLibrary = async (req: AuthRequest, res: Response): Promise<vo
     });
 
     res.json(library);
+    refreshWatchersSoon();
     adminLogger.info("Library updated", {
       libraryId: library.id,
       name: library.name,
@@ -253,6 +261,7 @@ export const deleteLibrary = async (req: AuthRequest, res: Response): Promise<vo
     }
 
     await prisma.library.delete({ where: { id: libraryId } });
+    refreshWatchersSoon();
     adminLogger.warn("Library deleted", {
       libraryId: library.id,
       name: library.name,
@@ -355,10 +364,12 @@ export const createLibrarySource = async (req: AuthRequest, res: Response): Prom
         kind,
         isWritable,
         isEnabled,
+        isWatched: isBoolean(req.body.isWatched) ? req.body.isWatched : false,
       },
     });
 
     res.status(201).json(source);
+    refreshWatchersSoon();
     adminLogger.info("Library source created", {
       sourceId: source.id,
       libraryId: source.libraryId,
@@ -366,6 +377,7 @@ export const createLibrarySource = async (req: AuthRequest, res: Response): Prom
       kind: source.kind,
       isWritable: source.isWritable,
       isEnabled: source.isEnabled,
+      isWatched: source.isWatched,
     });
   } catch (error) {
     console.error("Create library source error:", error);
@@ -393,6 +405,7 @@ export const updateLibrarySource = async (req: AuthRequest, res: Response): Prom
     const kind = getSingleBodyValue(req.body.kind);
     const isWritable = isBoolean(req.body.isWritable) ? req.body.isWritable : undefined;
     const isEnabled = isBoolean(req.body.isEnabled) ? req.body.isEnabled : undefined;
+    const isWatched = isBoolean(req.body.isWatched) ? req.body.isWatched : undefined;
 
     let normalizedPath: string | undefined;
     if (inputPath) {
@@ -413,10 +426,12 @@ export const updateLibrarySource = async (req: AuthRequest, res: Response): Prom
         kind: kind || undefined,
         isWritable,
         isEnabled,
+        isWatched,
       },
     });
 
     res.json(updatedSource);
+    refreshWatchersSoon();
     adminLogger.info("Library source updated", {
       sourceId: updatedSource.id,
       libraryId: updatedSource.libraryId,
@@ -424,6 +439,7 @@ export const updateLibrarySource = async (req: AuthRequest, res: Response): Prom
       kind: updatedSource.kind,
       isWritable: updatedSource.isWritable,
       isEnabled: updatedSource.isEnabled,
+      isWatched: updatedSource.isWatched,
     });
   } catch (error) {
     console.error("Update library source error:", error);
@@ -455,6 +471,7 @@ export const deleteLibrarySource = async (req: AuthRequest, res: Response): Prom
     }
 
     await prisma.librarySource.delete({ where: { id: sourceId } });
+    refreshWatchersSoon();
     adminLogger.warn("Library source deleted", {
       sourceId: source.id,
       libraryId: source.libraryId,

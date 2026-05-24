@@ -12,6 +12,10 @@ type ScanJobRequest = {
   enqueuedAt: string;
 };
 
+type EnqueueOptions = {
+  dedupe?: boolean;
+};
+
 type WorkerCommand =
   | { type: "run"; jobId: string; libraryId?: string }
   | { type: "cancel"; jobId?: string };
@@ -72,7 +76,17 @@ class ScanJobPool {
     }
   }
 
-  async enqueue(libraryId?: string, trigger = "manual") {
+  async enqueue(libraryId?: string, trigger = "manual", options: EnqueueOptions = {}) {
+    if (options.dedupe && await this.hasActiveLibraryJob(libraryId)) {
+      return {
+        status: "skipped" as const,
+        message: libraryId
+          ? "Library scan already queued or running"
+          : "Full library scan already queued or running",
+        jobId: null,
+      };
+    }
+
     const persistedJob = await prisma.libraryScanJob.create({
       data: {
         libraryId,
@@ -271,6 +285,26 @@ class ScanJobPool {
     return dispatched;
   }
 
+  private async hasActiveLibraryJob(libraryId?: string) {
+    const matchesLibrary = (job: ScanJobRequest) => job.libraryId === libraryId;
+    const queuedMatch = this.queue.some(matchesLibrary);
+    const runningMatch = this.workers.some((slot) => slot.currentJob && matchesLibrary(slot.currentJob));
+
+    if (queuedMatch || runningMatch) {
+      return true;
+    }
+
+    const activeJob = await prisma.libraryScanJob.findFirst({
+      where: {
+        libraryId: libraryId ?? null,
+        status: { in: ["queued", "running", "cancelling"] },
+      },
+      select: { id: true },
+    });
+
+    return Boolean(activeJob);
+  }
+
   private async updateJob(jobId: string, data: {
     status?: string;
     error?: string | null;
@@ -335,6 +369,7 @@ class ScanJobPool {
 
 const pool = new ScanJobPool(configuredPoolSize);
 
-export const requestLibraryScan = (libraryId?: string, trigger?: string) => pool.enqueue(libraryId, trigger);
+export const requestLibraryScan = (libraryId?: string, trigger?: string, options?: EnqueueOptions) =>
+  pool.enqueue(libraryId, trigger, options);
 
 export const stopScanning = () => pool.stopAll();

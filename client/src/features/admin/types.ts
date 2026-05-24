@@ -82,6 +82,7 @@ export interface AdminLibrarySource {
   kind: string;
   isEnabled: boolean;
   isWritable: boolean;
+  isWatched: boolean;
 }
 
 export interface AdminLibrary {

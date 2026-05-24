@@ -43,11 +43,13 @@ model LibrarySource {
   kind       String   @default("LOCAL") // LOCAL, MAPPED, NETWORK
   isEnabled  Boolean  @default(true)
   isWritable Boolean  @default(false)
+  isWatched  Boolean  @default(false)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
   @@index([libraryId, isEnabled])
   @@index([libraryId, isWritable])
+  @@index([libraryId, isWatched])
 }
 
 model Author {

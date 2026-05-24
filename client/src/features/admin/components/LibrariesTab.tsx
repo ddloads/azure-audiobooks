@@ -52,7 +52,7 @@ export default function LibrariesTab({
   >({});
 
   const [sourceDrafts, setSourceDrafts] = useState<
-    Record<string, { label: string; path: string; kind: string; isWritable: boolean }>
+    Record<string, { label: string; path: string; kind: string; isWritable: boolean; isWatched: boolean }>
   >({});
 
   const [structureCheckResults, setStructureCheckResults] = useState<
@@ -196,6 +196,7 @@ export default function LibrariesTab({
           path: draft.path.trim(),
           kind: draft.kind,
           isWritable: draft.isWritable,
+          isWatched: draft.isWatched,
           isEnabled: true,
         });
         showToast({
@@ -209,6 +210,7 @@ export default function LibrariesTab({
             path: "",
             kind: "LOCAL",
             isWritable: false,
+            isWatched: false,
           },
         }));
         await onRefresh();
@@ -224,7 +226,7 @@ export default function LibrariesTab({
 
   const handleToggleSource = async (
     sourceId: string,
-    field: "isEnabled" | "isWritable",
+    field: "isEnabled" | "isWritable" | "isWatched",
     value: boolean
   ) => {
     await runAction(`update-source-${sourceId}-${field}`, async () => {
@@ -311,6 +313,7 @@ export default function LibrariesTab({
       path: "",
       kind: "LOCAL",
       isWritable: false,
+      isWatched: false,
     };
 
     setSourceDrafts((current) => ({
@@ -385,6 +388,7 @@ export default function LibrariesTab({
             path: "",
             kind: "LOCAL",
             isWritable: false,
+            isWatched: false,
           };
 
           return (
@@ -620,6 +624,16 @@ export default function LibrariesTab({
                         />
                         Writable
                       </label>
+                      <label className="admin-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={source.isWatched}
+                          onChange={(e) =>
+                            void handleToggleSource(source.id, "isWatched", e.target.checked)
+                          }
+                        />
+                        Watched
+                      </label>
                       <div className="admin-pill">
                         {source.kind === "NETWORK" ? (
                           <Network size={12} />
@@ -700,6 +714,22 @@ export default function LibrariesTab({
                     <span>
                       Writable
                       <small className="admin-field-hint">Allow uploads</small>
+                    </span>
+                  </label>
+                  <label className="admin-checkbox admin-writable-label">
+                    <input
+                      type="checkbox"
+                      checked={draft.isWatched}
+                      onChange={(e) =>
+                        setSourceDrafts((current) => ({
+                          ...current,
+                          [library.id]: { ...draft, isWatched: e.target.checked },
+                        }))
+                      }
+                    />
+                    <span>
+                      Watch
+                      <small className="admin-field-hint">Auto-scan changes</small>
                     </span>
                   </label>
                   <button
