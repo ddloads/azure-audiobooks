@@ -1,10 +1,11 @@
 import { parentPort } from "worker_threads";
-import { scanLibrary, type ScanProgressPayload } from "../utils/scanner";
+import { scanLibrary, syncLibraryFolder, type ScanProgressPayload } from "../utils/scanner";
 
 type RunMessage = {
   type: "run";
   jobId: string;
   libraryId?: string;
+  folderPath?: string;
 };
 
 type CancelMessage = {
@@ -58,11 +59,21 @@ port.on("message", async (message: WorkerMessage) => {
   };
 
   try {
-    await scanLibrary(message.libraryId, {
-      emitProgress: (data) => emitProgress(message.jobId, data),
-      shouldStop: () => currentJob?.cancelled ?? false,
-    });
+    if (message.folderPath) {
+      if (!message.libraryId) {
+        throw new Error("Folder scan requires a library id");
+      }
 
+      await syncLibraryFolder(message.libraryId, message.folderPath, {
+        emitProgress: (data) => emitProgress(message.jobId, data),
+        shouldStop: () => currentJob?.cancelled ?? false,
+      });
+    } else {
+      await scanLibrary(message.libraryId, {
+        emitProgress: (data) => emitProgress(message.jobId, data),
+        shouldStop: () => currentJob?.cancelled ?? false,
+      });
+    }
     if (currentJob.cancelled) {
       port.postMessage({
         type: "cancelled",

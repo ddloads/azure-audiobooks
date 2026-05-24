@@ -8,16 +8,18 @@ import type { ScanProgressPayload } from "../utils/scanner";
 type ScanJobRequest = {
   id: string;
   libraryId?: string;
+  folderPath?: string;
   trigger: string;
   enqueuedAt: string;
 };
 
 type EnqueueOptions = {
   dedupe?: boolean;
+  folderPath?: string;
 };
 
 type WorkerCommand =
-  | { type: "run"; jobId: string; libraryId?: string }
+  | { type: "run"; jobId: string; libraryId?: string; folderPath?: string }
   | { type: "cancel"; jobId?: string };
 
 type WorkerResponse =
@@ -99,6 +101,7 @@ class ScanJobPool {
     const job: ScanJobRequest = {
       id: persistedJob.id,
       libraryId,
+      folderPath: options.folderPath,
       trigger,
       enqueuedAt: new Date().toISOString(),
     };
@@ -278,6 +281,7 @@ class ScanJobPool {
         type: "run",
         jobId: job.id,
         libraryId: job.libraryId,
+        folderPath: job.folderPath,
       } satisfies WorkerCommand);
       dispatched = true;
     }
@@ -371,5 +375,12 @@ const pool = new ScanJobPool(configuredPoolSize);
 
 export const requestLibraryScan = (libraryId?: string, trigger?: string, options?: EnqueueOptions) =>
   pool.enqueue(libraryId, trigger, options);
+
+export const requestLibraryFolderScan = (
+  libraryId: string,
+  folderPath: string,
+  trigger?: string,
+  options?: EnqueueOptions,
+) => pool.enqueue(libraryId, trigger, { ...options, folderPath });
 
 export const stopScanning = () => pool.stopAll();

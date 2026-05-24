@@ -757,6 +757,107 @@ const upsertBookFolder = async (
   });
 };
 
+const deleteBookFolderIfPresent = async (libraryId: string, folderPath: string) => {
+  const existingBook = await prisma.book.findFirst({
+    where: {
+      libraryId,
+      folderPath: {
+        equals: folderPath,
+        mode: "insensitive",
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!existingBook) {
+    return false;
+  }
+
+  await prisma.book.delete({ where: { id: existingBook.id } });
+  return true;
+};
+
+export const syncLibraryFolder = async (
+  libraryId: string,
+  folderPathInput: string,
+  context: ScanRunContext = {},
+) => {
+  const emitProgress = context.emitProgress ?? (() => {});
+  const shouldStop = context.shouldStop ?? (() => false);
+  const folderPath = normalizeSourcePath(folderPathInput);
+  const folderName = path.basename(folderPath);
+
+  emitProgress({
+    libraryId,
+    status: "starting",
+    progress: 0,
+    currentFolder: folderName,
+    totalFolders: 1,
+    scannedFolders: 0,
+  });
+
+  if (shouldStop()) return;
+
+  if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
+    await deleteBookFolderIfPresent(libraryId, folderPath);
+    emitProgress({
+      libraryId,
+      status: "completed",
+      progress: 100,
+      currentFolder: folderName,
+      totalFolders: 1,
+      scannedFolders: 1,
+    });
+    return;
+  }
+
+  const files = fs.readdirSync(folderPath);
+  const audioFiles = files.filter((file) => AUDIO_EXTENSIONS.includes(path.extname(file).toLowerCase()));
+
+  if (audioFiles.length === 0) {
+    await deleteBookFolderIfPresent(libraryId, folderPath);
+    emitProgress({
+      libraryId,
+      status: "completed",
+      progress: 100,
+      currentFolder: folderName,
+      totalFolders: 1,
+      scannedFolders: 1,
+    });
+    return;
+  }
+
+  await upsertBookFolder(
+    {
+      libraryId,
+      folderName,
+      folderPath,
+      files,
+    },
+    shouldStop,
+  );
+
+  emitProgress({
+    libraryId,
+    status: "scanning",
+    progress: 100,
+    currentFolder: folderName,
+    totalFolders: 1,
+    scannedFolders: 1,
+  });
+
+  emitProgress({
+    libraryId,
+    status: "completed",
+    progress: 100,
+    currentFolder: folderName,
+    totalFolders: 1,
+    scannedFolders: 1,
+  });
+};
+
 export const scanLibrary = async (libraryId?: string, context: ScanRunContext = {}) => {
   const emitProgress = context.emitProgress ?? (() => {});
   const shouldStop = context.shouldStop ?? (() => false);

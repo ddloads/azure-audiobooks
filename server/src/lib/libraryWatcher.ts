@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import prisma from "./prisma";
 import { createLogger } from "./logger";
-import { requestLibraryScan } from "./scanJobPool";
+import { requestLibraryFolderScan, requestLibraryScan } from "./scanJobPool";
 import { normalizeSourcePath } from "../utils/libraryConfig";
 
 const logger = createLogger("watcher");
@@ -26,6 +26,15 @@ const reconcileTimers = new Map<string, NodeJS.Timeout>();
 const lastSourceSignatures = new Map<string, string>();
 const pendingScans = new Map<string, NodeJS.Timeout>();
 let refreshPromise: Promise<void> | null = null;
+
+const getFolderPathForEvent = (eventName: string, changedPath: string) => {
+  const normalizedPath = normalizeSourcePath(changedPath);
+  if (eventName === "addDir" || eventName === "unlinkDir") {
+    return normalizedPath;
+  }
+
+  return path.dirname(normalizedPath);
+};
 
 const getSourceSignature = (sourcePath: string) => {
   if (!fs.existsSync(sourcePath)) {
@@ -107,7 +116,7 @@ const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: s
       if (signature !== lastSeen) {
         lastSourceSignatures.set(sourceId, signature);
         console.info(`[watcher] reconcile detected source change: ${sourcePath}`);
-        scheduleLibraryScan(libraryId, "reconcile", sourcePath);
+        scheduleFullLibraryScan(libraryId, "reconcile", sourcePath);
       }
     } catch (error) {
       console.warn(`[watcher] reconcile skipped unavailable source path: ${sourcePath}`);
@@ -140,14 +149,51 @@ const closeWatchers = async () => {
   }
 };
 
-const scheduleLibraryScan = (libraryId: string, eventName: string, changedPath: string) => {
-  const existingTimer = pendingScans.get(libraryId);
+const scheduleFolderScan = (libraryId: string, folderPath: string, eventName: string, changedPath: string) => {
+  const key = `${libraryId}::folder::${folderPath.toLowerCase()}`;
+  const existingTimer = pendingScans.get(key);
   if (existingTimer) {
     clearTimeout(existingTimer);
   }
 
-  pendingScans.set(libraryId, setTimeout(() => {
-    pendingScans.delete(libraryId);
+  pendingScans.set(key, setTimeout(() => {
+    pendingScans.delete(key);
+    console.info(
+      `[watcher] queueing folder scan for library ${libraryId} after ${eventName}: ${folderPath} ` +
+      `(source event: ${changedPath})`,
+    );
+    requestLibraryFolderScan(libraryId, folderPath, "watch-folder", { dedupe: true })
+      .then((result) => {
+        console.info(`[watcher] folder scan ${result.status} for library ${libraryId}`);
+        logger.info("Watch-triggered folder scan handled", {
+          libraryId,
+          eventName,
+          path: changedPath,
+          folderPath,
+          status: result.status,
+          jobId: result.jobId,
+        });
+      })
+      .catch((error) => {
+        logger.error("Failed to queue watch-triggered folder scan", error, {
+          libraryId,
+          eventName,
+          path: changedPath,
+          folderPath,
+        });
+      });
+  }, WATCH_DEBOUNCE_MS));
+};
+
+const scheduleFullLibraryScan = (libraryId: string, eventName: string, changedPath: string) => {
+  const key = `${libraryId}::library`;
+  const existingTimer = pendingScans.get(key);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+  }
+
+  pendingScans.set(key, setTimeout(() => {
+    pendingScans.delete(key);
     console.info(`[watcher] queueing scan for library ${libraryId} after ${eventName}: ${changedPath}`);
     requestLibraryScan(libraryId, "watch", { dedupe: true })
       .then((result) => {
@@ -243,7 +289,8 @@ export const refreshLibraryWatchers = async () => {
           return;
         }
 
-        scheduleLibraryScan(source.libraryId, eventName, changedPath);
+        const folderPath = getFolderPathForEvent(eventName, changedPath);
+        scheduleFolderScan(source.libraryId, folderPath, eventName, changedPath);
       });
 
       watcher.on("error", (error) => {
