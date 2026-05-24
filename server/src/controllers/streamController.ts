@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 import prisma from "../lib/prisma";
 
@@ -34,6 +35,11 @@ const encodeHeaderFilename = (filename: string): string =>
     (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`,
   );
 
+// 32 KB chunks keep the first data event small enough to flush over the wire
+// quickly on slow storage. ExoPlayer's HTTP timeout starts ticking as soon as
+// the response headers are sent, so the first read needs to complete fast.
+const STREAM_HIGH_WATER_MARK = 32 * 1024;
+
 export const streamAudio = async (req: Request, res: Response) => {
   try {
     const fileId = getSingleParam(req.params.fileId);
@@ -53,17 +59,60 @@ export const streamAudio = async (req: Request, res: Response) => {
     }
 
     const filePath = audioFile.path;
-    if (!fs.existsSync(filePath)) {
-      console.warn(`Stream 404: Physical file not found at path: ${filePath}`);
-      res.status(404).json({ error: "File not found on disk" });
-      return;
+
+    let stat;
+    try {
+      stat = await fsp.stat(filePath);
+    } catch (err: any) {
+      if (err?.code === "ENOENT") {
+        console.warn(`Stream 404: Physical file not found at path: ${filePath}`);
+        res.status(404).json({ error: "File not found on disk" });
+        return;
+      }
+      throw err;
     }
 
-    const stat = fs.statSync(filePath);
     const fileSize = stat.size;
     const range = req.headers.range;
     const contentType = getAudioContentType(audioFile.filename || filePath);
     const contentDisposition = `inline; filename*=UTF-8''${encodeHeaderFilename(audioFile.filename)}`;
+
+    const startStream = (start: number, end: number, status: 200 | 206) => {
+      const chunksize = end - start + 1;
+      const head: Record<string, string | number> = {
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunksize,
+        "Content-Type": contentType,
+        "Content-Disposition": contentDisposition,
+      };
+      if (status === 206) {
+        head["Content-Range"] = `bytes ${start}-${end}/${fileSize}`;
+      }
+      res.writeHead(status, head);
+
+      const file = fs.createReadStream(filePath, {
+        start,
+        end,
+        highWaterMark: STREAM_HIGH_WATER_MARK,
+      });
+
+      // Surface stream errors instead of letting the connection hang open.
+      file.on("error", (err) => {
+        console.error(`Stream read error for ${filePath}:`, err);
+        if (!res.headersSent) {
+          res.status(500).end();
+        } else {
+          res.destroy(err);
+        }
+      });
+      // If the client disconnects, abort the file read so we don't keep
+      // pulling bytes off slow storage for a dead socket.
+      res.on("close", () => {
+        if (!file.destroyed) file.destroy();
+      });
+
+      file.pipe(res);
+    };
 
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
@@ -79,30 +128,16 @@ export const streamAudio = async (req: Request, res: Response) => {
         res.status(416).set("Content-Range", `bytes */${fileSize}`).end();
         return;
       }
-
-      const chunksize = end - start + 1;
-      const file = fs.createReadStream(filePath, { start, end });
-      const head = {
-        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-        "Accept-Ranges": "bytes",
-        "Content-Length": chunksize,
-        "Content-Type": contentType,
-        "Content-Disposition": contentDisposition,
-      };
-      res.writeHead(206, head);
-      file.pipe(res);
+      startStream(start, end, 206);
     } else {
-      const head = {
-        "Content-Length": fileSize,
-        "Accept-Ranges": "bytes",
-        "Content-Type": contentType,
-        "Content-Disposition": contentDisposition,
-      };
-      res.writeHead(200, head);
-      fs.createReadStream(filePath).pipe(res);
+      startStream(0, fileSize - 1, 200);
     }
   } catch (error) {
     console.error("Stream error:", error);
-    res.status(500).json({ error: "Streaming failed" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Streaming failed" });
+    } else {
+      res.destroy();
+    }
   }
 };

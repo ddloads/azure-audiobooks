@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import fsp from "fs/promises";
 import sharp from "sharp";
 import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
-import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
+import { normalizeCoverPath, findCoverInFolder, findCoverInFolderAsync } from "../utils/covers";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { setLogTitle } from "../middleware/loggingMiddleware";
 import {
@@ -619,13 +620,18 @@ export const getCover = async (req: Request, res: Response) => {
     select: { folderPath: true },
   });
   if (book) {
-    const coverFile = findCoverInFolder(book.folderPath);
+    const coverFile = await findCoverInFolderAsync(book.folderPath);
     if (coverFile) filePath = coverFile;
   }
 
   if (!filePath) {
     const legacyPath = path.join(process.cwd(), "data", "covers", bookId);
-    if (fs.existsSync(legacyPath)) filePath = legacyPath;
+    try {
+      await fsp.access(legacyPath);
+      filePath = legacyPath;
+    } catch {
+      // No legacy cover available; fall through to 404 below.
+    }
   }
 
   if (!filePath) {

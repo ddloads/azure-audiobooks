@@ -1,4 +1,5 @@
 import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 
 export const getCoverUrl = (bookId: string) =>
@@ -21,6 +22,19 @@ export const findCoverInFolder = (folderPath: string): string | null => {
   for (const ext of [".jpg", ".jpeg", ".png", ".webp"]) {
     const p = path.join(folderPath, `cover${ext}`);
     if (fs.existsSync(p)) return p;
+  }
+  return null;
+};
+
+export const findCoverInFolderAsync = async (folderPath: string): Promise<string | null> => {
+  for (const ext of [".jpg", ".jpeg", ".png", ".webp"]) {
+    const p = path.join(folderPath, `cover${ext}`);
+    try {
+      await fsp.access(p);
+      return p;
+    } catch {
+      // continue to the next extension
+    }
   }
   return null;
 };
