@@ -16,7 +16,7 @@ import {
 } from "./shared";
 
 const adminLogger = createLogger("admin");
-const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "10", 10);
+const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "8", 10);
 
 export const listUsers = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {

@@ -108,6 +108,10 @@ export const getRecommendations = async (req: AuthRequest, res: Response) => {
 
     res.json({ nextInSeries, youMightLike });
   } catch (error) {
+    console.error("Recommendations error:", error);
+    process.stderr.write(
+      `[recommendations] ${error instanceof Error ? error.stack || error.message : String(error)}\n`,
+    );
     res.status(500).json({ error: "Failed to fetch recommendations" });
   }
 };

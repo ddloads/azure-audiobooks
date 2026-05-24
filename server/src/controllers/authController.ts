@@ -32,7 +32,7 @@ function generatePairingCode(): string {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-me";
-const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "10", 10);
+const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "8", 10);
 const authCookieOptions: CookieOptions = {
   httpOnly: true,
   sameSite: "lax",

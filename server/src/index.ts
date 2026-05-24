@@ -46,6 +46,9 @@ process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("exit", (code) => {
   console.log(`[shutdown] process exiting with code ${code}`);
 });
+process.on("beforeExit", (code) => {
+  console.log(`[shutdown] process beforeExit with code ${code}`);
+});
 
 const startServer = async () => {
   console.log("[startup] warming database connections...");
