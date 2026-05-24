@@ -1,6 +1,5 @@
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import { Worker } from "worker_threads";
 import { emitScanProgress } from "./socket";
 import prisma from "./prisma";
@@ -41,17 +40,16 @@ const configuredPoolSize = (() => {
 })();
 
 const getWorkerScriptPath = () => {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url));
-  const workerPath = path.join(currentDir, "../workers/scanWorker.ts");
+  const workerPath = path.join(process.cwd(), "dist", "workers", "scanWorker.js");
   if (!fs.existsSync(workerPath)) {
-    throw new Error(`Scan worker not found at ${workerPath}`);
+    throw new Error(`Scan worker not found at ${workerPath}. Build the server before running scans.`);
   }
+
   return workerPath;
 };
 
 const createWorkerSlot = (): WorkerSlot => {
   const worker = new Worker(getWorkerScriptPath(), {
-    execArgv: ["--import", "tsx"],
     env: process.env,
   });
 
@@ -163,12 +161,8 @@ class ScanJobPool {
     slot.busy = false;
     slot.currentJob = null;
 
-    try {
-      slot.worker = createWorkerSlot().worker;
-      this.attachWorker(slot);
-    } catch (error) {
-      console.error("Failed to reset scan worker slot:", error);
-    }
+    slot.worker = createWorkerSlot().worker;
+    this.attachWorker(slot);
   }
 
   private handleWorkerMessage(slot: WorkerSlot, message: WorkerResponse) {

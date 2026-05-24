@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import type { CookieOptions } from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma";
 import { AUTH_COOKIE_NAME, AuthRequest } from "../middleware/authMiddleware";
@@ -32,7 +32,6 @@ function generatePairingCode(): string {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-me";
-const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "8", 10);
 const authCookieOptions: CookieOptions = {
   httpOnly: true,
   sameSite: "lax",
@@ -46,32 +45,6 @@ const issueAuthToken = (userId: string, role: string) =>
 
 const setAuthCookie = (res: Response, token: string) => {
   res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions);
-};
-
-const maybeRehashPassword = (userId: string, password: string, currentHash: string) => {
-  try {
-    const rounds = bcrypt.getRounds(currentHash);
-    if (rounds <= PASSWORD_HASH_ROUNDS) return;
-
-    console.log(`[auth] Rehashing password for user ${userId} from cost ${rounds} to ${PASSWORD_HASH_ROUNDS}`);
-    void bcrypt
-      .hash(password, PASSWORD_HASH_ROUNDS)
-      .then((passwordHash) =>
-        prisma.user.update({
-          where: { id: userId },
-          data: { password: passwordHash },
-          select: { id: true },
-        }),
-      )
-      .then(() => {
-        console.log(`[auth] Password rehash complete for user ${userId}`);
-      })
-      .catch((error) => {
-        console.warn("[auth] Password rehash failed:", error);
-      });
-  } catch (error) {
-    console.warn("[auth] Could not inspect password hash cost:", error);
-  }
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -106,7 +79,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const userCount = await prisma.user.count();
     const role = userCount === 0 ? "ADMIN" : "USER";
 
-    const hashedPassword = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         username,
@@ -156,8 +129,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    maybeRehashPassword(user.id, password, user.password);
-
     const token = issueAuthToken(user.id, user.role);
     setAuthCookie(res, token);
 
@@ -172,9 +143,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error("Login error:", error);
-    process.stderr.write(
-      `[auth] Login error: ${error instanceof Error ? error.stack || error.message : String(error)}\n`,
-    );
     res.status(500).json({ error: "Internal server error" });
   }
 };

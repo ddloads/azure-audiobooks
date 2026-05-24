@@ -108,37 +108,6 @@ const hasTag = (value: string | null | undefined, tagName: string) =>
 
 const isReviewBook = (value: string | null | undefined) => hasTag(value, "review");
 
-const BOOKS_CACHE_TTL_MS = 60_000;
-export type CachedBook = {
-  id: string; title: string; subtitle: string | null; asin: string | null;
-  duration: number; coverPath: string | null; folderPath: string;
-  series: { id: string; name: string } | null; sequence: number | null;
-  narrator: string | null; publisher: string | null; genres: string | null;
-  tags: string | null; library: { id: string; name: string };
-  author: { name: string }; authorId: string;
-};
-let booksCache: { createdAt: number; value: CachedBook[] } | null = null;
-
-export const getOrFetchBooks = async (): Promise<CachedBook[]> => {
-  const now = Date.now();
-  if (booksCache && now - booksCache.createdAt < BOOKS_CACHE_TTL_MS) {
-    return booksCache.value;
-  }
-  const books = await prisma.book.findMany({
-    select: {
-      id: true, title: true, subtitle: true, asin: true, duration: true,
-      coverPath: true, folderPath: true,
-      series: { select: { id: true, name: true } },
-      sequence: true, narrator: true, publisher: true, genres: true, tags: true,
-      library: { select: { id: true, name: true } },
-      author: { select: { name: true } }, authorId: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  booksCache = { createdAt: now, value: books };
-  return books;
-};
-
 const FILTER_OPTIONS_CACHE_TTL_MS = 30_000;
 let filterOptionsCache:
   | {
@@ -165,7 +134,6 @@ let filterOptionsCache:
 
 export const invalidateFilterOptionsCache = () => {
   filterOptionsCache = null;
-  booksCache = null;
 };
 
 export const getBooks = async (req: AuthRequest, res: Response) => {
@@ -296,25 +264,41 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     if (sortBy === "newest") orderBy = { createdAt: "desc" };
     if (sortBy === "oldest") orderBy = { createdAt: "asc" };
 
-    const hasFilters = libraryId || authorId || seriesId || narrator || author ||
-      series || publisher || language || genre || tag || yearFrom || yearTo ||
-      durationMin !== undefined || durationMax !== undefined || abridged !== undefined ||
-      hasAsin !== undefined || hasIsbn !== undefined || fileType || listeningStatus || duplicatesOnly;
-    const isDefaultQuery = !hasFilters && sortBy === "newest";
-    const books = isDefaultQuery
-      ? await getOrFetchBooks()
-      : await prisma.book.findMany({
-          where,
+    const books = await prisma.book.findMany({
+      where,
+      select: {
+        id: true,
+        title: true,
+        subtitle: true,
+        asin: true,
+        duration: true,
+        coverPath: true,
+        folderPath: true,
+        series: {
           select: {
-            id: true, title: true, subtitle: true, asin: true, duration: true,
-            coverPath: true, folderPath: true,
-            series: { select: { id: true, name: true } },
-            sequence: true, narrator: true, publisher: true, genres: true, tags: true,
-            library: { select: { id: true, name: true } },
-            author: { select: { name: true } },
+            id: true,
+            name: true,
           },
-          orderBy,
-        });
+        },
+        sequence: true,
+        narrator: true,
+        publisher: true,
+        genres: true,
+        tags: true,
+        library: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        author: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy,
+    });
     const searchFilteredBooks = search
       ? books.filter((book) =>
           [

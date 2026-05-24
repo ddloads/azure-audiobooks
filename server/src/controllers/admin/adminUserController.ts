@@ -1,5 +1,5 @@
 import prisma from "../../lib/prisma";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { createLogger } from "../../lib/logger";
@@ -16,7 +16,6 @@ import {
 } from "./shared";
 
 const adminLogger = createLogger("admin");
-const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "8", 10);
 
 export const listUsers = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -72,7 +71,7 @@ export const createUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const hashedPassword = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
+    const hashedPassword = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
       data: {
         username,
@@ -135,7 +134,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
     }
 
     if (password) {
-      data.password = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
+      data.password = await bcrypt.hash(password, 10);
     }
 
     const updatedUser = await prisma.user.update({

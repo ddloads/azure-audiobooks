@@ -48,10 +48,6 @@ export const getAllUserProgress = async (req: AuthRequest, res: Response) => {
       })),
     );
   } catch (error) {
-    console.error("Fetch progress list error:", error);
-    process.stderr.write(
-      `[progress:list] ${error instanceof Error ? error.stack || error.message : String(error)}\n`,
-    );
     res.status(500).json({ error: "Failed to fetch progress" });
   }
 };
@@ -77,10 +73,6 @@ export const getProgress = async (req: AuthRequest, res: Response) => {
 
     res.json(progress || { currentTime: 0, isFinished: false });
   } catch (error) {
-    console.error("Fetch progress error:", error);
-    process.stderr.write(
-      `[progress:get] ${error instanceof Error ? error.stack || error.message : String(error)}\n`,
-    );
     res.status(500).json({ error: "Failed to fetch progress" });
   }
 };
@@ -117,10 +109,6 @@ export const updateProgress = async (req: AuthRequest, res: Response) => {
 
     res.json(progress);
   } catch (error) {
-    console.error("Update progress error:", error);
-    process.stderr.write(
-      `[progress:update] ${error instanceof Error ? error.stack || error.message : String(error)}\n`,
-    );
     res.status(500).json({ error: "Failed to update progress" });
   }
 };

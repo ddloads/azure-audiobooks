@@ -42,10 +42,6 @@ export const requestLoggingMiddleware = (req: AuthRequest, res: Response, next: 
         requestLogger.http(`${req.method} ${req.originalUrl}`, res.statusCode, durationMs, {
           userAgent: req.headers["user-agent"],
         });
-
-        if (req.originalUrl.startsWith("/api/auth") || res.statusCode >= 500) {
-          console.log(`[http] ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
-        }
       });
 
       next();

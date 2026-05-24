@@ -1,5 +1,4 @@
 import express from "express";
-import compression from "compression";
 import cors from "cors";
 import authRoutes from "./routes/authRoutes";
 import libraryRoutes from "./routes/libraryRoutes";
@@ -14,11 +13,8 @@ import {
   errorLoggingMiddleware,
   requestLoggingMiddleware,
 } from "./middleware/loggingMiddleware";
-import { pool } from "./lib/prisma";
 
 const app = express();
-app.set("trust proxy", 1);
-app.use(compression());
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGIN || "http://localhost:5173")
     .split(",")
@@ -58,16 +54,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", uptime: process.uptime() });
-});
-
-app.get("/ready", async (_req, res) => {
-  try {
-    await pool.query("SELECT 1");
-    res.json({ status: "ready" });
-  } catch (error) {
-    res.status(503).json({ status: "not_ready" });
-  }
+  res.json({ status: "ok" });
 });
 
 app.use(errorLoggingMiddleware);
