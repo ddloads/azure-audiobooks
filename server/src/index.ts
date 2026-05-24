@@ -23,6 +23,7 @@ const shutdown = (signal: string) => {
   if (shuttingDown) return;
   shuttingDown = true;
 
+  console.log(`[shutdown] received ${signal}`);
   logger.info(`Received ${signal}, shutting down`);
   server.close(async () => {
     try {
@@ -42,6 +43,9 @@ const shutdown = (signal: string) => {
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("exit", (code) => {
+  console.log(`[shutdown] process exiting with code ${code}`);
+});
 
 const startServer = async () => {
   console.log("[startup] warming database connections...");

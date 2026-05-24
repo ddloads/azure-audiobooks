@@ -32,6 +32,7 @@ function generatePairingCode(): string {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-me";
+const PASSWORD_HASH_ROUNDS = Number.parseInt(process.env.PASSWORD_HASH_ROUNDS || "10", 10);
 const authCookieOptions: CookieOptions = {
   httpOnly: true,
   sameSite: "lax",
@@ -45,6 +46,32 @@ const issueAuthToken = (userId: string, role: string) =>
 
 const setAuthCookie = (res: Response, token: string) => {
   res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions);
+};
+
+const maybeRehashPassword = (userId: string, password: string, currentHash: string) => {
+  try {
+    const rounds = bcrypt.getRounds(currentHash);
+    if (rounds <= PASSWORD_HASH_ROUNDS) return;
+
+    console.log(`[auth] Rehashing password for user ${userId} from cost ${rounds} to ${PASSWORD_HASH_ROUNDS}`);
+    void bcrypt
+      .hash(password, PASSWORD_HASH_ROUNDS)
+      .then((passwordHash) =>
+        prisma.user.update({
+          where: { id: userId },
+          data: { password: passwordHash },
+          select: { id: true },
+        }),
+      )
+      .then(() => {
+        console.log(`[auth] Password rehash complete for user ${userId}`);
+      })
+      .catch((error) => {
+        console.warn("[auth] Password rehash failed:", error);
+      });
+  } catch (error) {
+    console.warn("[auth] Could not inspect password hash cost:", error);
+  }
 };
 
 export const register = async (req: Request, res: Response): Promise<void> => {
@@ -79,7 +106,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const userCount = await prisma.user.count();
     const role = userCount === 0 ? "ADMIN" : "USER";
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, PASSWORD_HASH_ROUNDS);
     const user = await prisma.user.create({
       data: {
         username,
@@ -128,6 +155,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: "Invalid credentials" });
       return;
     }
+
+    maybeRehashPassword(user.id, password, user.password);
 
     const token = issueAuthToken(user.id, user.role);
     setAuthCookie(res, token);
