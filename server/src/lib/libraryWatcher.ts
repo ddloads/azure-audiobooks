@@ -1,4 +1,5 @@
 import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 import prisma from "./prisma";
 import { createLogger } from "./logger";
@@ -37,8 +38,10 @@ const getFolderPathForEvent = (eventName: string, changedPath: string) => {
   return path.dirname(normalizedPath);
 };
 
-const getSourceSignature = (sourcePath: string) => {
-  if (!fs.existsSync(sourcePath)) {
+const getSourceSignature = async (sourcePath: string): Promise<string> => {
+  try {
+    await fsp.access(sourcePath);
+  } catch {
     return "missing";
   }
 
@@ -47,16 +50,22 @@ const getSourceSignature = (sourcePath: string) => {
   let dirCount = 0;
   let totalBytes = 0;
   let maxMtime = 0;
+  // Yield to the event loop periodically so the reconcile walk doesn't stall
+  // unrelated requests on slow network mounts.
+  let iterations = 0;
+  const YIELD_EVERY = 64;
 
   while (stack.length > 0) {
-    const currentDir = stack.pop();
-    if (!currentDir || !fs.existsSync(currentDir)) {
-      continue;
+    if (++iterations % YIELD_EVERY === 0) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
     }
+
+    const currentDir = stack.pop();
+    if (!currentDir) continue;
 
     let stat: fs.Stats;
     try {
-      stat = fs.statSync(currentDir);
+      stat = await fsp.stat(currentDir);
     } catch {
       continue;
     }
@@ -73,7 +82,7 @@ const getSourceSignature = (sourcePath: string) => {
 
     let entries: fs.Dirent[] = [];
     try {
-      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+      entries = await fsp.readdir(currentDir, { withFileTypes: true });
     } catch {
       continue;
     }
@@ -85,7 +94,7 @@ const getSourceSignature = (sourcePath: string) => {
       } else if (entry.isFile()) {
         fileCount++;
         try {
-          const entryStat = fs.statSync(entryPath);
+          const entryStat = await fsp.stat(entryPath);
           totalBytes += entryStat.size;
           maxMtime = Math.max(maxMtime, entryStat.mtimeMs);
         } catch {
@@ -104,15 +113,21 @@ const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: s
     clearInterval(existingTimer);
   }
 
-  try {
-    lastSourceSignatures.set(sourceId, getSourceSignature(sourcePath));
-  } catch {
-    lastSourceSignatures.delete(sourceId);
-  }
+  // Prime the baseline signature in the background so the first reconcile tick
+  // has something to compare against without blocking startup.
+  void getSourceSignature(sourcePath)
+    .then((signature) => lastSourceSignatures.set(sourceId, signature))
+    .catch(() => lastSourceSignatures.delete(sourceId));
 
-  const timer = setInterval(() => {
+  // Track whether a reconcile pass is already running for this source so we
+  // never queue overlapping walks of a slow network mount.
+  let reconcileInFlight = false;
+
+  const runReconcile = async () => {
+    if (reconcileInFlight) return;
+    reconcileInFlight = true;
     try {
-      const signature = getSourceSignature(sourcePath);
+      const signature = await getSourceSignature(sourcePath);
       const lastSeen = lastSourceSignatures.get(sourceId);
       if (signature !== lastSeen) {
         lastSourceSignatures.set(sourceId, signature);
@@ -137,7 +152,13 @@ const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: s
         libraryId,
         path: sourcePath,
       });
+    } finally {
+      reconcileInFlight = false;
     }
+  };
+
+  const timer = setInterval(() => {
+    void runReconcile();
   }, WATCH_FOLDER_RECONCILE_MS);
 
   reconcileTimers.set(sourceId, timer);
@@ -280,7 +301,13 @@ export const refreshLibraryWatchers = async () => {
 
     for (const source of sources) {
       const sourcePath = normalizeSourcePath(source.path);
-      if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+      let sourceStat: fs.Stats | null = null;
+      try {
+        sourceStat = await fsp.stat(sourcePath);
+      } catch {
+        sourceStat = null;
+      }
+      if (!sourceStat || !sourceStat.isDirectory()) {
         console.warn(`[watcher] skipping unavailable source path: ${sourcePath}`);
         logger.warn("Skipping watched source because path is unavailable", {
           sourceId: source.id,
