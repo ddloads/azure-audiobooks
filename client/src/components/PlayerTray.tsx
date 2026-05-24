@@ -123,8 +123,11 @@ export default function PlayerTray() {
     setShowChapters(false);
   };
 
+  const seekFill = duration > 0 ? `${(currentTime / duration) * 100}%` : "0%";
+  const volFill = `${Math.round(volume * 100)}%`;
+
   return (
-    <div className="player-tray">
+    <div className={`player-tray${isPlaying ? " is-playing" : ""}`}>
       <div className="tray-static">
         <button
           className="tray-cover-lg"
@@ -178,6 +181,7 @@ export default function PlayerTray() {
               max={duration || 100}
               value={currentTime}
               onChange={(event) => seek(parseFloat(event.target.value))}
+              style={{ "--fill": seekFill } as React.CSSProperties}
               aria-label="Seek"
             />
             <span className="tray-time tray-time-right">-{fmt(remaining)}</span>
@@ -313,6 +317,7 @@ export default function PlayerTray() {
               value={volume}
               onChange={(event) => setVolume(parseFloat(event.target.value))}
               className="tray-volume-slider"
+              style={{ "--vol": volFill } as React.CSSProperties}
               aria-label="Volume"
             />
           </div>
