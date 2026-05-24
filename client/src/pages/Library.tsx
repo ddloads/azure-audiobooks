@@ -8,17 +8,13 @@ import {
   ListPlus,
   Plus,
   RefreshCw,
-  LogOut,
   BookOpen,
   FileSearch,
   FolderOpen,
   Loader2,
   Trash2,
-  Settings,
   Save,
-  Smartphone,
   Sparkles,
-  Bug,
   X,
   SlidersHorizontal,
 } from "lucide-react";
@@ -31,11 +27,8 @@ import { getSocketBaseUrl } from "../api/backend";
 import AppLogo from "../components/AppLogo";
 import BookCard from "../components/BookCard";
 import BookMetadataModal from "../components/BookMetadataModal";
-import SearchBox from "../components/SearchBox";
 import UploadModal from "../components/UploadModal";
-import ConnectMobileModal from "../components/ConnectMobileModal";
 import ConfirmDialog from "../components/ConfirmDialog";
-import BugReportModal from "../components/BugReportModal";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
 import QuickMatchModal from "../features/quick-match/QuickMatchModal";
 import {
@@ -222,7 +215,7 @@ const SkeletonCard = () => (
 );
 
 const Library = () => {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -251,8 +244,6 @@ const Library = () => {
 
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
-  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const [matchBook, setMatchBook] = useState<MetadataBook | null>(null);
   const [actionBook, setActionBook] = useState<LibraryBook | null>(null);
   const [confirmAction, setConfirmAction] = useState<null | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
@@ -966,16 +957,6 @@ const Library = () => {
         </div>
 
         <div className="library-toolbar">
-          <SearchBox
-            value={search}
-            onChange={(v) => {
-              const newParams = new URLSearchParams(searchParams);
-              if (v) newParams.set("search", v);
-              else newParams.delete("search");
-              setSearchParams(newParams, { replace: true });
-            }}
-          />
-
           <div className="filter-group">
             <button
               className={`btn btn-secondary filter-toggle-btn ${isFilterPanelOpen || activeFilterCount > 0 ? "active" : ""}`}
@@ -1031,36 +1012,8 @@ const Library = () => {
                 <FolderOpen size={15} />
                 Files
               </button>
-              <button
-                onClick={() => navigate("/settings", { state: { from: returnTo } })}
-                className="btn btn-secondary library-icon-btn"
-                title="Admin Settings"
-              >
-                <Settings size={15} />
-              </button>
             </>
           )}
-          <button
-            onClick={() => setIsConnectMobileOpen(true)}
-            className="btn btn-secondary library-icon-btn"
-            title="Connect Mobile App"
-          >
-            <Smartphone size={15} />
-          </button>
-          <button
-            onClick={() => setIsBugReportOpen(true)}
-            className="btn btn-secondary library-icon-btn"
-            title="Report an issue"
-          >
-            <Bug size={15} />
-          </button>
-          <button
-            onClick={logout}
-            className="btn logout-btn"
-            title="Sign out"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
       </header>
 
@@ -1581,14 +1534,6 @@ const Library = () => {
             </div>
           )}
         </>
-      )}
-
-      {isConnectMobileOpen && (
-        <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
-      )}
-
-      {isBugReportOpen && (
-        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
       )}
 
       {isUploadModalOpen && (

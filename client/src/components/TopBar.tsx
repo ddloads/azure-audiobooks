@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, User, XCircle } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Bug, CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, Smartphone, User, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
 import AppLogo from "./AppLogo";
+import SearchBox from "./SearchBox";
+import BugReportModal from "./BugReportModal";
+import ConnectMobileModal from "./ConnectMobileModal";
 
 interface TopBarProps {
   onMenuToggle: () => void;
@@ -13,8 +16,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { user, logout } = useAuth();
   const { scanProgress } = useScanProgress();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dropOpen, setDropOpen] = useState(false);
+  const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
+  const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const searchValue = location.pathname === "/" ? searchParams.get("search") || "" : "";
 
   const isActiveScan = scanProgress?.status === "starting" || scanProgress?.status === "scanning";
   const scanProgressValue = Math.max(0, Math.min(100, Math.round(scanProgress?.progress ?? 0)));
@@ -44,6 +52,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   }, []);
 
   return (
+    <>
     <header className="topbar">
       <button
         className="topbar-hamburger"
@@ -60,6 +69,27 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       >
         <AppLogo size={40} showWordmark />
       </button>
+
+      {user && (
+        <div className="topbar-search">
+          <SearchBox
+            value={searchValue}
+            onChange={(value) => {
+              const nextParams =
+                location.pathname === "/" ? new URLSearchParams(searchParams) : new URLSearchParams();
+
+              if (value) nextParams.set("search", value);
+              else nextParams.delete("search");
+
+              if (location.pathname === "/") {
+                setSearchParams(nextParams, { replace: true });
+              } else {
+                navigate({ pathname: "/", search: nextParams.toString() }, { replace: false });
+              }
+            }}
+          />
+        </div>
+      )}
 
       <div className="topbar-spacer" />
 
@@ -95,6 +125,36 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
       <div className="topbar-actions">
         {user && (
+          <>
+          {user.role === "ADMIN" && (
+            <button
+              type="button"
+              className="topbar-icon-btn"
+              onClick={() => navigate("/settings")}
+              title="Admin Settings"
+              aria-label="Admin Settings"
+            >
+              <Settings size={16} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="topbar-icon-btn"
+            onClick={() => setIsConnectMobileOpen(true)}
+            title="Connect Mobile App"
+            aria-label="Connect Mobile App"
+          >
+            <Smartphone size={16} />
+          </button>
+          <button
+            type="button"
+            className="topbar-icon-btn"
+            onClick={() => setIsBugReportOpen(true)}
+            title="Report an issue"
+            aria-label="Report an issue"
+          >
+            <Bug size={16} />
+          </button>
           <div className="topbar-user-wrap" ref={dropRef}>
             <button
               className="topbar-user-btn"
@@ -139,8 +199,16 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               </div>
             )}
           </div>
+          </>
         )}
       </div>
     </header>
+    {isConnectMobileOpen && (
+      <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
+    )}
+    {isBugReportOpen && (
+      <BugReportModal onClose={() => setIsBugReportOpen(false)} />
+    )}
+    </>
   );
 }
