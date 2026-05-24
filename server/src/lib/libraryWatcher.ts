@@ -24,6 +24,7 @@ const WATCH_FOLDER_RECONCILE_MS =
 let watchers: LibrarySourceWatcher[] = [];
 const reconcileTimers = new Map<string, NodeJS.Timeout>();
 const lastSourceSignatures = new Map<string, string>();
+const lastSourceActivityAt = new Map<string, number>();
 const pendingScans = new Map<string, NodeJS.Timeout>();
 let refreshPromise: Promise<void> | null = null;
 
@@ -115,7 +116,18 @@ const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: s
       const lastSeen = lastSourceSignatures.get(sourceId);
       if (signature !== lastSeen) {
         lastSourceSignatures.set(sourceId, signature);
+        const lastActivity = lastSourceActivityAt.get(sourceId) ?? 0;
+        const activityAgeMs = Date.now() - lastActivity;
+
         console.info(`[watcher] reconcile detected source change: ${sourcePath}`);
+        if (activityAgeMs < WATCH_FOLDER_RECONCILE_MS) {
+          console.info(
+            `[watcher] reconcile suppressed for active source: ${sourcePath} ` +
+            `(last event ${Math.round(activityAgeMs / 1000)}s ago)`,
+          );
+          return;
+        }
+
         scheduleFullLibraryScan(libraryId, "reconcile", sourcePath);
       }
     } catch (error) {
@@ -149,8 +161,15 @@ const closeWatchers = async () => {
   }
 };
 
-const scheduleFolderScan = (libraryId: string, folderPath: string, eventName: string, changedPath: string) => {
+const scheduleFolderScan = (
+  sourceId: string,
+  libraryId: string,
+  folderPath: string,
+  eventName: string,
+  changedPath: string,
+) => {
   const key = `${libraryId}::folder::${folderPath.toLowerCase()}`;
+  lastSourceActivityAt.set(sourceId, Date.now());
   const existingTimer = pendingScans.get(key);
   if (existingTimer) {
     clearTimeout(existingTimer);
@@ -290,7 +309,7 @@ export const refreshLibraryWatchers = async () => {
         }
 
         const folderPath = getFolderPathForEvent(eventName, changedPath);
-        scheduleFolderScan(source.libraryId, folderPath, eventName, changedPath);
+        scheduleFolderScan(source.id, source.libraryId, folderPath, eventName, changedPath);
       });
 
       watcher.on("error", (error) => {
