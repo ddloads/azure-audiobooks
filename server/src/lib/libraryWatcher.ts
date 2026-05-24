@@ -27,6 +27,9 @@ const closeWatchers = async () => {
   }
   pendingScans.clear();
   await Promise.allSettled(activeWatchers.map((watcher) => watcher.close()));
+  if (activeWatchers.length > 0) {
+    console.info(`[watcher] stopped ${activeWatchers.length} library source watcher(s)`);
+  }
 };
 
 const scheduleLibraryScan = (libraryId: string, eventName: string, changedPath: string) => {
@@ -37,8 +40,10 @@ const scheduleLibraryScan = (libraryId: string, eventName: string, changedPath: 
 
   pendingScans.set(libraryId, setTimeout(() => {
     pendingScans.delete(libraryId);
+    console.info(`[watcher] queueing scan for library ${libraryId} after ${eventName}: ${changedPath}`);
     requestLibraryScan(libraryId, "watch", { dedupe: true })
       .then((result) => {
+        console.info(`[watcher] scan ${result.status} for library ${libraryId}`);
         logger.info("Watch-triggered library scan handled", {
           libraryId,
           eventName,
@@ -60,6 +65,7 @@ const scheduleLibraryScan = (libraryId: string, eventName: string, changedPath: 
 export const refreshLibraryWatchers = async () => {
   if (!WATCH_FOLDERS_ENABLED) {
     await closeWatchers();
+    console.info("[watcher] library folder watching disabled by WATCH_FOLDERS_ENABLED=false");
     logger.info("Library folder watching disabled");
     return;
   }
@@ -86,15 +92,19 @@ export const refreshLibraryWatchers = async () => {
     });
 
     if (sources.length === 0) {
+      console.info("[watcher] no watched library sources configured");
       logger.info("No watched library sources configured");
       return;
     }
+
+    console.info(`[watcher] configuring ${sources.length} watched library source(s)`);
 
     const { watch } = await import("chokidar");
 
     for (const source of sources) {
       const sourcePath = normalizeSourcePath(source.path);
       if (!fs.existsSync(sourcePath) || !fs.statSync(sourcePath).isDirectory()) {
+        console.warn(`[watcher] skipping unavailable source path: ${sourcePath}`);
         logger.warn("Skipping watched source because path is unavailable", {
           sourceId: source.id,
           libraryId: source.libraryId,
@@ -130,6 +140,7 @@ export const refreshLibraryWatchers = async () => {
       });
 
       watchers.push(watcher);
+      console.info(`[watcher] watching source path: ${sourcePath}`);
       logger.info("Watching library source", {
         sourceId: source.id,
         libraryId: source.libraryId,
