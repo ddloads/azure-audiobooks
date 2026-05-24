@@ -51,7 +51,26 @@
       "Bash(cat vite.config.js)",
       "PowerShell(Get-ChildItem \"E:\\\\Software Dev\\\\Azure\\\\client\\\\node_modules\" -Directory | Where-Object { $_.Name -match \"tailwind|wind|unocss|atomic\" } | Select-Object Name; Get-ChildItem \"E:\\\\Software Dev\\\\Azure\\\\client\\\\node_modules\\\\@tailwindcss\" -ErrorAction SilentlyContinue | Select-Object Name)",
       "Bash(grep -r \"Book.*seriesSequence\\\\|Book\\\\s*\\\\$\\\\|Book\\\\s*{\\\\|sequence\" --include=\"*.tsx\" --include=\"*.ts\" --include=\"*.jsx\" --include=\"*.js\" -n)",
-      "Bash(grep -r \"Book\\\\s*\\\\${.*sequence\\\\|Book.*sequence\\\\|\\\\`Book\" --include=\"*.tsx\" --include=\"*.ts\" -A 2 -B 2)"
+      "Bash(grep -r \"Book\\\\s*\\\\${.*sequence\\\\|Book.*sequence\\\\|\\\\`Book\" --include=\"*.tsx\" --include=\"*.ts\" -A 2 -B 2)",
+      "Bash(git stash *)",
+      "Bash(git pull *)",
+      "Bash(git add *)",
+      "Bash(Remove-Item *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "WebFetch(domain:www.prisma.io)",
+      "Bash(node *)",
+      "Bash(DATABASE_URL=\"postgresql://fake@localhost/fake\" JWT_SECRET=\"test\" timeout 5 npx tsx src/index.ts)",
+      "Bash(timeout 8 npx tsx src/index.ts)",
+      "Bash(timeout 10 npx tsx src/index.ts)",
+      "Bash(kill %1)",
+      "WebFetch(domain:azure.ddsplayground.com)",
+      "Bash(git commit -m 'fix: use pg default import for Pool to ensure correct instanceof check *)",
+      "Bash(git commit -m 'fix: add uncaught exception handlers to surface silent startup crashes *)",
+      "Bash(git commit -m 'perf: warm connection pool and cache all-books query *)",
+      "Bash(git commit -m 'perf: await DB connection before server starts listening *)",
+      "Bash(git commit -m 'perf: cache appearance settings and replace $queryRaw with Prisma client *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Book count: {len\\(d\\) if isinstance\\(d,list\\) else d.get\\(\\\\\"total\\\\\",\\\\\"?\\\\\"\\)}'\\) \")"
     ]
   }
 }

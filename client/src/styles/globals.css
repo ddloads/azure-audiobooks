@@ -8657,16 +8657,17 @@ body {
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
-  height: 4px;
-  border-radius: 2px;
+  height: 5px;
+  border-radius: 3px;
   background: linear-gradient(
     to right,
     #5edfff var(--fill, 0%),
-    rgba(255, 255, 255, 0.11) var(--fill, 0%)
+    rgba(255, 255, 255, 0.22) var(--fill, 0%)
   );
   cursor: pointer;
   outline: none;
   border: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .tray-seek::-webkit-slider-thumb {
@@ -8695,9 +8696,9 @@ body {
 }
 
 .tray-seek::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.11);
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
 }
 
 /* Secondary controls */
@@ -8728,16 +8729,17 @@ body {
   appearance: none;
   width: 84px;
   min-width: 64px;
-  height: 4px;
-  border-radius: 2px;
+  height: 5px;
+  border-radius: 3px;
   background: linear-gradient(
     to right,
-    rgba(186, 201, 216, 0.6) var(--vol, 70%),
-    rgba(255, 255, 255, 0.1) var(--vol, 70%)
+    rgba(186, 201, 216, 0.7) var(--vol, 70%),
+    rgba(255, 255, 255, 0.18) var(--vol, 70%)
   );
   outline: none;
   cursor: pointer;
   border: none;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
 .tray-volume-slider::-webkit-slider-thumb {
