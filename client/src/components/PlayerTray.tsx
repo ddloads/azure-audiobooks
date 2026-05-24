@@ -128,6 +128,22 @@ export default function PlayerTray() {
 
   return (
     <div className={`player-tray${isPlaying ? " is-playing" : ""}`}>
+      {/* Full-width seek bar at the top */}
+      <div className="tray-progress">
+        <span className="tray-time">{fmt(currentTime)}</span>
+        <input
+          type="range"
+          className="tray-seek"
+          min={0}
+          max={duration || 100}
+          value={currentTime}
+          onChange={(event) => seek(parseFloat(event.target.value))}
+          style={{ "--fill": seekFill } as React.CSSProperties}
+          aria-label="Seek"
+        />
+        <span className="tray-time tray-time-right">-{fmt(remaining)}</span>
+      </div>
+
       <div className="tray-static">
         <button
           className="tray-cover-lg"
@@ -151,41 +167,24 @@ export default function PlayerTray() {
           </div>
         </div>
 
-        <div className="tray-static-center">
-          <div className="tray-controls">
-            <button className="tray-btn" onClick={() => skipBackward(15)} title="Back 15 seconds">
-              <Undo2 size={15} />
-              <span>15</span>
-            </button>
-            <button className="tray-btn" onClick={prevTrack} aria-label="Previous track">
-              <SkipBack size={17} />
-            </button>
-            <button className="tray-play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
-              {playIcon}
-            </button>
-            <button className="tray-btn" onClick={nextTrack} aria-label="Next track">
-              <SkipForward size={17} />
-            </button>
-            <button className="tray-btn" onClick={() => skipForward(30)} title="Forward 30 seconds">
-              <Redo2 size={15} />
-              <span>30</span>
-            </button>
-          </div>
-
-          <div className="tray-progress">
-            <span className="tray-time">{fmt(currentTime)}</span>
-            <input
-              type="range"
-              className="tray-seek"
-              min={0}
-              max={duration || 100}
-              value={currentTime}
-              onChange={(event) => seek(parseFloat(event.target.value))}
-              style={{ "--fill": seekFill } as React.CSSProperties}
-              aria-label="Seek"
-            />
-            <span className="tray-time tray-time-right">-{fmt(remaining)}</span>
-          </div>
+        <div className="tray-controls">
+          <button className="tray-btn" onClick={() => skipBackward(15)} title="Back 15 seconds">
+            <Undo2 size={15} />
+            <span>15</span>
+          </button>
+          <button className="tray-btn" onClick={prevTrack} aria-label="Previous track">
+            <SkipBack size={17} />
+          </button>
+          <button className="tray-play-btn" onClick={togglePlay} aria-label={isPlaying ? "Pause" : "Play"}>
+            {playIcon}
+          </button>
+          <button className="tray-btn" onClick={nextTrack} aria-label="Next track">
+            <SkipForward size={17} />
+          </button>
+          <button className="tray-btn" onClick={() => skipForward(30)} title="Forward 30 seconds">
+            <Redo2 size={15} />
+            <span>30</span>
+          </button>
         </div>
 
         <div className="tray-secondary">
