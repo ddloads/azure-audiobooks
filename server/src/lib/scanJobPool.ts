@@ -79,7 +79,17 @@ class ScanJobPool {
   }
 
   async enqueue(libraryId?: string, trigger = "manual", options: EnqueueOptions = {}) {
-    if (options.dedupe && await this.hasActiveLibraryJob(libraryId)) {
+    if (options.folderPath) {
+      if (await this.hasActiveFolderJob(libraryId, options.folderPath)) {
+        return {
+          status: "skipped" as const,
+          message: "Folder scan already queued or running",
+          jobId: null,
+        };
+      }
+
+      await this.preemptActiveLibraryScan(libraryId);
+    } else if (options.dedupe && await this.hasActiveLibraryJob(libraryId)) {
       return {
         status: "skipped" as const,
         message: libraryId
@@ -106,14 +116,20 @@ class ScanJobPool {
       enqueuedAt: new Date().toISOString(),
     };
 
-    this.queue.push(job);
+    if (options.folderPath) {
+      this.queue.unshift(job);
+    } else {
+      this.queue.push(job);
+    }
     const dispatched = this.dispatch();
 
     return {
       status: dispatched ? ("started" as const) : ("queued" as const),
-      message: libraryId
-        ? (dispatched ? "Library scan started" : "Library scan queued")
-        : (dispatched ? "Full library scan started" : "Full library scan queued"),
+      message: options.folderPath
+        ? (dispatched ? "Folder scan started" : "Folder scan queued")
+        : libraryId
+          ? (dispatched ? "Library scan started" : "Library scan queued")
+          : (dispatched ? "Full library scan started" : "Full library scan queued"),
       jobId: job.id,
     };
   }
@@ -307,6 +323,69 @@ class ScanJobPool {
     });
 
     return Boolean(activeJob);
+  }
+
+  private async hasActiveFolderJob(libraryId: string | undefined, folderPath: string) {
+    const normalizedFolderPath = folderPath.toLowerCase();
+    const matchesFolder = (job: ScanJobRequest) =>
+      job.libraryId === libraryId &&
+      job.folderPath !== undefined &&
+      job.folderPath.toLowerCase() === normalizedFolderPath;
+
+    const queuedMatch = this.queue.some(matchesFolder);
+    const runningMatch = this.workers.some((slot) => slot.currentJob && matchesFolder(slot.currentJob));
+
+    if (queuedMatch || runningMatch) {
+      return true;
+    }
+
+    const activeJob = await prisma.libraryScanJob.findFirst({
+      where: {
+        libraryId: libraryId ?? null,
+        trigger: "watch-folder",
+        status: { in: ["queued", "running", "cancelling"] },
+      },
+      select: { id: true },
+    });
+
+    return Boolean(activeJob);
+  }
+
+  private async preemptActiveLibraryScan(libraryId: string | undefined) {
+    if (!libraryId) {
+      return;
+    }
+
+    console.info(`[scan] preempting active library scan for ${libraryId} to run watched folder sync`);
+
+    const queuedLibraryJobs = this.queue.filter(
+      (job) => job.libraryId === libraryId && job.folderPath === undefined,
+    );
+    if (queuedLibraryJobs.length > 0) {
+      this.queue.splice(
+        0,
+        this.queue.length,
+        ...this.queue.filter((job) => !(job.libraryId === libraryId && job.folderPath === undefined)),
+      );
+    }
+
+    for (const slot of this.workers) {
+      if (!slot.currentJob) {
+        continue;
+      }
+
+      if (slot.currentJob.libraryId !== libraryId || slot.currentJob.folderPath !== undefined) {
+        continue;
+      }
+
+      void this.updateJob(slot.currentJob.id, {
+        status: "cancelling",
+      });
+      slot.worker.postMessage({
+        type: "cancel",
+        jobId: slot.currentJob.id,
+      } satisfies WorkerCommand);
+    }
   }
 
   private async updateJob(jobId: string, data: {
