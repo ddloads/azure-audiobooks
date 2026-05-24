@@ -16,11 +16,50 @@ const WATCH_FOLDERS_ENABLED = process.env.WATCH_FOLDERS_ENABLED !== "false";
 const WATCH_FOLDER_USE_POLLING = process.env.WATCH_FOLDER_USE_POLLING !== "false";
 const WATCH_FOLDER_POLL_INTERVAL_MS =
   Number.parseInt(process.env.WATCH_FOLDER_POLL_INTERVAL_MS || "", 10) || 5000;
+const WATCH_FOLDER_HEARTBEAT_MS =
+  Number.parseInt(process.env.WATCH_FOLDER_HEARTBEAT_MS || "", 10) || 15000;
 const WATCHED_EVENTS = new Set(["add", "change", "unlink", "addDir", "unlinkDir"]);
 
 let watchers: LibrarySourceWatcher[] = [];
+const heartbeatTimers = new Map<string, NodeJS.Timeout>();
+const lastSourceMtimes = new Map<string, number>();
 const pendingScans = new Map<string, NodeJS.Timeout>();
 let refreshPromise: Promise<void> | null = null;
+
+const startSourceHeartbeat = (sourceId: string, libraryId: string, sourcePath: string) => {
+  const existingTimer = heartbeatTimers.get(sourceId);
+  if (existingTimer) {
+    clearInterval(existingTimer);
+  }
+
+  try {
+    const stat = fs.statSync(sourcePath);
+    lastSourceMtimes.set(sourceId, stat.mtimeMs);
+  } catch {
+    lastSourceMtimes.delete(sourceId);
+  }
+
+  const timer = setInterval(() => {
+    try {
+      const stat = fs.statSync(sourcePath);
+      const lastSeen = lastSourceMtimes.get(sourceId) ?? 0;
+      if (stat.mtimeMs > lastSeen) {
+        lastSourceMtimes.set(sourceId, stat.mtimeMs);
+        console.info(`[watcher] heartbeat detected source change: ${sourcePath}`);
+        scheduleLibraryScan(libraryId, "heartbeat", sourcePath);
+      }
+    } catch (error) {
+      console.warn(`[watcher] heartbeat skipped unavailable source path: ${sourcePath}`);
+      logger.warn("Watched source became unavailable", {
+        sourceId,
+        libraryId,
+        path: sourcePath,
+      });
+    }
+  }, WATCH_FOLDER_HEARTBEAT_MS);
+
+  heartbeatTimers.set(sourceId, timer);
+};
 
 const closeWatchers = async () => {
   const activeWatchers = watchers;
@@ -29,6 +68,11 @@ const closeWatchers = async () => {
     clearTimeout(timer);
   }
   pendingScans.clear();
+  for (const timer of heartbeatTimers.values()) {
+    clearInterval(timer);
+  }
+  heartbeatTimers.clear();
+  lastSourceMtimes.clear();
   await Promise.allSettled(activeWatchers.map((watcher) => watcher.close()));
   if (activeWatchers.length > 0) {
     console.info(`[watcher] stopped ${activeWatchers.length} library source watcher(s)`);
@@ -102,7 +146,8 @@ export const refreshLibraryWatchers = async () => {
 
     console.info(
       `[watcher] configuring ${sources.length} watched library source(s) ` +
-      `(polling=${WATCH_FOLDER_USE_POLLING}, interval=${WATCH_FOLDER_POLL_INTERVAL_MS}ms)`,
+      `(polling=${WATCH_FOLDER_USE_POLLING}, interval=${WATCH_FOLDER_POLL_INTERVAL_MS}ms, ` +
+      `heartbeat=${WATCH_FOLDER_HEARTBEAT_MS}ms)`,
     );
 
     const { watch } = await import("chokidar");
@@ -154,6 +199,7 @@ export const refreshLibraryWatchers = async () => {
       });
 
       watchers.push(watcher);
+      startSourceHeartbeat(source.id, source.libraryId, sourcePath);
       console.info(`[watcher] watching source path: ${sourcePath}`);
       logger.info("Watching library source", {
         sourceId: source.id,
