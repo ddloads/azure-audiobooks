@@ -422,8 +422,13 @@ const Library = () => {
   const handleScanProgress = (data: ScanProgress) => {
     setScanProgress(data);
     if (data.status === "completed" || data.status === "failed") {
-      void fetchBooks();
-      void fetchLibraries();
+      const visibleLibraryId = filters.libraryId !== "all" ? filters.libraryId : undefined;
+      const shouldRefreshLibrary = !data.libraryId || !visibleLibraryId || data.libraryId === visibleLibraryId;
+
+      if (shouldRefreshLibrary) {
+        void fetchBooks();
+        void fetchLibraries();
+      }
       setTimeout(() => setScanProgress(null), 5000);
     }
   };

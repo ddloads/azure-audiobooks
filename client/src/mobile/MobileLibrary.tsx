@@ -33,6 +33,7 @@ interface ProgressRecord {
 }
 
 interface ScanProgress {
+  libraryId?: string;
   status: 'starting' | 'scanning' | 'completed' | 'failed';
   progress: number;
   currentFolder?: string;
@@ -205,8 +206,13 @@ const MobileLibrary = () => {
     socket.on('scanProgress', (data: ScanProgress) => {
       setScanProgress(data);
       if (data.status === 'completed' || data.status === 'failed') {
-        void fetchBooks();
-        void fetchMeta();
+        const activeLibraryId = filters.libraryId !== 'all' ? filters.libraryId : undefined;
+        const shouldRefreshLibrary = !data.libraryId || !activeLibraryId || data.libraryId === activeLibraryId;
+
+        if (shouldRefreshLibrary) {
+          void fetchBooks();
+          void fetchMeta();
+        }
         setTimeout(() => setScanProgress(null), 4000);
       }
     });

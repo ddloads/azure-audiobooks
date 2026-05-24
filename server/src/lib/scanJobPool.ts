@@ -42,7 +42,7 @@ const configuredPoolSize = (() => {
     return parsed;
   }
 
-  return 1;
+  return 2;
 })();
 
 const getWorkerScriptPath = () => {
@@ -87,8 +87,6 @@ class ScanJobPool {
           jobId: null,
         };
       }
-
-      await this.preemptActiveLibraryScan(libraryId);
     } else if (options.dedupe && await this.hasActiveLibraryJob(libraryId)) {
       return {
         status: "skipped" as const,
@@ -349,43 +347,6 @@ class ScanJobPool {
     });
 
     return Boolean(activeJob);
-  }
-
-  private async preemptActiveLibraryScan(libraryId: string | undefined) {
-    if (!libraryId) {
-      return;
-    }
-
-    console.info(`[scan] preempting active library scan for ${libraryId} to run watched folder sync`);
-
-    const queuedLibraryJobs = this.queue.filter(
-      (job) => job.libraryId === libraryId && job.folderPath === undefined,
-    );
-    if (queuedLibraryJobs.length > 0) {
-      this.queue.splice(
-        0,
-        this.queue.length,
-        ...this.queue.filter((job) => !(job.libraryId === libraryId && job.folderPath === undefined)),
-      );
-    }
-
-    for (const slot of this.workers) {
-      if (!slot.currentJob) {
-        continue;
-      }
-
-      if (slot.currentJob.libraryId !== libraryId || slot.currentJob.folderPath !== undefined) {
-        continue;
-      }
-
-      void this.updateJob(slot.currentJob.id, {
-        status: "cancelling",
-      });
-      slot.worker.postMessage({
-        type: "cancel",
-        jobId: slot.currentJob.id,
-      } satisfies WorkerCommand);
-    }
   }
 
   private async updateJob(jobId: string, data: {
