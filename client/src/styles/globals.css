@@ -8633,6 +8633,9 @@ body {
 
 /* Custom seek bar */
 .tray-seek {
+  --tray-seek-fill-start: var(--primary, #1e7dc9);
+  --tray-seek-fill-end: var(--primary-light, #38bdf8);
+  --tray-seek-track: rgba(234, 243, 255, 0.14);
   -webkit-appearance: none;
   appearance: none;
   flex: 1;
@@ -8640,13 +8643,15 @@ body {
   border-radius: 3px;
   background: linear-gradient(
     to right,
-    var(--az-500, #1e7dc9) 0%,
-    var(--bright, #38bdf8) var(--fill, 0%),
-    rgba(255, 255, 255, 0.15) var(--fill, 0%)
+    var(--tray-seek-fill-start) 0%,
+    var(--tray-seek-fill-end) var(--fill, 0%),
+    var(--tray-seek-track) var(--fill, 0%),
+    var(--tray-seek-track) 100%
   );
   cursor: pointer;
   outline: none;
   border: none;
+  box-shadow: inset 0 0 0 1px rgba(103, 211, 251, 0.08);
 }
 
 .tray-seek::-webkit-slider-thumb {
@@ -8684,7 +8689,14 @@ body {
 .tray-seek::-moz-range-track {
   height: 5px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--tray-seek-track);
+}
+
+.tray-seek::-moz-range-progress {
+  height: 5px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--tray-seek-fill-start), var(--tray-seek-fill-end));
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.38);
 }
 
 /* Secondary controls */
