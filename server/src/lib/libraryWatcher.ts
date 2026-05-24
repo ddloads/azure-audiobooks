@@ -13,6 +13,9 @@ type LibrarySourceWatcher = {
 
 const WATCH_DEBOUNCE_MS = Number.parseInt(process.env.WATCH_FOLDER_DEBOUNCE_MS || "", 10) || 15000;
 const WATCH_FOLDERS_ENABLED = process.env.WATCH_FOLDERS_ENABLED !== "false";
+const WATCH_FOLDER_USE_POLLING = process.env.WATCH_FOLDER_USE_POLLING !== "false";
+const WATCH_FOLDER_POLL_INTERVAL_MS =
+  Number.parseInt(process.env.WATCH_FOLDER_POLL_INTERVAL_MS || "", 10) || 5000;
 const WATCHED_EVENTS = new Set(["add", "change", "unlink", "addDir", "unlinkDir"]);
 
 let watchers: LibrarySourceWatcher[] = [];
@@ -97,7 +100,10 @@ export const refreshLibraryWatchers = async () => {
       return;
     }
 
-    console.info(`[watcher] configuring ${sources.length} watched library source(s)`);
+    console.info(
+      `[watcher] configuring ${sources.length} watched library source(s) ` +
+      `(polling=${WATCH_FOLDER_USE_POLLING}, interval=${WATCH_FOLDER_POLL_INTERVAL_MS}ms)`,
+    );
 
     const { watch } = await import("chokidar");
 
@@ -116,6 +122,9 @@ export const refreshLibraryWatchers = async () => {
       const watcher = watch(sourcePath, {
         ignoreInitial: true,
         persistent: true,
+        usePolling: WATCH_FOLDER_USE_POLLING,
+        interval: WATCH_FOLDER_POLL_INTERVAL_MS,
+        binaryInterval: WATCH_FOLDER_POLL_INTERVAL_MS,
         awaitWriteFinish: {
           stabilityThreshold: 3000,
           pollInterval: 500,
@@ -132,11 +141,16 @@ export const refreshLibraryWatchers = async () => {
       });
 
       watcher.on("error", (error) => {
+        console.error(`[watcher] source watcher failed for ${sourcePath}:`, error);
         logger.error("Library source watcher failed", error, {
           sourceId: source.id,
           libraryId: source.libraryId,
           path: sourcePath,
         });
+      });
+
+      watcher.on("ready", () => {
+        console.info(`[watcher] ready for source path: ${sourcePath}`);
       });
 
       watchers.push(watcher);
