@@ -31,6 +31,7 @@ import {
   formatElapsed,
   formatDurationMs,
   formatJsonBlock,
+  buildLogSummary,
   getStatusCodeCategory,
   buildLogCopyText,
   copyTextToClipboard,
@@ -294,6 +295,7 @@ export default function LogsTab() {
               const hasDetails = entry.error != null || entry.data !== undefined;
               const statusCategory =
                 entry.statusCode != null ? getStatusCodeCategory(entry.statusCode) : null;
+              const summary = buildLogSummary(entry);
 
               return (
                 <div key={logKey} className={`admin-log-card admin-log-card-${entry.level}`}>
@@ -306,7 +308,7 @@ export default function LogsTab() {
                         {entry.level === "debug" && <Bug size={11} />}
                         {entry.level}
                       </span>
-                      <strong className="admin-log-message">{entry.message}</strong>
+                      <strong className="admin-log-message">{summary}</strong>
                     </div>
                     <div className="admin-log-head-actions">
                       <span className="admin-log-timestamp" title={formatDate(entry.timestamp)}>
@@ -328,7 +330,7 @@ export default function LogsTab() {
                         className={`admin-log-copy-btn ${isCopied ? "copied" : ""}`}
                         type="button"
                         onClick={() => void copyLogEntry(entry, logKey)}
-                        title="Copy log entry as JSON"
+                        title="Copy readable log entry"
                         aria-label="Copy log entry"
                       >
                         {isCopied ? <Check size={13} /> : <Copy size={13} />}

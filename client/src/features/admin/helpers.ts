@@ -42,6 +42,50 @@ export const formatDurationMs = (ms: number) => {
   return `${(ms / 1000).toFixed(2)}s`;
 };
 
+const formatLogPath = (path?: string) => {
+  if (!path) return "";
+  try {
+    const url = new URL(path, "http://local");
+    return url.search ? `${url.pathname}${url.search}` : url.pathname;
+  } catch {
+    return path;
+  }
+};
+
+const formatDataLines = (value: unknown, indent = ""): string[] => {
+  if (value === null || value === undefined) return [];
+  if (typeof value !== "object") return [`${indent}${String(value)}`];
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => {
+      const nested = formatDataLines(item, `${indent}  `);
+      return nested.length ? [`${indent}- ${index + 1}:`, ...nested] : [`${indent}- ${index + 1}: ${String(item)}`];
+    });
+  }
+
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, nestedValue]) => {
+    if (nestedValue !== null && typeof nestedValue === "object") {
+      return [`${indent}${key}:`, ...formatDataLines(nestedValue, `${indent}  `)];
+    }
+    return [`${indent}${key}: ${String(nestedValue)}`];
+  });
+};
+
+export const buildLogSummary = (entry: AdminLogEntry) => {
+  const isHttp = entry.tags?.includes("http") || (entry.method != null && entry.statusCode != null);
+  if (isHttp) {
+    const status = entry.statusCode != null ? ` -> ${entry.statusCode}` : "";
+    const duration = entry.durationMs != null ? ` in ${formatDurationMs(entry.durationMs)}` : "";
+    return `${entry.method ?? "HTTP"} ${formatLogPath(entry.path) || entry.message}${status}${duration}`;
+  }
+
+  if (entry.error?.message) {
+    return `${entry.message}: ${entry.error.message}`;
+  }
+
+  return entry.message;
+};
+
 export const getStatusCodeCategory = (code: number): "2xx" | "3xx" | "4xx" | "5xx" | "other" => {
   if (code >= 200 && code < 300) return "2xx";
   if (code >= 300 && code < 400) return "3xx";
@@ -50,26 +94,29 @@ export const getStatusCodeCategory = (code: number): "2xx" | "3xx" | "4xx" | "5x
   return "other";
 };
 
-export const buildLogCopyText = (entry: AdminLogEntry) =>
-  JSON.stringify(
-    {
-      timestamp: entry.timestamp,
-      level: entry.level,
-      context: entry.context,
-      message: entry.message,
-      requestId: entry.requestId,
-      method: entry.method,
-      path: entry.path,
-      statusCode: entry.statusCode,
-      durationMs: entry.durationMs,
-      userId: entry.userId,
-      ip: entry.ip,
-      data: entry.data,
-      error: entry.error,
-    },
-    null,
-    2,
-  );
+export const buildLogCopyText = (entry: AdminLogEntry) => {
+  const lines = [
+    `[${formatDate(entry.timestamp)}] ${entry.level.toUpperCase()} ${entry.context}`,
+    buildLogSummary(entry),
+  ];
+
+  if (entry.requestId) lines.push(`Request ID: ${entry.requestId}`);
+  if (entry.userId) lines.push(`User ID: ${entry.userId}`);
+  if (entry.ip) lines.push(`IP: ${entry.ip}`);
+
+  if (entry.error) {
+    lines.push("", "Error:");
+    lines.push(`  ${entry.error.name}: ${entry.error.message}`);
+    if (entry.error.stack) lines.push(...entry.error.stack.split("\n").map((line) => `  ${line}`));
+  }
+
+  const dataLines = formatDataLines(entry.data, "  ");
+  if (dataLines.length > 0) {
+    lines.push("", "Data:", ...dataLines);
+  }
+
+  return lines.join("\n");
+};
 
 export const copyTextToClipboard = async (text: string) => {
   if (navigator.clipboard?.writeText) {
