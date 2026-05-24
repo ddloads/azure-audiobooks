@@ -1,6 +1,5 @@
 import pg from "pg";
-import { PrismaClient } from "../generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "@prisma/client";
 
 const parseIntegerEnv = (name: string, fallback: number) => {
   const parsed = Number.parseInt(process.env[name] || "", 10);
@@ -23,6 +22,27 @@ pool.on("error", (error) => {
   console.warn("[database] idle client error:", error);
 });
 
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+const getPrismaDatabaseUrl = () => {
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) {
+    return rawUrl;
+  }
+
+  const url = new URL(rawUrl);
+  if (!url.searchParams.has("pgbouncer")) {
+    url.searchParams.set("pgbouncer", "true");
+  }
+  if (!url.searchParams.has("connection_limit")) {
+    url.searchParams.set("connection_limit", "1");
+  }
+  return url.toString();
+};
+
+const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: getPrismaDatabaseUrl(),
+    },
+  },
+});
 export default prisma;
