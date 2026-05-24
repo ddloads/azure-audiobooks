@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import sharp from "sharp";
 import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder } from "../utils/covers";
@@ -605,27 +606,49 @@ export const getCover = async (req: Request, res: Response) => {
   }
 
   const bookId = decodeURIComponent(param);
+  const widthParam = getQueryNumber(req.query.w);
+  const requestedWidth =
+    widthParam !== undefined
+      ? Math.min(Math.max(Math.floor(widthParam), 32), 1200)
+      : null;
 
-  // New format: bookId → serve cover from the book's folder
+  let filePath: string | null = null;
+
   const book = await prisma.book.findUnique({
     where: { id: bookId },
     select: { folderPath: true },
   });
-
   if (book) {
     const coverFile = findCoverInFolder(book.folderPath);
-    if (coverFile) {
-      res.sendFile(coverFile);
-      return;
-    }
+    if (coverFile) filePath = coverFile;
   }
 
-  // Fallback: old format (filename with extension) stored in data/covers
-  const legacyPath = path.join(process.cwd(), "data", "covers", bookId);
-  if (fs.existsSync(legacyPath)) {
-    res.sendFile(legacyPath);
+  if (!filePath) {
+    const legacyPath = path.join(process.cwd(), "data", "covers", bookId);
+    if (fs.existsSync(legacyPath)) filePath = legacyPath;
+  }
+
+  if (!filePath) {
+    res.status(404).send("Not found");
     return;
   }
 
-  res.status(404).send("Not found");
+  res.setHeader("Cache-Control", "public, max-age=86400");
+
+  if (requestedWidth) {
+    try {
+      const buffer = await sharp(filePath)
+        .rotate()
+        .resize({ width: requestedWidth, withoutEnlargement: true, fit: "inside" })
+        .jpeg({ quality: 82, mozjpeg: true })
+        .toBuffer();
+      res.setHeader("Content-Type", "image/jpeg");
+      res.end(buffer);
+      return;
+    } catch {
+      // Fall back to the original file on any resize error.
+    }
+  }
+
+  res.sendFile(filePath);
 };
