@@ -22,7 +22,8 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
-  const searchValue = location.pathname === "/" ? searchParams.get("search") || "" : "";
+  const isLibraryRoute = location.pathname === "/library";
+  const searchValue = isLibraryRoute ? searchParams.get("search") || "" : "";
 
   const isActiveScan = scanProgress?.status === "starting" || scanProgress?.status === "scanning";
   const scanProgressValue = Math.max(0, Math.min(100, Math.round(scanProgress?.progress ?? 0)));
@@ -76,15 +77,15 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             value={searchValue}
             onChange={(value) => {
               const nextParams =
-                location.pathname === "/" ? new URLSearchParams(searchParams) : new URLSearchParams();
+                isLibraryRoute ? new URLSearchParams(searchParams) : new URLSearchParams();
 
               if (value) nextParams.set("search", value);
               else nextParams.delete("search");
 
-              if (location.pathname === "/") {
+              if (isLibraryRoute) {
                 setSearchParams(nextParams, { replace: true });
               } else {
-                navigate({ pathname: "/", search: nextParams.toString() }, { replace: false });
+                navigate({ pathname: "/library", search: nextParams.toString() }, { replace: false });
               }
             }}
           />

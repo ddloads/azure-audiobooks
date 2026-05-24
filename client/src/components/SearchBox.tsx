@@ -123,13 +123,13 @@ const SearchBox = ({
         navigate(`/book/${item.id}`, { state: { from: returnTo } });
         break;
       case "author":
-        navigate(`/?authorId=${item.id}&authorName=${encodeURIComponent(item.name)}`);
+        navigate(`/library?authorId=${item.id}&authorName=${encodeURIComponent(item.name)}`);
         break;
       case "series":
-        navigate(`/?seriesId=${item.id}&seriesName=${encodeURIComponent(item.name)}`);
+        navigate(`/library?seriesId=${item.id}&seriesName=${encodeURIComponent(item.name)}`);
         break;
       case "narrator":
-        navigate(`/?narrator=${encodeURIComponent(item.name)}`);
+        navigate(`/library?narrator=${encodeURIComponent(item.name)}`);
         break;
     }
   };
