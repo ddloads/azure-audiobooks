@@ -38,9 +38,11 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const [isBugReportOpen, setIsBugReportOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const isLibraryRoute = location.pathname === "/library";
-  const searchValue = isLibraryRoute ? searchParams.get("search") || "" : "";
+  const isSeriesRoute = location.pathname === "/series";
+  const isBrowseRoute = isLibraryRoute || isSeriesRoute;
+  const searchValue = isBrowseRoute ? searchParams.get("search") || "" : "";
 
-  const showLibraryControls = isLibraryRoute && !isMobile && Boolean(user);
+  const showLibraryControls = isBrowseRoute && !isMobile && Boolean(user);
   const sortBy = searchParams.get("sortBy") || "newest";
   const isFilterPanelOpen = searchParams.get("filterPanel") === "open";
   let activeFilterCount = 0;
@@ -130,12 +132,12 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             value={searchValue}
             onChange={(value) => {
               const nextParams =
-                isLibraryRoute ? new URLSearchParams(searchParams) : new URLSearchParams();
+                isBrowseRoute ? new URLSearchParams(searchParams) : new URLSearchParams();
 
               if (value) nextParams.set("search", value);
               else nextParams.delete("search");
 
-              if (isLibraryRoute) {
+              if (isBrowseRoute) {
                 setSearchParams(nextParams, { replace: true });
               } else {
                 navigate({ pathname: "/library", search: nextParams.toString() }, { replace: false });

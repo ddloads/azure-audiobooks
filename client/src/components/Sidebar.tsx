@@ -108,13 +108,11 @@ export default function Sidebar({
         )}
       </div>
 
-      {!collapsed && (
-        <div className="sidebar-footer">
-          <div className="sidebar-version" aria-label={`Azure version ${__APP_VERSION__}`}>
-            v{__APP_VERSION__}
-          </div>
+      <div className="sidebar-footer">
+        <div className="sidebar-version" aria-label={`Azure version ${__APP_VERSION__}`}>
+          v{__APP_VERSION__}
         </div>
-      )}
+      </div>
     </nav>
   );
 }

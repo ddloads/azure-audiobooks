@@ -731,6 +731,12 @@
   user-select: text;
 }
 
+.app-shell.sidebar-collapsed .sidebar-version {
+  padding: 4px 4px 6px;
+  text-align: center;
+  font-size: 9.5px;
+}
+
 /* Mobile overlay backdrop */
 .sidebar-overlay {
   position: fixed;

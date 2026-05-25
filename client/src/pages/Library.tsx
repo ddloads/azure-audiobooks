@@ -257,6 +257,14 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<DesktopViewMode>(defaultViewMode);
+
+  // React Router reuses the same Library instance for /library and /series
+  // (same component type at the same outlet slot), so useState's initial
+  // value only takes effect on first mount. Sync viewMode when the route
+  // hands us a new defaultViewMode.
+  useEffect(() => {
+    setViewMode(defaultViewMode);
+  }, [defaultViewMode]);
   const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
   const [matchQueue, setMatchQueue] = useState<MetadataBook[]>([]);
   const [matchQueueIndex, setMatchQueueIndex] = useState(0);
