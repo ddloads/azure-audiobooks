@@ -199,6 +199,7 @@ const hasTag = (value: string | null | undefined, tag: string) =>
     .includes(tag);
 
 const INITIAL_BOOK_RENDER_COUNT = 120;
+const BOOK_FETCH_PAGE_SIZE = 500;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 
 const SkeletonCard = () => (
@@ -364,12 +365,36 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     setSearchParams({});
   };
 
+  // Books endpoint is paginated server-side now — large unpaginated
+  // responses (~1MB+) get truncated mid-stream by the proxy/tunnel in
+  // front of the container, leaving the client with broken JSON and an
+  // empty books array. Fetch pages of BOOK_FETCH_PAGE_SIZE and append.
+  const fetchAllBooksPaginated = async (
+    isCancelled: () => boolean,
+    onFirstPage?: (books: LibraryBook[]) => void,
+  ): Promise<LibraryBook[]> => {
+    const params = buildBookParams();
+    let collected: LibraryBook[] = [];
+    let page = 0;
+    while (!isCancelled()) {
+      const res = await api.get("/library", {
+        params: { ...params, limit: BOOK_FETCH_PAGE_SIZE, page },
+      });
+      const data = res.data;
+      const results: LibraryBook[] = Array.isArray(data) ? data : data.results;
+      const total: number = Array.isArray(data) ? data.length : data.total;
+      collected = collected.concat(results);
+      if (page === 0 && onFirstPage) onFirstPage(collected);
+      if (!results.length || collected.length >= total) break;
+      page++;
+    }
+    return collected;
+  };
+
   const fetchBooks = async () => {
     try {
-      const res = await api.get("/library", {
-        params: buildBookParams(),
-      });
-      setBooks(res.data);
+      const all = await fetchAllBooksPaginated(() => false, (first) => setBooks(first));
+      setBooks(all);
     } catch (error) {
       console.error("Failed to fetch books", error);
     } finally {
@@ -535,12 +560,14 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     setLoading(true);
     const timeout = setTimeout(async () => {
       try {
-        const booksRes = await api.get("/library", {
-          params: buildBookParams(),
-        });
+        const all = await fetchAllBooksPaginated(
+          () => cancelled,
+          (first) => {
+            if (!cancelled) setBooks(first);
+          },
+        );
         if (cancelled) return;
-
-        setBooks(booksRes.data);
+        setBooks(all);
       } catch (error) {
         console.error("Failed to fetch books", error);
       } finally {

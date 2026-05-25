@@ -330,7 +330,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
 
     const isPaginated = page !== undefined || limit !== undefined;
     const safeLimit = isPaginated
-      ? Math.min(Math.max(Math.floor(limit ?? 50), 1), 100)
+      ? Math.min(Math.max(Math.floor(limit ?? 50), 1), 500)
       : undefined;
     const safePage = isPaginated ? Math.max(Math.floor(page ?? 0), 0) : 0;
 
