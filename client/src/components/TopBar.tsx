@@ -1,12 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Bug, CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, Smartphone, User, Volume2, XCircle } from "lucide-react";
+import { Bug, CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
+import { useIsMobile } from "../hooks/useIsMobile";
 import AppLogo from "./AppLogo";
 import SearchBox from "./SearchBox";
 import BugReportModal from "./BugReportModal";
 import ConnectMobileModal from "./ConnectMobileModal";
+
+// Keys that live in the library URL but aren't filters proper. Used to count
+// the active filter badge in the top bar without coupling to Library's full
+// LibraryFilters shape.
+const NON_FILTER_PARAM_KEYS = new Set([
+  "search",
+  "sortBy",
+  "page",
+  "limit",
+  "authorName",
+  "seriesName",
+  "filterPanel",
+]);
 
 interface TopBarProps {
   onMenuToggle: () => void;
@@ -17,6 +31,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { scanProgress, silenceCheckProgress } = useScanProgress();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dropOpen, setDropOpen] = useState(false);
   const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
@@ -24,6 +39,27 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const dropRef = useRef<HTMLDivElement>(null);
   const isLibraryRoute = location.pathname === "/library";
   const searchValue = isLibraryRoute ? searchParams.get("search") || "" : "";
+
+  const showLibraryControls = isLibraryRoute && !isMobile && Boolean(user);
+  const sortBy = searchParams.get("sortBy") || "newest";
+  const isFilterPanelOpen = searchParams.get("filterPanel") === "open";
+  let activeFilterCount = 0;
+  for (const key of searchParams.keys()) {
+    if (!NON_FILTER_PARAM_KEYS.has(key)) activeFilterCount++;
+  }
+
+  const toggleFilterPanel = () => {
+    const next = new URLSearchParams(searchParams);
+    if (isFilterPanelOpen) next.delete("filterPanel");
+    else next.set("filterPanel", "open");
+    setSearchParams(next, { replace: true });
+  };
+
+  const updateSort = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("sortBy", value);
+    setSearchParams(next);
+  };
 
   const isActiveScan = scanProgress?.status === "starting" || scanProgress?.status === "scanning";
   const scanProgressValue = Math.max(0, Math.min(100, Math.round(scanProgress?.progress ?? 0)));
@@ -172,19 +208,44 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       )}
 
       <div className="topbar-actions">
-        {user && (
+        {showLibraryControls && (
           <>
-          {user.role === "ADMIN" && (
             <button
               type="button"
-              className="topbar-icon-btn"
-              onClick={() => navigate("/settings")}
-              title="Admin Settings"
-              aria-label="Admin Settings"
+              className={`btn btn-secondary filter-toggle-btn${isFilterPanelOpen || activeFilterCount > 0 ? " active" : ""}`}
+              onClick={toggleFilterPanel}
+              title="Filters"
             >
-              <Settings size={16} />
+              <SlidersHorizontal size={15} />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="filter-count-badge">{activeFilterCount}</span>
+              )}
             </button>
-          )}
+            <div className="select-wrap filter-select topbar-sort-select">
+              <select
+                className="form-control"
+                value={sortBy}
+                onChange={(e) => updateSort(e.target.value)}
+                aria-label="Sort order"
+              >
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="title_asc">Title (A-Z)</option>
+                <option value="title_desc">Title (Z-A)</option>
+                <option value="author_asc">Author (A-Z)</option>
+                <option value="author_desc">Author (Z-A)</option>
+                <option value="duration_asc">Shortest First</option>
+                <option value="duration_desc">Longest First</option>
+                <option value="year_desc">Year (Newest)</option>
+                <option value="year_asc">Year (Oldest)</option>
+              </select>
+            </div>
+          </>
+        )}
+
+        {user && (
+          <>
           <button
             type="button"
             className="topbar-icon-btn"
@@ -193,15 +254,6 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
             aria-label="Connect Mobile App"
           >
             <Smartphone size={16} />
-          </button>
-          <button
-            type="button"
-            className="topbar-icon-btn"
-            onClick={() => setIsBugReportOpen(true)}
-            title="Report an issue"
-            aria-label="Report an issue"
-          >
-            <Bug size={16} />
           </button>
           <div className="topbar-user-wrap" ref={dropRef}>
             <button
@@ -236,6 +288,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                   onClick={() => { navigate("/"); setDropOpen(false); }}
                 >
                   <User size={14} /> Library
+                </button>
+
+                <button
+                  className="topbar-dropdown-item"
+                  onClick={() => { setIsBugReportOpen(true); setDropOpen(false); }}
+                >
+                  <Bug size={14} /> Report an issue
                 </button>
 
                 <button

@@ -16,7 +16,6 @@ import {
   Save,
   Sparkles,
   X,
-  SlidersHorizontal,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import { useAuth } from "../context/AuthContext";
@@ -234,7 +233,7 @@ const Library = () => {
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [filters, setFilters] = useState<LibraryFilters>(() => getFiltersFromParams(searchParams));
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const isFilterPanelOpen = searchParams.get("filterPanel") === "open";
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "newest");
 
@@ -962,45 +961,6 @@ const Library = () => {
         <div className="library-brand-section">
           <AppLogo className="library-brand" imageClassName="library-brand-image" textClassName="library-title" />
           <p className="library-subtitle">Welcome back, {user?.username}</p>
-        </div>
-
-        <div className="library-toolbar">
-          <div className="filter-group">
-            <button
-              className={`btn btn-secondary filter-toggle-btn ${isFilterPanelOpen || activeFilterCount > 0 ? "active" : ""}`}
-              type="button"
-              onClick={() => setIsFilterPanelOpen((current) => !current)}
-            >
-              <SlidersHorizontal size={15} />
-              Filters
-              {activeFilterCount > 0 && <span className="filter-count-badge">{activeFilterCount}</span>}
-            </button>
-
-            <div className="filter-item">
-              <div className="select-wrap filter-select">
-                <select
-                  className="form-control"
-                  value={sortBy}
-                  onChange={(e) => {
-                    const newParams = new URLSearchParams(searchParams);
-                    newParams.set("sortBy", e.target.value);
-                    setSearchParams(newParams);
-                  }}
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="title_asc">Title (A-Z)</option>
-                  <option value="title_desc">Title (Z-A)</option>
-                  <option value="author_asc">Author (A-Z)</option>
-                  <option value="author_desc">Author (Z-A)</option>
-                  <option value="duration_asc">Shortest First</option>
-                  <option value="duration_desc">Longest First</option>
-                  <option value="year_desc">Year (Newest)</option>
-                  <option value="year_asc">Year (Oldest)</option>
-                </select>
-              </div>
-            </div>
-          </div>
         </div>
 
         <div className="library-actions">
