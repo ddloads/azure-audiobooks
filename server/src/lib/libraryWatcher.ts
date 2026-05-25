@@ -3,7 +3,7 @@ import fsp from "fs/promises";
 import path from "path";
 import prisma from "./prisma";
 import { createLogger } from "./logger";
-import { requestLibraryFolderScan, requestLibraryScan } from "./scanJobPool";
+import { requestLibraryFolderScan } from "./scanJobPool";
 import { normalizeSourcePath } from "../utils/libraryConfig";
 
 const logger = createLogger("watcher");
@@ -27,9 +27,16 @@ const WATCHED_EVENTS = new Set(["add", "change", "unlink", "addDir", "unlinkDir"
 const WATCH_FOLDER_RECONCILE_MS =
   Number.parseInt(process.env.WATCH_FOLDER_RECONCILE_MS || "", 10) || 300000;
 
+type FolderSig = {
+  files: number;
+  dirs: number;
+  bytes: number;
+  mtime: number;
+};
+
 let watchers: LibrarySourceWatcher[] = [];
 const reconcileTimers = new Map<string, NodeJS.Timeout>();
-const lastSourceSignatures = new Map<string, string>();
+const lastSourceFolderSigs = new Map<string, Map<string, FolderSig>>();
 const lastSourceActivityAt = new Map<string, number>();
 const pendingScans = new Map<string, NodeJS.Timeout>();
 let refreshPromise: Promise<void> | null = null;
@@ -43,18 +50,23 @@ const getFolderPathForEvent = (eventName: string, changedPath: string) => {
   return path.dirname(normalizedPath);
 };
 
-const getSourceSignature = async (sourcePath: string): Promise<string> => {
+// Walks the source and returns a per-folder signature. Each entry captures
+// only the folder's DIRECT contents (file count / subdir count / byte total /
+// max mtime) so a change deep in the tree shows up at the deepest folder, not
+// every ancestor — letting reconcile dispatch a tightly-scoped folder scan
+// instead of a whole-library rescan. Returns null if the source path itself
+// is unreadable (don't update baseline in that case).
+const buildFolderSignatures = async (
+  sourcePath: string,
+): Promise<Map<string, FolderSig> | null> => {
   try {
     await fsp.access(sourcePath);
   } catch {
-    return "missing";
+    return null;
   }
 
-  const stack = [sourcePath];
-  let fileCount = 0;
-  let dirCount = 0;
-  let totalBytes = 0;
-  let maxMtime = 0;
+  const result = new Map<string, FolderSig>();
+  const stack: string[] = [sourcePath];
   // Yield to the event loop periodically so the reconcile walk doesn't stall
   // unrelated requests on slow network mounts.
   let iterations = 0;
@@ -68,22 +80,13 @@ const getSourceSignature = async (sourcePath: string): Promise<string> => {
     const currentDir = stack.pop();
     if (!currentDir) continue;
 
-    let stat: fs.Stats;
+    let dirStat: fs.Stats;
     try {
-      stat = await fsp.stat(currentDir);
+      dirStat = await fsp.stat(currentDir);
     } catch {
       continue;
     }
-
-    if (!stat.isDirectory()) {
-      fileCount++;
-      totalBytes += stat.size;
-      maxMtime = Math.max(maxMtime, stat.mtimeMs);
-      continue;
-    }
-
-    dirCount++;
-    maxMtime = Math.max(maxMtime, stat.mtimeMs);
+    if (!dirStat.isDirectory()) continue;
 
     let entries: fs.Dirent[] = [];
     try {
@@ -92,24 +95,66 @@ const getSourceSignature = async (sourcePath: string): Promise<string> => {
       continue;
     }
 
+    let files = 0;
+    let dirs = 0;
+    let bytes = 0;
+    let mtime = dirStat.mtimeMs;
+
     for (const entry of entries) {
       const entryPath = `${currentDir}${path.sep}${entry.name}`;
       if (entry.isDirectory()) {
+        dirs++;
         stack.push(entryPath);
-      } else if (entry.isFile()) {
-        fileCount++;
         try {
           const entryStat = await fsp.stat(entryPath);
-          totalBytes += entryStat.size;
-          maxMtime = Math.max(maxMtime, entryStat.mtimeMs);
+          mtime = Math.max(mtime, entryStat.mtimeMs);
         } catch {
-          continue;
+          /* ignore */
+        }
+      } else if (entry.isFile()) {
+        files++;
+        try {
+          const entryStat = await fsp.stat(entryPath);
+          bytes += entryStat.size;
+          mtime = Math.max(mtime, entryStat.mtimeMs);
+        } catch {
+          /* ignore */
         }
       }
     }
+
+    result.set(currentDir, { files, dirs, bytes, mtime });
   }
 
-  return `${dirCount}:${fileCount}:${totalBytes}:${maxMtime}`;
+  return result;
+};
+
+const sigEq = (a: FolderSig, b: FolderSig) =>
+  a.files === b.files && a.dirs === b.dirs && a.bytes === b.bytes && a.mtime === b.mtime;
+
+// Returns folders that need a fresh scan: ones whose direct contents changed,
+// brand-new folders, and the parents of removed folders so the scanner notices
+// deletions.
+const diffFolderSignatures = (
+  prev: Map<string, FolderSig>,
+  next: Map<string, FolderSig>,
+): Set<string> => {
+  const targets = new Set<string>();
+
+  for (const [folder, sig] of next) {
+    const prevSig = prev.get(folder);
+    if (!prevSig || !sigEq(prevSig, sig)) {
+      targets.add(folder);
+    }
+  }
+
+  for (const folder of prev.keys()) {
+    if (!next.has(folder)) {
+      targets.add(path.dirname(folder));
+    }
+  }
+
+  return targets;
 };
 
 const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: string) => {
@@ -118,11 +163,13 @@ const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: s
     clearInterval(existingTimer);
   }
 
-  // Prime the baseline signature in the background so the first reconcile tick
-  // has something to compare against without blocking startup.
-  void getSourceSignature(sourcePath)
-    .then((signature) => lastSourceSignatures.set(sourceId, signature))
-    .catch(() => lastSourceSignatures.delete(sourceId));
+  // Prime the baseline in the background so the first reconcile tick has
+  // something to compare against without blocking startup.
+  void buildFolderSignatures(sourcePath)
+    .then((sigs) => {
+      if (sigs) lastSourceFolderSigs.set(sourceId, sigs);
+    })
+    .catch(() => lastSourceFolderSigs.delete(sourceId));
 
   // Track whether a reconcile pass is already running for this source so we
   // never queue overlapping walks of a slow network mount.
@@ -132,31 +179,45 @@ const startSourceReconcile = (sourceId: string, libraryId: string, sourcePath: s
     if (reconcileInFlight) return;
     reconcileInFlight = true;
     try {
-      const signature = await getSourceSignature(sourcePath);
-      const lastSeen = lastSourceSignatures.get(sourceId);
-      if (signature !== lastSeen) {
-        lastSourceSignatures.set(sourceId, signature);
-        const lastActivity = lastSourceActivityAt.get(sourceId) ?? 0;
-        const activityAgeMs = Date.now() - lastActivity;
-
-        console.info(`[watcher] reconcile detected source change: ${sourcePath}`);
-        if (activityAgeMs < WATCH_FOLDER_RECONCILE_MS) {
-          console.info(
-            `[watcher] reconcile suppressed for active source: ${sourcePath} ` +
-            `(last event ${Math.round(activityAgeMs / 1000)}s ago)`,
-          );
-          return;
-        }
-
-        scheduleFullLibraryScan(libraryId, "reconcile", sourcePath);
+      const nextSigs = await buildFolderSignatures(sourcePath);
+      if (!nextSigs) {
+        console.warn(`[watcher] reconcile skipped unavailable source path: ${sourcePath}`);
+        logger.warn("Watched source became unavailable", {
+          sourceId,
+          libraryId,
+          path: sourcePath,
+        });
+        return;
       }
-    } catch (error) {
-      console.warn(`[watcher] reconcile skipped unavailable source path: ${sourcePath}`);
-      logger.warn("Watched source became unavailable", {
-        sourceId,
-        libraryId,
-        path: sourcePath,
-      });
+
+      const prevSigs = lastSourceFolderSigs.get(sourceId);
+      // Always update the baseline so a suppressed reconcile doesn't re-detect
+      // the same diff on the next tick.
+      lastSourceFolderSigs.set(sourceId, nextSigs);
+
+      // First reconcile after restart — no baseline to diff against. The
+      // chokidar watcher is already running, so we trust it for new changes.
+      if (!prevSigs) return;
+
+      const targets = diffFolderSignatures(prevSigs, nextSigs);
+      if (targets.size === 0) return;
+
+      const lastActivity = lastSourceActivityAt.get(sourceId) ?? 0;
+      const activityAgeMs = Date.now() - lastActivity;
+      if (activityAgeMs < WATCH_FOLDER_RECONCILE_MS) {
+        console.info(
+          `[watcher] reconcile suppressed for active source: ${sourcePath} ` +
+          `(last event ${Math.round(activityAgeMs / 1000)}s ago, ${targets.size} folder diff(s) deferred to chokidar)`,
+        );
+        return;
+      }
+
+      console.info(
+        `[watcher] reconcile detected ${targets.size} changed folder(s) under ${sourcePath}`,
+      );
+      for (const folder of targets) {
+        scheduleFolderScan(sourceId, libraryId, folder, "reconcile", folder);
+      }
     } finally {
       reconcileInFlight = false;
     }
@@ -180,7 +241,7 @@ const closeWatchers = async () => {
     clearInterval(timer);
   }
   reconcileTimers.clear();
-  lastSourceSignatures.clear();
+  lastSourceFolderSigs.clear();
   await Promise.allSettled(activeWatchers.map((watcher) => watcher.close()));
   if (activeWatchers.length > 0) {
     console.info(`[watcher] stopped ${activeWatchers.length} library source watcher(s)`);
@@ -225,37 +286,6 @@ const scheduleFolderScan = (
           eventName,
           path: changedPath,
           folderPath,
-        });
-      });
-  }, WATCH_DEBOUNCE_MS));
-};
-
-const scheduleFullLibraryScan = (libraryId: string, eventName: string, changedPath: string) => {
-  const key = `${libraryId}::library`;
-  const existingTimer = pendingScans.get(key);
-  if (existingTimer) {
-    clearTimeout(existingTimer);
-  }
-
-  pendingScans.set(key, setTimeout(() => {
-    pendingScans.delete(key);
-    console.info(`[watcher] queueing scan for library ${libraryId} after ${eventName}: ${changedPath}`);
-    requestLibraryScan(libraryId, "watch", { dedupe: true })
-      .then((result) => {
-        console.info(`[watcher] scan ${result.status} for library ${libraryId}`);
-        logger.info("Watch-triggered library scan handled", {
-          libraryId,
-          eventName,
-          path: changedPath,
-          status: result.status,
-          jobId: result.jobId,
-        });
-      })
-      .catch((error) => {
-        logger.error("Failed to queue watch-triggered library scan", error, {
-          libraryId,
-          eventName,
-          path: changedPath,
         });
       });
   }, WATCH_DEBOUNCE_MS));
