@@ -1413,6 +1413,7 @@
   backdrop-filter: blur(4px);
 }
 
+.book-card:hover .book-card-menu-trigger,
 .continue-card:hover .book-card-menu-trigger,
 .book-card-menu-trigger:focus-visible {
   opacity: 1;
