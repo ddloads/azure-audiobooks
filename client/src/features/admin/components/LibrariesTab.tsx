@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
   Database,
   FolderTree,
   HardDrive,
@@ -14,14 +16,30 @@ import {
   Upload,
   Volume2,
   X,
-  CheckCircle2,
 } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
+import { useScanProgress } from "../../../context/ScanProgressContext";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import FolderBrowserModal from "../../../components/FolderBrowserModal";
 import type { AdminLibrary, PendingAdminConfirm, StructureCheckResult } from "../types";
 import { detectKind, derivedLabel, getErrorMessage } from "../helpers";
+
+type SilentFileResult = {
+  id: string;
+  path: string;
+  fileName: string;
+  maxVolumeDb: number | null;
+  silenceCheckedAt: string | null;
+  book: { id: string; title: string; author: { name: string } } | null;
+};
+
+type SilenceCheckResults = {
+  totalFiles: number;
+  totalChecked: number;
+  totalSilent: number;
+  silentFiles: SilentFileResult[];
+};
 
 interface LibrariesTabProps {
   libraries: AdminLibrary[];
@@ -43,9 +61,14 @@ export default function LibrariesTab({
   onRequestUpload,
 }: LibrariesTabProps) {
   const { showToast } = useToast();
+  const { silenceCheckProgress } = useScanProgress();
 
   const [newLibraryName, setNewLibraryName] = useState("");
   const [newLibraryDescription, setNewLibraryDescription] = useState("");
+
+  const [silenceResults, setSilenceResults] = useState<SilenceCheckResults | null>(null);
+  const [silenceResultsLoading, setSilenceResultsLoading] = useState(false);
+  const prevSilenceStatusRef = useRef<string | null>(null);
 
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
   const [libraryEditDrafts, setLibraryEditDrafts] = useState<
@@ -74,6 +97,43 @@ export default function LibrariesTab({
       setActionLoading(null);
     }
   };
+
+  const fetchSilenceResults = async () => {
+    setSilenceResultsLoading(true);
+    try {
+      const response = await api.get<SilenceCheckResults>("/admin/library/silence-check/results");
+      setSilenceResults(response.data);
+    } catch {
+      // no results yet — leave panel hidden
+    } finally {
+      setSilenceResultsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchSilenceResults();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const prev = prevSilenceStatusRef.current;
+    const current = silenceCheckProgress?.status ?? null;
+    prevSilenceStatusRef.current = current;
+
+    if (prev !== null && prev !== "completed" && current === "completed") {
+      void fetchSilenceResults();
+      const silent = silenceCheckProgress?.silentFiles ?? 0;
+      showToast({
+        title: "Audio check complete",
+        description:
+          silent === 0
+            ? "All checked files have audible content."
+            : `Found ${silent} silent file${silent === 1 ? "" : "s"} — see results below.`,
+        tone: silent === 0 ? "success" : "info",
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [silenceCheckProgress?.status]);
 
   const handleCreateLibrary = async () => {
     await runAction("create-library", async () => {
@@ -856,6 +916,108 @@ export default function LibrariesTab({
           );
         })}
       </div>
+
+      {(silenceResults !== null || silenceResultsLoading) && (
+        <div className="card admin-section-card">
+          <div className="silence-results-head">
+            <div className="silence-results-head-left">
+              <Volume2 size={16} />
+              <h3>Audio Check Results</h3>
+            </div>
+            <button
+              className="btn btn-secondary"
+              type="button"
+              disabled={silenceResultsLoading}
+              onClick={() => void fetchSilenceResults()}
+            >
+              {silenceResultsLoading ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <RefreshCw size={14} />
+              )}
+              Refresh
+            </button>
+          </div>
+
+          {silenceResultsLoading && !silenceResults && (
+            <p className="silence-results-empty">Loading…</p>
+          )}
+
+          {silenceResults && (
+            <>
+              <div className="silence-results-stats">
+                <span className="silence-results-stat">
+                  <strong>{silenceResults.totalChecked.toLocaleString()}</strong> of{" "}
+                  {silenceResults.totalFiles.toLocaleString()} files checked
+                </span>
+                <span className="silence-results-stat">
+                  <strong>{silenceResults.totalSilent.toLocaleString()}</strong> silent
+                </span>
+              </div>
+
+              <div className="silence-results-summary">
+                {silenceResults.totalChecked === 0 ? (
+                  <span className="silence-results-empty">
+                    No files have been checked yet — run a silence check above.
+                  </span>
+                ) : silenceResults.totalSilent === 0 ? (
+                  <span className="silence-results-ok">
+                    <CheckCircle2 size={15} />
+                    All {silenceResults.totalChecked.toLocaleString()} checked files have audible content.
+                  </span>
+                ) : (
+                  <span className="silence-results-issues">
+                    <AlertTriangle size={15} />
+                    {silenceResults.totalSilent} silent file{silenceResults.totalSilent === 1 ? "" : "s"} found
+                  </span>
+                )}
+              </div>
+
+              {silenceResults.totalSilent > 0 && (() => {
+                const groups = silenceResults.silentFiles.reduce<
+                  Record<string, { book: SilentFileResult["book"]; files: SilentFileResult[] }>
+                >((acc, file) => {
+                  const key = file.book?.id ?? "__unknown";
+                  if (!acc[key]) acc[key] = { book: file.book, files: [] };
+                  acc[key].files.push(file);
+                  return acc;
+                }, {});
+
+                return (
+                  <div className="silence-results-list">
+                    {Object.values(groups).map((group) => (
+                      <div key={group.book?.id ?? "__unknown"} className="silence-book-group">
+                        <div className="silence-book-header">
+                          {group.book?.title ?? "Unknown book"}
+                          {group.book?.author && (
+                            <span className="silence-book-header-author">
+                              {" "}— {group.book.author.name}
+                            </span>
+                          )}
+                        </div>
+                        {group.files.map((file) => (
+                          <div key={file.id} className="silence-file-row">
+                            <span className="silence-file-name" title={file.path}>
+                              {file.fileName}
+                            </span>
+                            <span
+                              className={`silence-volume-badge${file.maxVolumeDb === null ? " no-audio" : ""}`}
+                            >
+                              {file.maxVolumeDb !== null
+                                ? `${file.maxVolumeDb.toFixed(1)} dB`
+                                : "no audio"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </>
+          )}
+        </div>
+      )}
 
       {sourceBrowserLibraryId && (
         <FolderBrowserModal

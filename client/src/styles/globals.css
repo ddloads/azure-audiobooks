@@ -4304,6 +4304,127 @@ input[type='range']::-moz-range-thumb {
   overflow-wrap: anywhere;
 }
 
+/* ── Silence Check Results Panel ──────────────────────────── */
+.silence-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.silence-results-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.silence-results-head-left h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.silence-results-summary {
+  font-size: 0.87rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+
+.silence-results-ok {
+  color: var(--green, #4ade80);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.silence-results-issues {
+  color: var(--orange, #fb923c);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.silence-results-empty {
+  font-size: 0.87rem;
+  color: var(--text-muted);
+}
+
+.silence-results-stats {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.85rem;
+}
+
+.silence-results-stat strong {
+  color: var(--text);
+}
+
+.silence-book-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.5rem;
+}
+
+.silence-book-header {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text);
+  padding: 0.3rem 0.5rem 0.2rem;
+}
+
+.silence-book-header-author {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.silence-file-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius);
+  background: var(--surface-raised, rgba(0,0,0,0.04));
+  gap: 0.75rem;
+}
+
+.silence-file-name {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.silence-volume-badge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 99px;
+  white-space: nowrap;
+  background: rgba(251, 146, 60, 0.12);
+  color: var(--orange, #fb923c);
+  flex-shrink: 0;
+}
+
+.silence-volume-badge.no-audio {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--red, #ef4444);
+}
+
+.silence-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
 .admin-source-list {
   display: flex;
   flex-direction: column;
