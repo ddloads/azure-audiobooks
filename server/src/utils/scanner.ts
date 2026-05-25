@@ -5,6 +5,7 @@ import ffmpeg from "./ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import prisma from "../lib/prisma";
 import { extractCover } from "./processor";
+import { queueFastStart } from "./faststart";
 import { generateSmartChapters, type ChapterInputAudioFile } from "./chapterizer";
 import { getCoverUrl, findCoverInFolder } from "./covers";
 import { cleanupBookTitle } from "./titleCleanup";
@@ -725,6 +726,13 @@ const upsertBookFolder = async (
         bookId: book.id,
       },
     });
+
+    // Schedule an in-place faststart remux so the next playback can start
+    // without ExoPlayer / browsers having to Range-request the tail of the
+    // file to locate the moov atom. ensureFastStart is idempotent and
+    // skips files that are already faststart, so it's safe to call on
+    // every rescan.
+    queueFastStart(filePath);
 
     processedAudioFiles.push({
       filename,
