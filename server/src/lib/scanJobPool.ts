@@ -423,4 +423,21 @@ export const requestLibraryFolderScan = (
   options?: EnqueueOptions,
 ) => pool.enqueue(libraryId, trigger, { ...options, folderPath });
 
+// Reaps non-terminal LibraryScanJob rows left over from a previous process.
+// The in-memory queue starts empty on restart, so anything still flagged
+// queued/running/cancelling in the DB is necessarily orphaned and would
+// otherwise block new requests via the pool's dedupe checks.
+export const reapStaleScanJobs = async () => {
+  try {
+    const result = await prisma.libraryScanJob.updateMany({
+      where: { status: { in: ["queued", "running", "cancelling"] } },
+      data: { status: "failed", error: "Server restarted", finishedAt: new Date() },
+    });
+    return result.count;
+  } catch (err) {
+    console.error("Failed to reap stale scan jobs:", err);
+    return 0;
+  }
+};
+
 export const stopScanning = () => pool.stopAll();

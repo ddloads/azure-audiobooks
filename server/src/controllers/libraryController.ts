@@ -35,8 +35,6 @@ const normalizeLibraryBook = <
   title: cleanupBookTitle(book.title, { folderNameOrPath: book.folderPath ?? undefined }),
 });
 
-const hasAvailableCover = (coverPath?: string | null) => !!coverPath;
-
 const getQueryString = (value: unknown) =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
 
@@ -215,7 +213,6 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     if (publisher) where.publisher = { contains: publisher, mode: "insensitive" };
     if (language) where.language = { equals: language, mode: "insensitive" };
     if (genre) where.genres = { contains: genre, mode: "insensitive" };
-    if (tag) where.tags = { contains: tag, mode: "insensitive" };
     if (abridged !== undefined) where.abridged = abridged;
     if (yearFrom || yearTo) where.year = { ...(yearFrom ? { gte: yearFrom } : {}), ...(yearTo ? { lte: yearTo } : {}) };
     if (durationMin !== undefined || durationMax !== undefined) {
@@ -228,15 +225,15 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     if (hasAsin === false) where.asin = null;
     if (hasIsbn === true) where.isbn = { not: null };
     if (hasIsbn === false) where.isbn = null;
+
+    // Push everything that can use a single field via AND so multiple
+    // filters on the same column (tags, audioFiles, progress) compose
+    // instead of overwriting each other.
+    if (tag) where.AND.push({ tags: { contains: tag, mode: "insensitive" } });
     if (fileType) {
-      where.audioFiles = {
-        some: {
-          filename: {
-            endsWith: fileType,
-            mode: "insensitive",
-          },
-        },
-      };
+      where.AND.push({
+        audioFiles: { some: { filename: { endsWith: fileType, mode: "insensitive" } } },
+      });
     }
     if (audioStatus === "silent") {
       where.AND.push({ audioFiles: { some: { isSilent: true } } });
@@ -247,12 +244,10 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
       });
     }
     if (listeningStatus === "in_progress" && userId) {
-      where.progress = { some: { userId, currentTime: { gt: 30 }, isFinished: false } };
-    }
-    if (listeningStatus === "finished" && userId) {
-      where.progress = { some: { userId, isFinished: true } };
-    }
-    if (listeningStatus === "not_started" && userId) {
+      where.AND.push({ progress: { some: { userId, currentTime: { gt: 30 }, isFinished: false } } });
+    } else if (listeningStatus === "finished" && userId) {
+      where.AND.push({ progress: { some: { userId, isFinished: true } } });
+    } else if (listeningStatus === "not_started" && userId) {
       where.AND.push({
         OR: [
           { progress: { none: { userId } } },
@@ -260,7 +255,58 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         ],
       });
     }
-    
+
+    // Filters that previously ran in-memory after a full fetch — now pushed
+    // to the DB so pagination/count don't have to load every book.
+    if (cover === "with") where.AND.push({ coverPath: { not: null } });
+    else if (cover === "missing") where.AND.push({ coverPath: null });
+
+    if (matchStatus === "matched") {
+      where.AND.push({ tags: { contains: "matched", mode: "insensitive" } });
+    } else if (matchStatus === "unmatched") {
+      where.AND.push({
+        OR: [
+          { tags: null },
+          { NOT: { tags: { contains: "matched", mode: "insensitive" } } },
+        ],
+      });
+    } else if (matchStatus === "quick-matched") {
+      where.AND.push({ tags: { contains: "quick-matched", mode: "insensitive" } });
+    }
+
+    if (!appearanceSettings.showReviewBooks) {
+      where.AND.push({
+        OR: [
+          { tags: null },
+          { NOT: { tags: { contains: "review", mode: "insensitive" } } },
+        ],
+      });
+    }
+
+    // Token-AND search across the user-visible fields. Diacritic stripping
+    // is lost vs. the old in-memory match, but that's a rare path for an
+    // English audiobook library and the speedup is worth it.
+    if (search) {
+      const tokens = search
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2);
+      for (const token of tokens) {
+        where.AND.push({
+          OR: [
+            { title: { contains: token, mode: "insensitive" } },
+            { subtitle: { contains: token, mode: "insensitive" } },
+            { author: { name: { contains: token, mode: "insensitive" } } },
+            { series: { name: { contains: token, mode: "insensitive" } } },
+            { narrator: { contains: token, mode: "insensitive" } },
+            { publisher: { contains: token, mode: "insensitive" } },
+            { genres: { contains: token, mode: "insensitive" } },
+            { tags: { contains: token, mode: "insensitive" } },
+          ],
+        });
+      }
+    }
+
     if (where.AND.length === 0) delete where.AND;
 
     let orderBy: any = { createdAt: "desc" };
@@ -275,87 +321,52 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     if (sortBy === "newest") orderBy = { createdAt: "desc" };
     if (sortBy === "oldest") orderBy = { createdAt: "asc" };
 
-    const books = await prisma.book.findMany({
-      where,
-      select: {
-        id: true,
-        title: true,
-        subtitle: true,
-        asin: true,
-        duration: true,
-        coverPath: true,
-        folderPath: true,
-        series: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        sequence: true,
-        narrator: true,
-        publisher: true,
-        genres: true,
-        tags: true,
-        library: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        author: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy,
-    });
-    const searchFilteredBooks = search
-      ? books.filter((book) =>
-          [
-            book.title,
-            book.subtitle,
-            book.author.name,
-            book.series?.name,
-            book.narrator,
-            book.publisher,
-            book.genres,
-            book.tags,
-          ].some((value) => matchesNormalizedSearch(value, search)),
-        )
-      : books;
-    const normalizedBooks = searchFilteredBooks
-      .map(normalizeLibraryBook)
-      .filter((book) => appearanceSettings.showReviewBooks || !isReviewBook(book.tags));
-    const matchFilteredBooks =
-      matchStatus === "matched"
-        ? normalizedBooks.filter((book) => hasTag(book.tags, "matched"))
-        : matchStatus === "unmatched"
-          ? normalizedBooks.filter((book) => !hasTag(book.tags, "matched"))
-          : matchStatus === "quick-matched"
-            ? normalizedBooks.filter((book) => hasTag(book.tags, "quick-matched"))
-          : normalizedBooks;
-    const filteredBooks =
-      cover === "with"
-        ? matchFilteredBooks.filter((book) => hasAvailableCover(book.coverPath))
-        : cover === "missing"
-          ? matchFilteredBooks.filter((book) => !hasAvailableCover(book.coverPath))
-          : matchFilteredBooks;
+    const isPaginated = page !== undefined || limit !== undefined;
+    const safeLimit = isPaginated
+      ? Math.min(Math.max(Math.floor(limit ?? 50), 1), 100)
+      : undefined;
+    const safePage = isPaginated ? Math.max(Math.floor(page ?? 0), 0) : 0;
 
-    if (page !== undefined || limit !== undefined) {
-      const safeLimit = Math.min(Math.max(Math.floor(limit ?? 50), 1), 100);
-      const safePage = Math.max(Math.floor(page ?? 0), 0);
-      const start = safePage * safeLimit;
+    const selectShape = {
+      id: true,
+      title: true,
+      subtitle: true,
+      asin: true,
+      duration: true,
+      coverPath: true,
+      folderPath: true,
+      series: { select: { id: true, name: true } },
+      sequence: true,
+      narrator: true,
+      publisher: true,
+      genres: true,
+      tags: true,
+      library: { select: { id: true, name: true } },
+      author: { select: { name: true } },
+    } as const;
+
+    if (isPaginated) {
+      const [books, total] = await Promise.all([
+        prisma.book.findMany({
+          where,
+          select: selectShape,
+          orderBy,
+          take: safeLimit,
+          skip: safePage * (safeLimit ?? 0),
+        }),
+        prisma.book.count({ where }),
+      ]);
       res.json({
-        results: filteredBooks.slice(start, start + safeLimit),
-        total: filteredBooks.length,
+        results: books.map(normalizeLibraryBook),
+        total,
         page: safePage,
         limit: safeLimit,
       });
       return;
     }
 
-    res.json(filteredBooks);
+    const books = await prisma.book.findMany({ where, select: selectShape, orderBy });
+    res.json(books.map(normalizeLibraryBook));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch books" });
   }
