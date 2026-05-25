@@ -106,7 +106,13 @@ async function runSilenceCheck(
   });
 
   const baseWhere = libraryId ? { book: { libraryId } } : {};
-  const targetWhere = recheckAll ? baseWhere : { ...baseWhere, silenceCheckedAt: null };
+  // Default behavior: re-probe anything that hasn't passed yet — unchecked
+  // files (isSilent IS NULL) and previously-failed files (isSilent = true).
+  // Files that already passed (isSilent = false) are skipped so repeated
+  // clicks don't waste time on known-good audio. recheckAll forces a full sweep.
+  const targetWhere = recheckAll
+    ? baseWhere
+    : { ...baseWhere, OR: [{ isSilent: null }, { isSilent: true }] };
 
   const totalFiles = await prisma.audioFile.count({ where: targetWhere });
 

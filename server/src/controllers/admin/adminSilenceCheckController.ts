@@ -6,7 +6,7 @@ import { getSingleParam } from "./shared";
 
 export const startSilenceCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await requestSilenceCheck(undefined, "manual", true);
+    const result = await requestSilenceCheck(undefined, "manual", false);
     res.json(result);
   } catch (error) {
     console.error("Failed to start silence check:", error);
@@ -32,7 +32,7 @@ export const startLibrarySilenceCheck = async (req: AuthRequest, res: Response) 
       return;
     }
 
-    const result = await requestSilenceCheck(libraryId, "manual", true);
+    const result = await requestSilenceCheck(libraryId, "manual", false);
     res.json(result);
   } catch (error) {
     console.error("Failed to start library silence check:", error);

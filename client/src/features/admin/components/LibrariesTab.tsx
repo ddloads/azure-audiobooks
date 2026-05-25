@@ -98,15 +98,15 @@ export default function LibrariesTab({
     }
   };
 
-  const fetchSilenceResults = async () => {
-    setSilenceResultsLoading(true);
+  const fetchSilenceResults = async (showSpinner = true) => {
+    if (showSpinner) setSilenceResultsLoading(true);
     try {
       const response = await api.get<SilenceCheckResults>("/admin/library/silence-check/results");
       setSilenceResults(response.data);
     } catch {
       // no results yet — leave panel hidden
     } finally {
-      setSilenceResultsLoading(false);
+      if (showSpinner) setSilenceResultsLoading(false);
     }
   };
 
@@ -116,12 +116,24 @@ export default function LibrariesTab({
   }, []);
 
   useEffect(() => {
+    const status = silenceCheckProgress?.status;
+    if (status !== "starting" && status !== "checking") return;
+
+    const interval = setInterval(() => {
+      void fetchSilenceResults(false);
+    }, 2000);
+
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [silenceCheckProgress?.status]);
+
+  useEffect(() => {
     const prev = prevSilenceStatusRef.current;
     const current = silenceCheckProgress?.status ?? null;
     prevSilenceStatusRef.current = current;
 
     if (prev !== null && prev !== "completed" && current === "completed") {
-      void fetchSilenceResults();
+      void fetchSilenceResults(false);
       const silent = silenceCheckProgress?.silentFiles ?? 0;
       showToast({
         title: "Audio check complete",
@@ -382,7 +394,7 @@ export default function LibrariesTab({
         }
         showToast({
           title: "Audio check started",
-          description: "Probing all library files for silent audio in the background.",
+          description: "Checking new and previously-failed audio files in the background.",
           tone: "success",
         });
       } catch (error) {
@@ -409,7 +421,7 @@ export default function LibrariesTab({
         }
         showToast({
           title: "Audio check started",
-          description: `Probing files in "${library.name}" for silent audio.`,
+          description: `Checking new and previously-failed files in "${library.name}".`,
           tone: "success",
         });
       } catch (error) {
