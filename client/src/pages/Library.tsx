@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
   BookMarked,
-  Boxes,
   LayoutList,
   ListPlus,
   Plus,
@@ -215,7 +214,11 @@ const SkeletonCard = () => (
   </div>
 );
 
-const Library = () => {
+interface LibraryProps {
+  defaultViewMode?: DesktopViewMode;
+}
+
+const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -253,7 +256,7 @@ const Library = () => {
   const [isActionBusy, setIsActionBusy] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<DesktopViewMode>("books");
+  const [viewMode, setViewMode] = useState<DesktopViewMode>(defaultViewMode);
   const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
   const [matchQueue, setMatchQueue] = useState<MetadataBook[]>([]);
   const [matchQueueIndex, setMatchQueueIndex] = useState(0);
@@ -694,7 +697,7 @@ const Library = () => {
     const newParams = new URLSearchParams(searchParams);
     newParams.set("seriesId", series.id);
     newParams.set("seriesName", series.name);
-    setSearchParams(newParams);
+    navigate({ pathname: "/library", search: newParams.toString() });
     setViewMode("books");
   };
 
@@ -1333,32 +1336,26 @@ const Library = () => {
               {search && <span className="library-grid-filter-note"> matching "{search}"</span>}
             </span>
             <div className="library-view-actions">
-              <div className="library-view-toggle" aria-label="Library view mode">
-                <button
-                  className={`library-view-toggle-btn${viewMode === "books" ? " active" : ""}`}
-                  type="button"
-                  onClick={() => setViewMode("books")}
-                >
-                  <BookMarked size={15} />
-                  Grid
-                </button>
-                <button
-                  className={`library-view-toggle-btn${viewMode === "list" ? " active" : ""}`}
-                  type="button"
-                  onClick={() => setViewMode("list")}
-                >
-                  <LayoutList size={15} />
-                  List
-                </button>
-                <button
-                  className={`library-view-toggle-btn${viewMode === "series" ? " active" : ""}`}
-                  type="button"
-                  onClick={() => setViewMode("series")}
-                >
-                  <Boxes size={15} />
-                  Series
-                </button>
-              </div>
+              {viewMode !== "series" && (
+                <div className="library-view-toggle" aria-label="Library view mode">
+                  <button
+                    className={`library-view-toggle-btn${viewMode === "books" ? " active" : ""}`}
+                    type="button"
+                    onClick={() => setViewMode("books")}
+                  >
+                    <BookMarked size={15} />
+                    Grid
+                  </button>
+                  <button
+                    className={`library-view-toggle-btn${viewMode === "list" ? " active" : ""}`}
+                    type="button"
+                    onClick={() => setViewMode("list")}
+                  >
+                    <LayoutList size={15} />
+                    List
+                  </button>
+                </div>
+              )}
               {user?.role === "ADMIN" && selectedBooks.length > 0 && (
                 <div className="library-batch-actions">
                   {batchActions}

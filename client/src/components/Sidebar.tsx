@@ -1,12 +1,10 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
+  Boxes,
   Copy,
   FolderOpen,
   Home,
-  LogOut,
   Settings,
   X,
 } from "lucide-react";
@@ -16,7 +14,6 @@ import AppLogo from "./AppLogo";
 interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
-  onCollapseToggle: () => void;
   onMobileClose: () => void;
 }
 
@@ -30,6 +27,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { path: "/",        icon: <Home size={18} />,     label: "Home" },
   { path: "/library", icon: <BookOpen size={18} />, label: "Library" },
+  { path: "/series",  icon: <Boxes size={18} />,    label: "Series" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
@@ -41,17 +39,16 @@ const ADMIN_ITEMS: NavItem[] = [
 export default function Sidebar({
   collapsed,
   mobileOpen,
-  onCollapseToggle,
   onMobileClose,
 }: SidebarProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const isAdmin = user?.role === "ADMIN";
 
   const isActive = (path: string) =>
-    path === "/" || path === "/library"
+    path === "/" || path === "/library" || path === "/series"
       ? location.pathname === path
       : location.pathname.startsWith(path);
 
@@ -111,34 +108,13 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Footer: logout + collapse toggle */}
-      <div className="sidebar-footer">
-        <button
-          className="sidebar-item"
-          onClick={() => { logout(); onMobileClose(); }}
-          data-label={collapsed ? "Sign out" : undefined}
-          aria-label="Sign out"
-        >
-          <span className="sidebar-icon"><LogOut size={18} /></span>
-          <span className="sidebar-label">Sign out</span>
-        </button>
-
-        {/* Desktop collapse toggle */}
-        <button
-          className="sidebar-collapse-btn"
-          onClick={onCollapseToggle}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {!collapsed && <span className="sidebar-label" style={{ color: "var(--text-subtle)", fontSize: 12 }}>Collapse</span>}
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
-
-        {!collapsed && (
+      {!collapsed && (
+        <div className="sidebar-footer">
           <div className="sidebar-version" aria-label={`Azure version ${__APP_VERSION__}`}>
             v{__APP_VERSION__}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </nav>
   );
 }

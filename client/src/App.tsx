@@ -62,6 +62,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="/series"
+          element={
+            <PrivateRoute>
+              {isMobile ? <MobileLibrary /> : <Library defaultViewMode="series" />}
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/book/:bookId"
           element={
             <PrivateRoute>

@@ -28,7 +28,6 @@ export default function AppShell() {
           <Sidebar
             collapsed={collapsed}
             mobileOpen={mobileOpen}
-            onCollapseToggle={() => setCollapsed((v) => !v)}
             onMobileClose={() => setMobileOpen(false)}
           />
 
