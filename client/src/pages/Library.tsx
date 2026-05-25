@@ -255,6 +255,17 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<Set<string>>(new Set());
   const [viewMode, setViewMode] = useState<DesktopViewMode>(defaultViewMode);
+  const [seriesLayout, setSeriesLayout] = useState<"grid" | "list">("grid");
+
+  const layoutMode: "grid" | "list" =
+    viewMode === "series" ? seriesLayout : viewMode === "list" ? "list" : "grid";
+  const setLayoutMode = (next: "grid" | "list") => {
+    if (viewMode === "series") {
+      setSeriesLayout(next);
+    } else {
+      setViewMode(next === "list" ? "list" : "books");
+    }
+  };
 
   // React Router reuses the same Library instance for /library and /series
   // (same component type at the same outlet slot), so useState's initial
@@ -1324,26 +1335,24 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
               {search && <span className="library-grid-filter-note"> matching "{search}"</span>}
             </span>
             <div className="library-view-actions">
-              {viewMode !== "series" && (
-                <div className="library-view-toggle" aria-label="Library view mode">
-                  <button
-                    className={`library-view-toggle-btn${viewMode === "books" ? " active" : ""}`}
-                    type="button"
-                    onClick={() => setViewMode("books")}
-                  >
-                    <BookMarked size={15} />
-                    Grid
-                  </button>
-                  <button
-                    className={`library-view-toggle-btn${viewMode === "list" ? " active" : ""}`}
-                    type="button"
-                    onClick={() => setViewMode("list")}
-                  >
-                    <LayoutList size={15} />
-                    List
-                  </button>
-                </div>
-              )}
+              <div className="library-view-toggle" aria-label="View layout">
+                <button
+                  className={`library-view-toggle-btn${layoutMode === "grid" ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setLayoutMode("grid")}
+                >
+                  <BookMarked size={15} />
+                  Grid
+                </button>
+                <button
+                  className={`library-view-toggle-btn${layoutMode === "list" ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setLayoutMode("list")}
+                >
+                  <LayoutList size={15} />
+                  List
+                </button>
+              </div>
               {user?.role === "ADMIN" && selectedBooks.length > 0 && (
                 <div className="library-batch-actions">
                   {batchActions}
@@ -1352,31 +1361,61 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
             </div>
           </div>
           {viewMode === "series" ? (
-            <div className="series-view-grid">
-              {seriesGroups.map((series) => (
-                <button
-                  key={series.id ?? series.name}
-                  className="series-view-card"
-                  type="button"
-                  onClick={() => openSeries(series)}
-                >
-                  <div className={`series-view-covers series-view-covers--${Math.min(series.books.length, 4)}`}>
-                    {series.books.slice(0, 4).map((book) => (
-                      <div key={book.id} className="series-view-cover">
-                        {book.coverPath ? <img src={book.coverPath} alt="" /> : <BookOpen size={22} />}
+            seriesLayout === "list" ? (
+              <div className="series-list-view">
+                {seriesGroups.map((series) => {
+                  const firstCover = series.books.find((b) => b.coverPath)?.coverPath;
+                  return (
+                    <button
+                      key={series.id ?? series.name}
+                      className="series-list-row"
+                      type="button"
+                      onClick={() => openSeries(series)}
+                    >
+                      <div className="series-list-cover">
+                        {firstCover ? <img src={firstCover} alt="" /> : <BookOpen size={20} />}
                       </div>
-                    ))}
-                  </div>
-                  <div className="series-view-info">
-                    <div className="series-view-title">{series.name}</div>
-                    <div className="series-view-count">{series.books.length} {series.books.length === 1 ? "book" : "books"}</div>
-                    <div className="series-view-preview">
-                      {series.books.slice(0, 3).map((book) => book.title).join(" / ")}
+                      <div className="series-list-info">
+                        <div className="series-list-title">{series.name}</div>
+                        <div className="series-list-meta">
+                          {series.books.length} {series.books.length === 1 ? "book" : "books"}
+                          <span className="series-list-meta-sep"> · </span>
+                          <span className="series-list-preview">
+                            {series.books.slice(0, 3).map((book) => book.title).join(" / ")}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="series-view-grid">
+                {seriesGroups.map((series) => (
+                  <button
+                    key={series.id ?? series.name}
+                    className="series-view-card"
+                    type="button"
+                    onClick={() => openSeries(series)}
+                  >
+                    <div className={`series-view-covers series-view-covers--${Math.min(series.books.length, 4)}`}>
+                      {series.books.slice(0, 4).map((book) => (
+                        <div key={book.id} className="series-view-cover">
+                          {book.coverPath ? <img src={book.coverPath} alt="" /> : <BookOpen size={22} />}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="series-view-info">
+                      <div className="series-view-title">{series.name}</div>
+                      <div className="series-view-count">{series.books.length} {series.books.length === 1 ? "book" : "books"}</div>
+                      <div className="series-view-preview">
+                        {series.books.slice(0, 3).map((book) => book.title).join(" / ")}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
           ) : viewMode === "list" ? (
             <div className="library-list-view">
               {visibleBooks.map((book) => {

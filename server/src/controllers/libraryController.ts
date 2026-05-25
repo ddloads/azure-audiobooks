@@ -19,6 +19,13 @@ import { getAppearanceSettings } from "../utils/appSettings";
 const getSingleParam = (value: string | string[] | undefined): string | null =>
   typeof value === "string" ? value : null;
 
+// 1x1 transparent PNG served when a stored coverPath points at a missing
+// file. Avoids the 404 console spam while we lazily null out the stale row.
+const TRANSPARENT_PNG_1X1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+  "base64",
+);
+
 const normalizeBookCover = <T extends { coverPath?: string | null }>(book: T) => ({
   ...book,
   coverPath: normalizeCoverPath(book.coverPath),
@@ -650,12 +657,28 @@ export const getCover = async (req: Request, res: Response) => {
       await fsp.access(legacyPath);
       filePath = legacyPath;
     } catch {
-      // No legacy cover available; fall through to 404 below.
+      // No legacy cover available; fall through to placeholder below.
     }
   }
 
   if (!filePath) {
-    res.status(404).send("Not found");
+    // Cover row points at a file that isn't there. Lazily null out coverPath
+    // so the next /api/library/ response renders the client placeholder
+    // instead of re-hitting this endpoint, but only when the book's folder
+    // is reachable — a NAS blip shouldn't wipe coverPaths library-wide.
+    if (book) {
+      try {
+        await fsp.access(book.folderPath);
+        void prisma.book
+          .update({ where: { id: bookId }, data: { coverPath: null } })
+          .catch(() => {});
+      } catch {
+        /* folder unreachable — leave coverPath alone */
+      }
+    }
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Content-Type", "image/png");
+    res.end(TRANSPARENT_PNG_1X1);
     return;
   }
 
