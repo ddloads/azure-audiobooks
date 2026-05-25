@@ -721,6 +721,16 @@
   padding: 9px;
 }
 
+.sidebar-version {
+  padding: 4px 18px 6px;
+  font-size: 10.5px;
+  color: var(--text-subtle);
+  text-align: right;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
+
 /* Mobile overlay backdrop */
 .sidebar-overlay {
   position: fixed;

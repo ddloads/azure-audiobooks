@@ -132,6 +132,12 @@ export default function Sidebar({
           {!collapsed && <span className="sidebar-label" style={{ color: "var(--text-subtle)", fontSize: 12 }}>Collapse</span>}
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
+
+        {!collapsed && (
+          <div className="sidebar-version" aria-label={`Azure version ${__APP_VERSION__}`}>
+            v{__APP_VERSION__}
+          </div>
+        )}
       </div>
     </nav>
   );
