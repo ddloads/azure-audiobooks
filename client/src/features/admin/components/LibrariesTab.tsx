@@ -371,7 +371,15 @@ export default function LibrariesTab({
   const handleSilenceCheck = async () => {
     await runAction("silence-check", async () => {
       try {
-        await api.post("/admin/library/silence-check");
+        const response = await api.post("/admin/library/silence-check");
+        if (response.data?.status === "skipped") {
+          showToast({
+            title: "Audio check already running",
+            description: response.data.message || "A previous audio check is still in progress.",
+            tone: "info",
+          });
+          return;
+        }
         showToast({
           title: "Audio check started",
           description: "Probing all library files for silent audio in the background.",
@@ -390,7 +398,15 @@ export default function LibrariesTab({
   const handleLibrarySilenceCheck = async (library: AdminLibrary) => {
     await runAction(`silence-check-${library.id}`, async () => {
       try {
-        await api.post(`/admin/libraries/${library.id}/silence-check`);
+        const response = await api.post(`/admin/libraries/${library.id}/silence-check`);
+        if (response.data?.status === "skipped") {
+          showToast({
+            title: "Audio check already running",
+            description: response.data.message || `An audio check for "${library.name}" is already in progress.`,
+            tone: "info",
+          });
+          return;
+        }
         showToast({
           title: "Audio check started",
           description: `Probing files in "${library.name}" for silent audio.`,

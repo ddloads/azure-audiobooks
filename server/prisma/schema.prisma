@@ -216,16 +216,20 @@ model Chapter {
 }
 
 model AudioFile {
-  id       String  @id @default(uuid())
-  filename String
-  title    String?
-  path     String
-  duration Float
-  index    Int
-  book     Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  bookId   String
+  id               String   @id @default(uuid())
+  filename         String
+  title            String?
+  path             String
+  duration         Float
+  index            Int
+  book             Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  bookId           String
+  isSilent         Boolean?
+  maxVolumeDb      Float?
+  silenceCheckedAt DateTime?
 
   @@index([bookId, index])
+  @@index([isSilent])
 }
 
 model Progress {

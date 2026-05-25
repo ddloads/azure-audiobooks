@@ -9,11 +9,12 @@ type JobRequest = {
   id: string;
   libraryId?: string;
   trigger: string;
+  recheckAll: boolean;
   enqueuedAt: string;
 };
 
 type WorkerCommand =
-  | { type: "run"; jobId: string; libraryId?: string }
+  | { type: "run"; jobId: string; libraryId?: string; recheckAll: boolean }
   | { type: "cancel"; jobId: string };
 
 type WorkerResponse =
@@ -53,7 +54,7 @@ class SilenceCheckPool {
     this.slots.push(this.attachWorker(createSlot()));
   }
 
-  async enqueue(libraryId?: string, trigger = "manual") {
+  async enqueue(libraryId?: string, trigger = "manual", recheckAll = false) {
     if (await this.hasActiveJob(libraryId)) {
       return {
         status: "skipped" as const,
@@ -71,6 +72,7 @@ class SilenceCheckPool {
       id: persisted.id,
       libraryId,
       trigger,
+      recheckAll,
       enqueuedAt: new Date().toISOString(),
     };
 
@@ -187,7 +189,12 @@ class SilenceCheckPool {
       slot.busy = true;
       slot.currentJob = job;
       void this.updateJob(job.id, { status: "running", startedAt: new Date() });
-      slot.worker.postMessage({ type: "run", jobId: job.id, libraryId: job.libraryId } satisfies WorkerCommand);
+      slot.worker.postMessage({
+        type: "run",
+        jobId: job.id,
+        libraryId: job.libraryId,
+        recheckAll: job.recheckAll,
+      } satisfies WorkerCommand);
       dispatched = true;
     }
     return dispatched;
@@ -253,7 +260,27 @@ class SilenceCheckPool {
 
 const pool = new SilenceCheckPool();
 
-export const requestSilenceCheck = (libraryId?: string, trigger?: string) =>
-  pool.enqueue(libraryId, trigger);
+export const requestSilenceCheck = (
+  libraryId?: string,
+  trigger?: string,
+  recheckAll = false,
+) => pool.enqueue(libraryId, trigger, recheckAll);
 
 export const stopSilenceCheck = () => pool.stopAll();
+
+// Reaps non-terminal SilenceCheckJob rows left over from a previous process. The
+// in-memory queue/slots start empty after a restart, so anything still flagged
+// queued/running/cancelling in the DB is necessarily orphaned and would block
+// future requests via hasActiveJob.
+export const reapStaleSilenceCheckJobs = async () => {
+  try {
+    const result = await prisma.silenceCheckJob.updateMany({
+      where: { status: { in: ["queued", "running", "cancelling"] } },
+      data: { status: "failed", error: "Server restarted", finishedAt: new Date() },
+    });
+    return result.count;
+  } catch (err) {
+    console.error("Failed to reap stale silence check jobs:", err);
+    return 0;
+  }
+};

@@ -16,6 +16,7 @@ type RunMessage = {
   type: "run";
   jobId: string;
   libraryId?: string;
+  recheckAll?: boolean;
 };
 
 type CancelMessage = {
@@ -69,7 +70,12 @@ port.on("message", async (message: WorkerMessage) => {
   };
 
   try {
-    await runSilenceCheck(message.jobId, message.libraryId, abortController.signal);
+    await runSilenceCheck(
+      message.jobId,
+      message.libraryId,
+      message.recheckAll ?? false,
+      abortController.signal,
+    );
 
     if (currentJob.cancelled) {
       port.postMessage({ type: "cancelled", jobId: message.jobId });
@@ -90,6 +96,7 @@ port.on("message", async (message: WorkerMessage) => {
 async function runSilenceCheck(
   jobId: string,
   libraryId: string | undefined,
+  recheckAll: boolean,
   signal: AbortSignal,
 ) {
   emitProgress(jobId, {
@@ -98,11 +105,10 @@ async function runSilenceCheck(
     progress: 0,
   });
 
-  const uncheckedWhere = libraryId
-    ? { libraryId, bookId: { not: null as null }, silenceCheckedAt: null }
-    : { bookId: { not: null as null }, silenceCheckedAt: null };
+  const baseWhere = libraryId ? { book: { libraryId } } : {};
+  const targetWhere = recheckAll ? baseWhere : { ...baseWhere, silenceCheckedAt: null };
 
-  const totalFiles = await prisma.indexedAudioFile.count({ where: uncheckedWhere });
+  const totalFiles = await prisma.audioFile.count({ where: targetWhere });
 
   await prisma.silenceCheckJob.update({
     where: { id: jobId },
@@ -127,9 +133,9 @@ async function runSilenceCheck(
   let cursor: string | undefined;
 
   while (!signal.aborted) {
-    const batch = await prisma.indexedAudioFile.findMany({
-      where: uncheckedWhere,
-      select: { id: true, path: true, fileName: true },
+    const batch = await prisma.audioFile.findMany({
+      where: targetWhere,
+      select: { id: true, path: true, filename: true },
       take: batchSize,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: "asc" },
@@ -144,7 +150,7 @@ async function runSilenceCheck(
         libraryId,
         status: "checking",
         progress: Math.round((checkedFiles / totalFiles) * 100),
-        currentFile: file.fileName,
+        currentFile: file.filename,
         totalFiles,
         checkedFiles,
         silentFiles,
@@ -154,7 +160,7 @@ async function runSilenceCheck(
 
       if (signal.aborted) break;
 
-      await prisma.indexedAudioFile.update({
+      await prisma.audioFile.update({
         where: { id: file.id },
         data: {
           isSilent: result.error === "cancelled" ? undefined : result.isSilent,

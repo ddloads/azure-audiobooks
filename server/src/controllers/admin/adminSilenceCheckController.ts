@@ -6,7 +6,7 @@ import { getSingleParam } from "./shared";
 
 export const startSilenceCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await requestSilenceCheck(undefined, "manual");
+    const result = await requestSilenceCheck(undefined, "manual", true);
     res.json(result);
   } catch (error) {
     console.error("Failed to start silence check:", error);
@@ -32,7 +32,7 @@ export const startLibrarySilenceCheck = async (req: AuthRequest, res: Response) 
       return;
     }
 
-    const result = await requestSilenceCheck(libraryId, "manual");
+    const result = await requestSilenceCheck(libraryId, "manual", true);
     res.json(result);
   } catch (error) {
     console.error("Failed to start library silence check:", error);
@@ -44,16 +44,15 @@ export const getSilenceCheckResults = async (req: AuthRequest, res: Response) =>
   try {
     const libraryId = req.query.libraryId as string | undefined;
 
-    const where = libraryId
-      ? { libraryId: libraryId as string, isSilent: true, bookId: { not: null as null } }
-      : { isSilent: true, bookId: { not: null as null } };
+    const libraryScope = libraryId ? { book: { libraryId } } : {};
+    const silentWhere = { ...libraryScope, isSilent: true };
 
-    const silentFiles = await prisma.indexedAudioFile.findMany({
-      where,
+    const silentRows = await prisma.audioFile.findMany({
+      where: silentWhere,
       select: {
         id: true,
         path: true,
-        fileName: true,
+        filename: true,
         maxVolumeDb: true,
         silenceCheckedAt: true,
         book: {
@@ -68,17 +67,20 @@ export const getSilenceCheckResults = async (req: AuthRequest, res: Response) =>
       take: 200,
     });
 
-    const totalSilent = await prisma.indexedAudioFile.count({ where });
-    const totalChecked = await prisma.indexedAudioFile.count({
-      where: libraryId
-        ? { libraryId, silenceCheckedAt: { not: null } }
-        : { silenceCheckedAt: { not: null } },
+    const silentFiles = silentRows.map((row) => ({
+      id: row.id,
+      path: row.path,
+      fileName: row.filename,
+      maxVolumeDb: row.maxVolumeDb,
+      silenceCheckedAt: row.silenceCheckedAt,
+      book: row.book,
+    }));
+
+    const totalSilent = await prisma.audioFile.count({ where: silentWhere });
+    const totalChecked = await prisma.audioFile.count({
+      where: { ...libraryScope, silenceCheckedAt: { not: null } },
     });
-    const totalFiles = await prisma.indexedAudioFile.count({
-      where: libraryId
-        ? { libraryId, bookId: { not: null as null } }
-        : { bookId: { not: null as null } },
-    });
+    const totalFiles = await prisma.audioFile.count({ where: libraryScope });
 
     res.json({ totalFiles, totalChecked, totalSilent, silentFiles });
   } catch (error) {

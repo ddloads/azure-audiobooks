@@ -7,6 +7,7 @@ import { initSocket } from "./lib/socket";
 import { backupDatabase } from "./utils/backup";
 import { installConsoleLogger, installProcessLogger, logger } from "./lib/logger";
 import { startLibraryWatchers } from "./lib/libraryWatcher";
+import { reapStaleSilenceCheckJobs } from "./lib/silenceCheckPool";
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -30,6 +31,11 @@ const startServer = async () => {
 
   // Initial backup
   backupDatabase();
+
+  const reaped = await reapStaleSilenceCheckJobs();
+  if (reaped > 0) {
+    logger.info(`Reaped ${reaped} stale silence check job(s) from previous run`);
+  }
 
   startLibraryWatchers();
 };
