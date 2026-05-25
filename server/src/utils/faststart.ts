@@ -16,6 +16,12 @@ const FAST_START_CONCURRENCY = Math.max(
 const FAST_START_PROBE_BYTES = 262_144; // 256 KB is enough to land on the second atom on every file I've seen
 const FAST_START_REMUX_TIMEOUT_MS =
   Number.parseInt(process.env.FAST_START_REMUX_TIMEOUT_MS || "", 10) || 30 * 60 * 1000;
+// Extra free bytes we want to leave on the volume after remux, on top of one
+// full copy of the source file. Defaults to 1 GiB so we don't push the NAS to
+// 100% and ENOSPC out other writers (BookSync downloads, log writes, etc.).
+const FAST_START_MIN_FREE_HEADROOM_BYTES =
+  Number.parseInt(process.env.FAST_START_MIN_FREE_HEADROOM_BYTES || "", 10) ||
+  1024 * 1024 * 1024;
 
 const isFastStartCandidate = (filePath: string) =>
   FASTSTART_EXTENSIONS.has(path.extname(filePath).toLowerCase());
@@ -173,6 +179,18 @@ const releaseSlot = () => {
  * is capped via `FAST_START_CONCURRENCY` so a fresh library import doesn't
  * spawn hundreds of ffmpeg processes against a NAS at once.
  */
+// Returns the bytes of free space available to non-root processes on the
+// volume containing `targetPath`. Returns null if we can't read it — caller
+// should treat null as "don't enforce the free-space check".
+const getAvailableBytes = async (targetPath: string): Promise<number | null> => {
+  try {
+    const stats = await fsp.statfs(targetPath);
+    return stats.bavail * stats.bsize;
+  } catch {
+    return null;
+  }
+};
+
 export const ensureFastStart = async (
   filePath: string,
 ): Promise<"skipped" | "already-fast" | "remuxed"> => {
@@ -185,6 +203,20 @@ export const ensureFastStart = async (
     const isFast = await isFastStartMp4(filePath);
     if (isFast === null) return "skipped";
     if (isFast) return "already-fast";
+
+    // Bail before queueing the work if the volume can't comfortably hold a
+    // full second copy of this file plus the configured headroom. Otherwise
+    // the remux's temp file fills the disk and ENOSPC's other writers.
+    const stat = await fsp.stat(filePath).catch(() => null);
+    const free = await getAvailableBytes(path.dirname(filePath));
+    if (stat && free !== null && free < stat.size + FAST_START_MIN_FREE_HEADROOM_BYTES) {
+      const fmt = (n: number) => `${(n / (1024 * 1024 * 1024)).toFixed(2)} GiB`;
+      console.warn(
+        `[faststart] skipping ${filePath} — only ${fmt(free)} free, file is ${fmt(stat.size)} ` +
+        `(need source + ${fmt(FAST_START_MIN_FREE_HEADROOM_BYTES)} headroom)`,
+      );
+      return "skipped";
+    }
 
     await acquireSlot();
     try {
