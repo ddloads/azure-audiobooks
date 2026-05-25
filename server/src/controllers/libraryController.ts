@@ -160,6 +160,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     const hasAsin = getQueryBoolean(req.query.hasAsin);
     const hasIsbn = getQueryBoolean(req.query.hasIsbn);
     const fileType = getQueryString(req.query.fileType);
+    const audioStatus = getQueryString(req.query.audioStatus);
     const listeningStatus = getQueryString(req.query.listeningStatus);
     const matchStatus = getQueryString(req.query.matchStatus);
     const duplicatesOnly = getQueryBoolean(req.query.duplicatesOnly);
@@ -236,6 +237,14 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
           },
         },
       };
+    }
+    if (audioStatus === "silent") {
+      where.AND.push({ audioFiles: { some: { isSilent: true } } });
+    } else if (audioStatus === "clean") {
+      where.AND.push({
+        audioFiles: { some: {} },
+        NOT: { audioFiles: { some: { isSilent: true } } },
+      });
     }
     if (listeningStatus === "in_progress" && userId) {
       where.progress = { some: { userId, currentTime: { gt: 30 }, isFinished: false } };
