@@ -9,7 +9,6 @@ import {
   RefreshCw,
   BookOpen,
   FileSearch,
-  FolderOpen,
   Loader2,
   Trash2,
   Save,
@@ -22,7 +21,6 @@ import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
-import AppLogo from "../components/AppLogo";
 import BookCard from "../components/BookCard";
 import BookMetadataModal from "../components/BookMetadataModal";
 import UploadModal from "../components/UploadModal";
@@ -265,6 +263,16 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   useEffect(() => {
     setViewMode(defaultViewMode);
   }, [defaultViewMode]);
+
+  // Top bar opens the upload modal by setting ?upload=open; consume + clear.
+  useEffect(() => {
+    if (searchParams.get("upload") === "open") {
+      setIsUploadModalOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("upload");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   const [lastSelectedBookId, setLastSelectedBookId] = useState<string | null>(null);
   const [matchQueue, setMatchQueue] = useState<MetadataBook[]>([]);
   const [matchQueueIndex, setMatchQueueIndex] = useState(0);
@@ -968,34 +976,6 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   return (
     <>
     <div className="container library-page">
-      <header className="library-header">
-        <div className="library-brand-section">
-          <AppLogo className="library-brand" imageClassName="library-brand-image" textClassName="library-title" />
-          <p className="library-subtitle">Welcome back, {user?.username}</p>
-        </div>
-
-        <div className="library-actions">
-          {user?.role === "ADMIN" && (
-            <>
-              <button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="btn btn-primary"
-              >
-                <Plus size={15} />
-                Add Book
-              </button>
-              <button
-                onClick={() => navigate("/files", { state: { from: returnTo } })}
-                className="btn btn-secondary"
-              >
-                <FolderOpen size={15} />
-                Files
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-
       <div className={`library-filter-panel-wrapper${isFilterPanelOpen ? " open" : ""}`}>
         <section className="library-filter-panel">
           <div className="library-filter-panel-head">

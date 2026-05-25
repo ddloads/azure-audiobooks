@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Bug, CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
+import { Bug, CheckCircle2, Loader2, LogOut, Menu, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -61,6 +61,18 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
     const next = new URLSearchParams(searchParams);
     next.set("sortBy", value);
     setSearchParams(next);
+  };
+
+  // Library owns the upload modal; the top bar signals "open it" by setting
+  // ?upload=open. Library consumes and clears the param.
+  const openUpload = () => {
+    if (location.pathname === "/library" || location.pathname === "/series") {
+      const next = new URLSearchParams(searchParams);
+      next.set("upload", "open");
+      setSearchParams(next, { replace: true });
+    } else {
+      navigate({ pathname: "/library", search: "?upload=open" });
+    }
   };
 
   const isActiveScan = scanProgress?.status === "starting" || scanProgress?.status === "scanning";
@@ -210,6 +222,17 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       )}
 
       <div className="topbar-actions">
+        {showLibraryControls && user?.role === "ADMIN" && (
+          <button
+            type="button"
+            className="topbar-icon-btn"
+            onClick={openUpload}
+            title="Add book"
+            aria-label="Add book"
+          >
+            <Plus size={16} />
+          </button>
+        )}
         {showLibraryControls && (
           <>
             <button
