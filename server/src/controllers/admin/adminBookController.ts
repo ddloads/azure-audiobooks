@@ -4,7 +4,7 @@ import path from "path";
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { createLogger } from "../../lib/logger";
-import { requestLibraryScan } from "../../lib/scanJobPool";
+import { requestLibraryScan, requestLibraryFolderScan } from "../../lib/scanJobPool";
 import { searchAudible } from "../../utils/audible";
 import {
   isAudibleCliAvailable,
@@ -311,6 +311,77 @@ export const rescanLibrary = async (_req: AuthRequest, res: Response): Promise<v
   } catch (error) {
     console.error("Rescan library error:", error);
     res.status(500).json({ error: "Failed to rescan library" });
+  }
+};
+
+// Folder-scoped rescan — for external callers (e.g. BookSync after a
+// download) that know which folder changed and don't need the whole library
+// re-walked. Accepts either an absolute path (matches Azure's mount) or a
+// relativePath that's resolved against the library's first enabled source.
+export const rescanLibraryFolder = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const libraryId = getSingleParam(req.params.libraryId);
+    if (!libraryId) {
+      res.status(400).json({ error: "Invalid library id" });
+      return;
+    }
+
+    const folderPathInput = typeof req.body?.folderPath === "string" ? req.body.folderPath.trim() : "";
+    const relativePathInput = typeof req.body?.relativePath === "string" ? req.body.relativePath.trim() : "";
+    if (!folderPathInput && !relativePathInput) {
+      res.status(400).json({ error: "folderPath or relativePath is required" });
+      return;
+    }
+
+    const library = await prisma.library.findUnique({
+      where: { id: libraryId },
+      select: {
+        id: true,
+        name: true,
+        sources: {
+          where: { isEnabled: true },
+          select: { path: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    });
+
+    if (!library) {
+      res.status(404).json({ error: "Library not found" });
+      return;
+    }
+
+    let folderPath = folderPathInput;
+    if (!folderPath) {
+      const sourceRoot = library.sources[0]?.path;
+      if (!sourceRoot) {
+        res.status(409).json({ error: "Library has no enabled source to resolve relativePath against" });
+        return;
+      }
+      const cleanedRel = relativePathInput.replace(/^[\\/]+/, "").replace(/\\/g, "/");
+      folderPath = `${sourceRoot.replace(/[\\/]+$/, "")}/${cleanedRel}`;
+    }
+
+    const trigger = typeof req.body?.trigger === "string" && req.body.trigger.trim()
+      ? req.body.trigger.trim()
+      : "external";
+
+    const scanRequest = await requestLibraryFolderScan(libraryId, folderPath, trigger, { dedupe: true });
+    adminLogger.info("Folder rescan requested", {
+      libraryId: library.id,
+      name: library.name,
+      folderPath,
+      trigger,
+      status: scanRequest.status,
+    });
+    res.status(202).json({
+      message: scanRequest.message,
+      status: scanRequest.status,
+      jobId: scanRequest.jobId,
+    });
+  } catch (error) {
+    console.error("Rescan folder error:", error);
+    res.status(500).json({ error: "Failed to queue folder rescan" });
   }
 };
 

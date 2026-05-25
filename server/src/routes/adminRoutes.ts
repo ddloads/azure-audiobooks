@@ -28,6 +28,7 @@ import {
   mergeBooksHandler,
   quickMatchBooks,
   rescanLibrary,
+  rescanLibraryFolder,
   rescanSingleBookHandler,
   rescanSingleLibrary,
   resolveDuplicatesHandler,
@@ -140,6 +141,7 @@ router.get("/write-tags/jobs", listWriteTagsJobs);
 router.delete("/books/:bookId", deleteBook);
 router.post("/library/scan", rescanLibrary);
 router.post("/libraries/:libraryId/scan", rescanSingleLibrary);
+router.post("/libraries/:libraryId/scan-folder", rescanLibraryFolder);
 
 router.post("/library/silence-check", startSilenceCheck);
 router.post("/libraries/:libraryId/silence-check", startLibrarySilenceCheck);
