@@ -14,8 +14,21 @@ export type ScanProgress = {
   scannedFolders?: number;
 };
 
+export type SilenceCheckProgressStatus = "starting" | "checking" | "completed" | "failed";
+
+export type SilenceCheckProgress = {
+  libraryId?: string;
+  status: SilenceCheckProgressStatus;
+  progress: number;
+  currentFile?: string;
+  totalFiles?: number;
+  checkedFiles?: number;
+  silentFiles?: number;
+};
+
 type ScanProgressContextValue = {
   scanProgress: ScanProgress | null;
+  silenceCheckProgress: SilenceCheckProgress | null;
 };
 
 const ScanProgressContext = createContext<ScanProgressContextValue | undefined>(undefined);
@@ -23,11 +36,14 @@ const ScanProgressContext = createContext<ScanProgressContextValue | undefined>(
 export const ScanProgressProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
-  const clearTimerRef = useRef<number | null>(null);
+  const [silenceCheckProgress, setSilenceCheckProgress] = useState<SilenceCheckProgress | null>(null);
+  const clearScanTimerRef = useRef<number | null>(null);
+  const clearSilenceTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user) {
       setScanProgress(null);
+      setSilenceCheckProgress(null);
       return;
     }
 
@@ -36,37 +52,59 @@ export const ScanProgressProvider = ({ children }: { children: React.ReactNode }
       transports: ["websocket", "polling"],
     });
 
-    const clearPendingTimer = () => {
-      if (clearTimerRef.current !== null) {
-        window.clearTimeout(clearTimerRef.current);
-        clearTimerRef.current = null;
+    const clearScanTimer = () => {
+      if (clearScanTimerRef.current !== null) {
+        window.clearTimeout(clearScanTimerRef.current);
+        clearScanTimerRef.current = null;
+      }
+    };
+
+    const clearSilenceTimer = () => {
+      if (clearSilenceTimerRef.current !== null) {
+        window.clearTimeout(clearSilenceTimerRef.current);
+        clearSilenceTimerRef.current = null;
       }
     };
 
     const handleScanProgress = (event: ScanProgress) => {
-      clearPendingTimer();
+      clearScanTimer();
       setScanProgress(event);
 
       if (event.status === "completed" || event.status === "failed") {
-        clearTimerRef.current = window.setTimeout(() => {
+        clearScanTimerRef.current = window.setTimeout(() => {
           setScanProgress(null);
-          clearTimerRef.current = null;
+          clearScanTimerRef.current = null;
+        }, 4500);
+      }
+    };
+
+    const handleSilenceCheckProgress = (event: SilenceCheckProgress) => {
+      clearSilenceTimer();
+      setSilenceCheckProgress(event);
+
+      if (event.status === "completed" || event.status === "failed") {
+        clearSilenceTimerRef.current = window.setTimeout(() => {
+          setSilenceCheckProgress(null);
+          clearSilenceTimerRef.current = null;
         }, 4500);
       }
     };
 
     socket.on("scanProgress", handleScanProgress);
+    socket.on("silenceCheckProgress", handleSilenceCheckProgress);
 
     return () => {
-      clearPendingTimer();
+      clearScanTimer();
+      clearSilenceTimer();
       socket.off("scanProgress", handleScanProgress);
+      socket.off("silenceCheckProgress", handleSilenceCheckProgress);
       socket.disconnect();
     };
   }, [user]);
 
   const value = useMemo<ScanProgressContextValue>(
-    () => ({ scanProgress }),
-    [scanProgress],
+    () => ({ scanProgress, silenceCheckProgress }),
+    [scanProgress, silenceCheckProgress],
   );
 
   return (

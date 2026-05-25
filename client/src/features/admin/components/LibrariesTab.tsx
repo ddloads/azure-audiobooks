@@ -12,6 +12,7 @@ import {
   Server,
   Trash2,
   Upload,
+  Volume2,
   X,
   CheckCircle2,
 } from "lucide-react";
@@ -307,6 +308,44 @@ export default function LibrariesTab({
     });
   };
 
+  const handleSilenceCheck = async () => {
+    await runAction("silence-check", async () => {
+      try {
+        await api.post("/admin/library/silence-check");
+        showToast({
+          title: "Audio check started",
+          description: "Probing all library files for silent audio in the background.",
+          tone: "success",
+        });
+      } catch (error) {
+        showToast({
+          title: "Failed to start audio check",
+          description: getErrorMessage(error, "Failed to start audio check"),
+          tone: "error",
+        });
+      }
+    });
+  };
+
+  const handleLibrarySilenceCheck = async (library: AdminLibrary) => {
+    await runAction(`silence-check-${library.id}`, async () => {
+      try {
+        await api.post(`/admin/libraries/${library.id}/silence-check`);
+        showToast({
+          title: "Audio check started",
+          description: `Probing files in "${library.name}" for silent audio.`,
+          tone: "success",
+        });
+      } catch (error) {
+        showToast({
+          title: "Failed to start audio check",
+          description: getErrorMessage(error, "Failed to start audio check"),
+          tone: "error",
+        });
+      }
+    });
+  };
+
   const handleSelectSourcePath = (libraryId: string, selectedPath: string) => {
     const existingDraft = sourceDrafts[libraryId] ?? {
       label: "",
@@ -374,6 +413,20 @@ export default function LibrariesTab({
             )}
             Rescan all libraries
           </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={actionLoading === "silence-check"}
+            onClick={() => void handleSilenceCheck()}
+            title="Probe all audio files to detect silent or broken tracks"
+          >
+            {actionLoading === "silence-check" ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Volume2 size={15} />
+            )}
+            Check Audio
+          </button>
           <button className="btn btn-primary" type="button" onClick={onRequestUpload}>
             <Upload size={15} />
             Upload book
@@ -440,6 +493,20 @@ export default function LibrariesTab({
                       <RefreshCw size={14} />
                     )}
                     Scan
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    disabled={actionLoading === `silence-check-${library.id}`}
+                    onClick={() => void handleLibrarySilenceCheck(library)}
+                    title="Probe audio files to detect silent or broken tracks"
+                  >
+                    {actionLoading === `silence-check-${library.id}` ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Volume2 size={14} />
+                    )}
+                    Check Audio
                   </button>
                   {library.folderPattern && (
                     <button

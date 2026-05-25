@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Bug, CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, Smartphone, User, XCircle } from "lucide-react";
+import { Bug, CheckCircle2, Loader2, LogOut, Menu, ScanLine, Settings, Smartphone, User, Volume2, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
 import AppLogo from "./AppLogo";
@@ -14,7 +14,7 @@ interface TopBarProps {
 
 export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { user, logout } = useAuth();
-  const { scanProgress } = useScanProgress();
+  const { scanProgress, silenceCheckProgress } = useScanProgress();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,6 +41,23 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const scanDetail = scanProgress?.status === "scanning" && scanProgress.totalFolders
     ? `${scanProgress.scannedFolders ?? 0}/${scanProgress.totalFolders} folders`
     : `${scanProgressValue}%`;
+
+  const isActiveSilenceCheck = silenceCheckProgress?.status === "starting" || silenceCheckProgress?.status === "checking";
+  const silenceProgressValue = Math.max(0, Math.min(100, Math.round(silenceCheckProgress?.progress ?? 0)));
+  const silenceLabel = !silenceCheckProgress
+    ? ""
+    : silenceCheckProgress.status === "starting"
+      ? "Preparing audio check"
+      : silenceCheckProgress.status === "completed"
+        ? "Audio check complete"
+        : silenceCheckProgress.status === "failed"
+          ? "Audio check stopped"
+          : silenceCheckProgress.currentFile
+            ? `Checking ${silenceCheckProgress.currentFile}`
+            : "Checking audio files";
+  const silenceDetail = silenceCheckProgress?.status === "checking" && silenceCheckProgress.totalFiles
+    ? `${silenceCheckProgress.checkedFiles ?? 0}/${silenceCheckProgress.totalFiles} files`
+    : `${silenceProgressValue}%`;
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -93,6 +110,36 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
       )}
 
       <div className="topbar-spacer" />
+
+      {silenceCheckProgress && (
+        <div
+          className={`topbar-scan-progress topbar-scan-progress-${silenceCheckProgress.status === "checking" ? "scanning" : silenceCheckProgress.status}`}
+          role="status"
+          aria-live="polite"
+          aria-label={`${silenceLabel}, ${silenceProgressValue}%`}
+        >
+          <div className="topbar-scan-icon">
+            {isActiveSilenceCheck ? (
+              silenceCheckProgress.status === "starting" ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Volume2 size={14} />
+              )
+            ) : silenceCheckProgress.status === "completed" ? (
+              <CheckCircle2 size={14} />
+            ) : (
+              <XCircle size={14} />
+            )}
+          </div>
+          <div className="topbar-scan-copy">
+            <span className="topbar-scan-label">{silenceLabel}</span>
+            <span className="topbar-scan-detail">{silenceDetail}</span>
+          </div>
+          <div className="topbar-scan-track">
+            <div className="topbar-scan-fill" style={{ width: `${silenceProgressValue}%` }} />
+          </div>
+        </div>
+      )}
 
       {scanProgress && (
         <div

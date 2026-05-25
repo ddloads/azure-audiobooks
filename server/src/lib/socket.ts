@@ -1,5 +1,6 @@
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
+import type { SilenceCheckProgressPayload } from "../workers/silenceCheckWorker";
 
 let io: Server;
 export type WriteTagsProgressPayload = {
@@ -19,6 +20,10 @@ export type WriteTagsProgressPayload = {
   message: string | null;
   stallTimeoutMs: number;
 };
+let latestActiveSilenceCheckTask:
+  | ({ startedAt: string; updatedAt: string } & SilenceCheckProgressPayload)
+  | null = null;
+
 let latestActiveScanTask:
   | ({
       startedAt: string;
@@ -120,6 +125,28 @@ export const emitWriteTagsProgress = (data: WriteTagsProgressPayload) => {
     io.emit("writeTagsProgress", data);
   }
 };
+
+export const emitSilenceCheckProgress = (data: SilenceCheckProgressPayload) => {
+  if (data.status === "starting" || data.status === "checking") {
+    latestActiveSilenceCheckTask = {
+      ...data,
+      startedAt:
+        data.status === "starting" || !latestActiveSilenceCheckTask
+          ? new Date().toISOString()
+          : latestActiveSilenceCheckTask.startedAt,
+      updatedAt: new Date().toISOString(),
+    };
+  } else {
+    latestActiveSilenceCheckTask = null;
+  }
+
+  if (io) {
+    io.emit("silenceCheckProgress", data);
+  }
+};
+
+export const getActiveSilenceCheckTask = () =>
+  latestActiveSilenceCheckTask ? { ...latestActiveSilenceCheckTask } : null;
 
 export const getActiveScanTask = () =>
   latestActiveScanTask ? { ...latestActiveScanTask } : null;

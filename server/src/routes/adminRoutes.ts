@@ -44,6 +44,12 @@ import {
   writeBookMetadataToFile,
 } from "../controllers/admin/adminFileController";
 import {
+  startSilenceCheck,
+  startLibrarySilenceCheck,
+  getSilenceCheckResults,
+  getSilenceCheckJobStatus,
+} from "../controllers/admin/adminSilenceCheckController";
+import {
   completeAudibleCliAuth,
   deleteAudibleCliProfileHandler,
   getAudibleCliStatusHandler,
@@ -134,6 +140,11 @@ router.get("/write-tags/jobs", listWriteTagsJobs);
 router.delete("/books/:bookId", deleteBook);
 router.post("/library/scan", rescanLibrary);
 router.post("/libraries/:libraryId/scan", rescanSingleLibrary);
+
+router.post("/library/silence-check", startSilenceCheck);
+router.post("/libraries/:libraryId/silence-check", startLibrarySilenceCheck);
+router.get("/library/silence-check/results", getSilenceCheckResults);
+router.get("/library/silence-check/status", getSilenceCheckJobStatus);
 
 router.get("/audible-cli/status", getAudibleCliStatusHandler);
 router.post("/audible-cli/auth/start", startAudibleCliAuth);

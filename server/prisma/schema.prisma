@@ -21,17 +21,18 @@ model User {
 }
 
 model Library {
-  id            String          @id @default(uuid())
-  name          String          @unique
-  description   String?
-  isActive      Boolean         @default(true)
-  folderPattern String?
-  books         Book[]
-  sources       LibrarySource[]
-  scanJobs      LibraryScanJob[]
-  indexedFiles  IndexedAudioFile[]
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  id                String             @id @default(uuid())
+  name              String             @unique
+  description       String?
+  isActive          Boolean            @default(true)
+  folderPattern     String?
+  books             Book[]
+  sources           LibrarySource[]
+  scanJobs          LibraryScanJob[]
+  silenceCheckJobs  SilenceCheckJob[]
+  indexedFiles      IndexedAudioFile[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 }
 
 model LibrarySource {
@@ -167,17 +168,40 @@ model IndexedAudioFile {
   durationSec   Int?
   codec         String?
   bitrate       Int?
-  scanStatus    String          @default("pending")
-  error         String?
-  lastScannedAt DateTime?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  scanStatus        String          @default("pending")
+  error             String?
+  lastScannedAt     DateTime?
+  isSilent          Boolean?
+  maxVolumeDb       Float?
+  silenceCheckedAt  DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@index([libraryId, scanStatus])
+  @@index([isSilent])
   @@index([bookId])
   @@index([lastScanJobId])
   @@index([modifiedAt])
   @@index([checksum])
+}
+
+model SilenceCheckJob {
+  id           String    @id @default(uuid())
+  library      Library?  @relation(fields: [libraryId], references: [id], onDelete: SetNull)
+  libraryId    String?
+  status       String    @default("queued")
+  trigger      String?
+  totalFiles   Int?
+  checkedFiles Int       @default(0)
+  silentFiles  Int       @default(0)
+  error        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([libraryId, status])
+  @@index([status, createdAt])
 }
 
 model Chapter {
