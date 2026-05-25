@@ -16,11 +16,16 @@ type LibrarySourceWatcher = {
 const WATCH_DEBOUNCE_MS = Number.parseInt(process.env.WATCH_FOLDER_DEBOUNCE_MS || "", 10) || 15000;
 const WATCH_FOLDERS_ENABLED = process.env.WATCH_FOLDERS_ENABLED !== "false";
 const WATCH_FOLDER_USE_POLLING = process.env.WATCH_FOLDER_USE_POLLING !== "false";
+// Polling and reconcile both run stat() calls against every watched file. On a
+// network share with thousands of audiobooks, the old 5s / 30s defaults
+// saturated the NAS and starved active playback streams. Default to 60s
+// polling and 5 minute reconcile; users with tiny local libraries can opt back
+// to faster cadences via env vars.
 const WATCH_FOLDER_POLL_INTERVAL_MS =
-  Number.parseInt(process.env.WATCH_FOLDER_POLL_INTERVAL_MS || "", 10) || 5000;
+  Number.parseInt(process.env.WATCH_FOLDER_POLL_INTERVAL_MS || "", 10) || 60000;
 const WATCHED_EVENTS = new Set(["add", "change", "unlink", "addDir", "unlinkDir"]);
 const WATCH_FOLDER_RECONCILE_MS =
-  Number.parseInt(process.env.WATCH_FOLDER_RECONCILE_MS || "", 10) || 30000;
+  Number.parseInt(process.env.WATCH_FOLDER_RECONCILE_MS || "", 10) || 300000;
 
 let watchers: LibrarySourceWatcher[] = [];
 const reconcileTimers = new Map<string, NodeJS.Timeout>();
