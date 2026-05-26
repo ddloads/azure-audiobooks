@@ -69,6 +69,7 @@ export default function LibrariesTab({
   const [silenceResults, setSilenceResults] = useState<SilenceCheckResults | null>(null);
   const [silenceResultsLoading, setSilenceResultsLoading] = useState(false);
   const prevSilenceStatusRef = useRef<string | null>(null);
+  const lastSilenceResultsRefreshRef = useRef(0);
 
   const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
   const [libraryEditDrafts, setLibraryEditDrafts] = useState<
@@ -88,6 +89,8 @@ export default function LibrariesTab({
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingAdminConfirm | null>(null);
+  const isSilenceCheckActive =
+    silenceCheckProgress?.status === "starting" || silenceCheckProgress?.status === "checking";
 
   const runAction = async (key: string, action: () => Promise<void>) => {
     setActionLoading(key);
@@ -124,6 +127,21 @@ export default function LibrariesTab({
 
     return () => clearInterval(interval);
   }, [silenceCheckProgress?.status]);
+
+  useEffect(() => {
+    const status = silenceCheckProgress?.status;
+    if (status !== "starting" && status !== "checking") return;
+
+    const now = Date.now();
+    if (now - lastSilenceResultsRefreshRef.current < 1000) return;
+    lastSilenceResultsRefreshRef.current = now;
+    void fetchSilenceResults(false);
+  }, [
+    silenceCheckProgress?.checkedFiles,
+    silenceCheckProgress?.silentFiles,
+    silenceCheckProgress?.status,
+    silenceCheckProgress?.totalFiles,
+  ]);
 
   useEffect(() => {
     const prev = prevSilenceStatusRef.current;
@@ -1005,6 +1023,13 @@ export default function LibrariesTab({
           {silenceResults && (
             <>
               <div className="silence-results-stats">
+                {isSilenceCheckActive && (
+                  <span className="silence-results-stat">
+                    Current run:{" "}
+                    <strong>{(silenceCheckProgress?.checkedFiles ?? 0).toLocaleString()}</strong> of{" "}
+                    {(silenceCheckProgress?.totalFiles ?? 0).toLocaleString()} files
+                  </span>
+                )}
                 <span className="silence-results-stat">
                   <strong>{silenceResults.totalChecked.toLocaleString()}</strong> of{" "}
                   {silenceResults.totalFiles.toLocaleString()} files checked
