@@ -121,6 +121,29 @@ const REVIEW_TAG = "review";
 const MATCHED_TAG = "matched";
 const QUICK_MATCHED_TAG = "quick-matched";
 
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const removeBookFolder = async (folderPath: string) => {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await fs.promises.rm(folderPath, {
+        recursive: true,
+        force: true,
+        maxRetries: 3,
+        retryDelay: 250,
+      });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "ENOTEMPTY" || attempt === 4) {
+        throw error;
+      }
+
+      await wait(250 * (attempt + 1));
+    }
+  }
+};
+
 const normalizeTagList = (value: unknown) => {
   if (typeof value !== "string") return [];
 
@@ -227,23 +250,21 @@ export const deleteBook = async (req: AuthRequest, res: Response): Promise<void>
         return;
       }
 
-      if (fs.existsSync(book.folderPath)) {
-        try {
-          fs.rmSync(book.folderPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 250 });
-        } catch (error) {
-          adminLogger.error("Book file deletion failed", error, {
-            bookId,
-            title: book.title,
-            folderPath: book.folderPath,
-          });
-          res.status(409).json({
-            error:
-              error instanceof Error
-                ? `Could not delete physical files: ${error.message}`
-                : "Could not delete physical files",
-          });
-          return;
-        }
+      try {
+        await removeBookFolder(book.folderPath);
+      } catch (error) {
+        adminLogger.error("Book file deletion failed", error, {
+          bookId,
+          title: book.title,
+          folderPath: book.folderPath,
+        });
+        res.status(409).json({
+          error:
+            error instanceof Error
+              ? `Could not delete physical files: ${error.message}`
+              : "Could not delete physical files",
+        });
+        return;
       }
     }
 
