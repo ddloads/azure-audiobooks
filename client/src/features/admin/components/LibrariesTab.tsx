@@ -377,10 +377,11 @@ export default function LibrariesTab({
     });
   };
 
-  const handleSilenceCheck = async () => {
-    await runAction("silence-check", async () => {
+  const handleSilenceCheck = async (recheckAll = false) => {
+    const actionKey = recheckAll ? "silence-check-all" : "silence-check";
+    await runAction(actionKey, async () => {
       try {
-        const response = await api.post("/admin/library/silence-check");
+        const response = await api.post("/admin/library/silence-check", { recheckAll });
         if (response.data?.status === "skipped") {
           showToast({
             title: "Audio check already running",
@@ -391,7 +392,9 @@ export default function LibrariesTab({
         }
         showToast({
           title: "Audio check started",
-          description: "Checking new and previously-failed audio files in the background.",
+          description: recheckAll
+            ? "Rechecking every audio file in the background."
+            : "Checking new and previously-silent audio files in the background.",
           tone: "success",
         });
       } catch (error) {
@@ -404,10 +407,11 @@ export default function LibrariesTab({
     });
   };
 
-  const handleLibrarySilenceCheck = async (library: AdminLibrary) => {
-    await runAction(`silence-check-${library.id}`, async () => {
+  const handleLibrarySilenceCheck = async (library: AdminLibrary, recheckAll = false) => {
+    const actionKey = recheckAll ? `silence-check-all-${library.id}` : `silence-check-${library.id}`;
+    await runAction(actionKey, async () => {
       try {
-        const response = await api.post(`/admin/libraries/${library.id}/silence-check`);
+        const response = await api.post(`/admin/libraries/${library.id}/silence-check`, { recheckAll });
         if (response.data?.status === "skipped") {
           showToast({
             title: "Audio check already running",
@@ -418,7 +422,9 @@ export default function LibrariesTab({
         }
         showToast({
           title: "Audio check started",
-          description: `Checking new and previously-failed files in "${library.name}".`,
+          description: recheckAll
+            ? `Rechecking every audio file in "${library.name}".`
+            : `Checking new and previously-silent files in "${library.name}".`,
           tone: "success",
         });
       } catch (error) {
@@ -503,14 +509,28 @@ export default function LibrariesTab({
             type="button"
             disabled={actionLoading === "silence-check"}
             onClick={() => void handleSilenceCheck()}
-            title="Probe all audio files to detect silent or broken tracks"
+            title="Probe unchecked and previously-silent files to detect silent or broken tracks"
           >
             {actionLoading === "silence-check" ? (
               <Loader2 size={15} className="animate-spin" />
             ) : (
               <Volume2 size={15} />
             )}
-            Check Audio
+            Check New/Silent Audio
+          </button>
+          <button
+            className="btn btn-secondary"
+            type="button"
+            disabled={actionLoading === "silence-check-all"}
+            onClick={() => void handleSilenceCheck(true)}
+            title="Re-probe every audio file in every library"
+          >
+            {actionLoading === "silence-check-all" ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : (
+              <Volume2 size={15} />
+            )}
+            Check All Audio
           </button>
           <button className="btn btn-primary" type="button" onClick={onRequestUpload}>
             <Upload size={15} />
@@ -584,14 +604,28 @@ export default function LibrariesTab({
                     type="button"
                     disabled={actionLoading === `silence-check-${library.id}`}
                     onClick={() => void handleLibrarySilenceCheck(library)}
-                    title="Probe audio files to detect silent or broken tracks"
+                    title="Probe unchecked and previously-silent files to detect silent or broken tracks"
                   >
                     {actionLoading === `silence-check-${library.id}` ? (
                       <Loader2 size={14} className="animate-spin" />
                     ) : (
                       <Volume2 size={14} />
                     )}
-                    Check Audio
+                    Check New/Silent
+                  </button>
+                  <button
+                    className="btn btn-secondary"
+                    type="button"
+                    disabled={actionLoading === `silence-check-all-${library.id}`}
+                    onClick={() => void handleLibrarySilenceCheck(library, true)}
+                    title="Re-probe every audio file in this library"
+                  >
+                    {actionLoading === `silence-check-all-${library.id}` ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Volume2 size={14} />
+                    )}
+                    Check All
                   </button>
                   {library.folderPattern && (
                     <button

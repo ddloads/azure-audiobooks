@@ -6,7 +6,8 @@ import { getSingleParam } from "./shared";
 
 export const startSilenceCheck = async (req: AuthRequest, res: Response) => {
   try {
-    const result = await requestSilenceCheck(undefined, "manual", false);
+    const recheckAll = req.body?.recheckAll === true;
+    const result = await requestSilenceCheck(undefined, "manual", recheckAll);
     res.json(result);
   } catch (error) {
     console.error("Failed to start silence check:", error);
@@ -16,6 +17,7 @@ export const startSilenceCheck = async (req: AuthRequest, res: Response) => {
 
 export const startLibrarySilenceCheck = async (req: AuthRequest, res: Response) => {
   try {
+    const recheckAll = req.body?.recheckAll === true;
     const libraryId = getSingleParam(req.params.libraryId);
     if (!libraryId) {
       res.status(400).json({ error: "Invalid library id" });
@@ -32,7 +34,7 @@ export const startLibrarySilenceCheck = async (req: AuthRequest, res: Response) 
       return;
     }
 
-    const result = await requestSilenceCheck(libraryId, "manual", false);
+    const result = await requestSilenceCheck(libraryId, "manual", recheckAll);
     res.json(result);
   } catch (error) {
     console.error("Failed to start library silence check:", error);
