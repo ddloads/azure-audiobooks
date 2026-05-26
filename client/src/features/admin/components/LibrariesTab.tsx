@@ -112,7 +112,6 @@ export default function LibrariesTab({
 
   useEffect(() => {
     void fetchSilenceResults();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -124,7 +123,6 @@ export default function LibrariesTab({
     }, 2000);
 
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [silenceCheckProgress?.status]);
 
   useEffect(() => {
@@ -144,7 +142,6 @@ export default function LibrariesTab({
         tone: silent === 0 ? "success" : "info",
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [silenceCheckProgress?.status]);
 
   const handleCreateLibrary = async () => {

@@ -413,7 +413,6 @@ const BookMetadataModal = ({
     if (autoSearchKeyRef.current === autoSearchKey) return;
     autoSearchKeyRef.current = autoSearchKey;
     void runSearch(undefined, providerRef.current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   useEffect(() => {

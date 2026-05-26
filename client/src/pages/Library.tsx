@@ -170,6 +170,51 @@ const getFiltersFromParams = (params: URLSearchParams): LibraryFilters => {
   return base;
 };
 
+const LIBRARY_FILTER_STORAGE_KEY = "azure.library.filters.v1";
+const PERSISTED_LIBRARY_PARAM_KEYS = [...Object.keys(emptyFilters()), "search", "sortBy"] as const;
+
+const hasPersistedLibraryParams = (params: URLSearchParams) =>
+  PERSISTED_LIBRARY_PARAM_KEYS.some((key) => params.has(key));
+
+const loadPersistedLibraryParams = () => {
+  try {
+    const raw = window.localStorage.getItem(LIBRARY_FILTER_STORAGE_KEY);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const params = new URLSearchParams();
+    PERSISTED_LIBRARY_PARAM_KEYS.forEach((key) => {
+      const value = parsed[key];
+      if (typeof value === "string" && value.length > 0) {
+        params.set(key, value);
+      }
+    });
+
+    return hasPersistedLibraryParams(params) ? params : null;
+  } catch {
+    return null;
+  }
+};
+
+const savePersistedLibraryParams = (params: URLSearchParams) => {
+  const values: Record<string, string> = {};
+  PERSISTED_LIBRARY_PARAM_KEYS.forEach((key) => {
+    const value = params.get(key);
+    if (value) values[key] = value;
+  });
+
+  if (Object.keys(values).length === 0) {
+    window.localStorage.removeItem(LIBRARY_FILTER_STORAGE_KEY);
+    return;
+  }
+
+  window.localStorage.setItem(LIBRARY_FILTER_STORAGE_KEY, JSON.stringify(values));
+};
+
+const clearPersistedLibraryParams = () => {
+  window.localStorage.removeItem(LIBRARY_FILTER_STORAGE_KEY);
+};
+
 const getErrorMessage = (error: unknown, fallback: string) =>
   isAxiosError<{ error?: string }>(error) ? error.response?.data?.error || fallback : fallback;
 
@@ -238,11 +283,33 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const isFilterPanelOpen = searchParams.get("filterPanel") === "open";
   const [search, setSearch] = useState(searchParams.get("search") || "");
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "newest");
+  const hasRestoredPersistedFiltersRef = useRef(false);
+  const skipNextPersistRef = useRef(false);
 
   useEffect(() => {
     setFilters(getFiltersFromParams(searchParams));
     setSearch(searchParams.get("search") || "");
     setSortBy(searchParams.get("sortBy") || "newest");
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (hasRestoredPersistedFiltersRef.current) return;
+    hasRestoredPersistedFiltersRef.current = true;
+    if (hasPersistedLibraryParams(searchParams)) return;
+
+    const persistedParams = loadPersistedLibraryParams();
+    if (persistedParams) {
+      skipNextPersistRef.current = true;
+      setSearchParams(persistedParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+    savePersistedLibraryParams(searchParams);
   }, [searchParams]);
 
   const [loading, setLoading] = useState(true);
@@ -362,6 +429,8 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   };
 
   const clearFilters = () => {
+    if (search) setSearch("");
+    clearPersistedLibraryParams();
     setSearchParams({});
   };
 
@@ -1274,11 +1343,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
               <><strong>{activeFilterCount}</strong> active {activeFilterCount === 1 ? "filter" : "filters"}</>
             )}
           </div>
-          <button className="library-filter-clear" onClick={() => {
-            if (search) setSearch("");
-            clearFilters();
-            navigate("/");
-          }}>
+          <button className="library-filter-clear" onClick={clearFilters}>
             <X size={14} />
             Clear filter
           </button>
