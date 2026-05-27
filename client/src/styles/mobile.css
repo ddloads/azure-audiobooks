@@ -26,6 +26,11 @@
   padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px));
 }
 
+.mobile-main.no-player {
+  /* no mini-player: only nav (60px) + small buffer */
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+}
+
 /* ═══════════════════════════════════════════════════
    BOTTOM NAVIGATION
    ═══════════════════════════════════════════════════ */
@@ -985,12 +990,15 @@
   border-radius: 10px;
   color: var(--text);
   font-size: 0.875rem;
-  padding: 10px 12px;
+  padding: 10px 36px 10px 12px;
   outline: none;
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
   font-family: var(--font-sans);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23899eb1' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }
 
 .mobile-filter-sheet-footer {
@@ -2008,6 +2016,11 @@
   align-items: center;
   gap: 8px;
   backdrop-filter: blur(14px);
+}
+
+/* Mini-player is 64px tall sitting above the 60px nav, so raise the bar to clear it */
+.mobile-selection-bar.has-player {
+  bottom: calc(136px + env(safe-area-inset-bottom, 0px));
 }
 
 .mobile-selection-bar > div {

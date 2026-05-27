@@ -48,7 +48,7 @@ const MobilePrivateShell = () => {
     <div className="mobile-layout">
       {isPlayerOpen && <MobilePlayer onClose={() => setIsPlayerOpen(false)} />}
 
-      <main className="mobile-main">
+      <main className={`mobile-main${currentBook ? '' : ' no-player'}`}>
         <Outlet />
       </main>
 

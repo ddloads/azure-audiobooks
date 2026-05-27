@@ -88,7 +88,7 @@ const MobileLibrary = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { playBook } = usePlayer();
+  const { playBook, currentBook } = usePlayer();
   const returnTo = `${location.pathname}${location.search}`;
 
   const [books, setBooks] = useState<Book[]>([]);
@@ -650,7 +650,7 @@ const MobileLibrary = () => {
       )}
 
       {isSelecting && (
-        <div className="mobile-selection-bar">
+        <div className={`mobile-selection-bar${currentBook ? ' has-player' : ''}`}>
           <div>
             <strong>{selectedBookIds.size}</strong>
             <span> selected</span>
