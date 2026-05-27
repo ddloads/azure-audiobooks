@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, Search, Sparkles, SlidersHorizontal, Square, X } from 'lucide-react';
+import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, Sparkles, SlidersHorizontal, Square } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
@@ -96,7 +96,6 @@ const MobileLibrary = () => {
   const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [filters, setFilters] = useState<MobileFilters>(() => getFiltersFromParams(searchParams));
-  const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
@@ -118,7 +117,6 @@ const MobileLibrary = () => {
 
   useEffect(() => {
     setFilters(getFiltersFromParams(searchParams));
-    setSearch(searchParams.get('search') || '');
   }, [searchParams]);
 
   const activeFilterCount = useMemo(() => {
@@ -136,7 +134,6 @@ const MobileLibrary = () => {
   }, [filters]);
 
   const buildParams = () => ({
-    search: search.trim() || undefined,
     sortBy: filters.sortBy,
     libraryId: filters.libraryId !== 'all' ? filters.libraryId : undefined,
     authorId: filters.authorId !== 'all' ? filters.authorId : undefined,
@@ -195,11 +192,7 @@ const MobileLibrary = () => {
     void fetchProgress();
   }, []);
 
-  useEffect(() => {
-    const id = setTimeout(() => { void fetchBooks(); }, search ? 300 : 0);
-    return () => clearTimeout(id);
-
-  }, [filters, search]);
+  useEffect(() => { void fetchBooks(); }, [filters]);
 
   useEffect(() => {
     const socket = io(getSocketBaseUrl(), { withCredentials: true });
@@ -243,7 +236,6 @@ const MobileLibrary = () => {
 
   const updateFilter = (key: keyof MobileFilters, value: string) => {
     const next = new URLSearchParams(searchParams);
-    if (search.trim()) next.set('search', search.trim());
     if (value && value !== emptyFilters()[key]) next.set(key, value);
     else next.delete(key);
     if (key === 'authorId') next.delete('authorName');
@@ -357,36 +349,6 @@ const MobileLibrary = () => {
 
   return (
     <div className="mobile-library">
-      {/* Sticky search + filter bar */}
-      <div className="mobile-search-area">
-        <div className="mobile-search-input-wrap">
-          <Search size={15} className="mobile-search-icon" />
-          <input
-            type="search"
-            className="mobile-search-input"
-            placeholder="Search books, authors…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {search && (
-            <button className="mobile-search-clear" onClick={() => setSearch('')} aria-label="Clear">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        <button
-          className={`mobile-filter-btn${activeFilterCount > 0 ? ' active' : ''}`}
-          onClick={() => setIsFilterOpen(true)}
-        >
-          <SlidersHorizontal size={14} />
-          {activeFilterCount > 0
-            ? <span className="mobile-filter-badge">{activeFilterCount}</span>
-            : <span>Filter</span>
-          }
-        </button>
-
-      </div>
 
       {/* Scan progress banner */}
       {scanProgress && (
@@ -462,10 +424,10 @@ const MobileLibrary = () => {
         ) : books.length === 0 ? (
           <div className="mobile-empty">
             <div className="mobile-empty-icon"><BookOpen size={40} /></div>
-            {search || activeFilterCount > 0 ? (
+            {activeFilterCount > 0 ? (
               <>
                 <h3>No results</h3>
-                <p>Try adjusting your search or filters.</p>
+                <p>Try adjusting your filters.</p>
                 <button className="btn btn-secondary" style={{ marginTop: 8 }} onClick={clearFilters}>
                   Clear filters
                 </button>
@@ -484,9 +446,19 @@ const MobileLibrary = () => {
                 {viewMode === 'series'
                   ? `${seriesGroups.length} series`
                   : `${books.length} ${books.length === 1 ? 'audiobook' : 'audiobooks'}`}
-                {(search || activeFilterCount > 0) && ' found'}
+                {activeFilterCount > 0 && ' found'}
               </span>
               <div className="mobile-grid-actions">
+                <button
+                  className={`mobile-filter-btn${activeFilterCount > 0 ? ' active' : ''}`}
+                  onClick={() => setIsFilterOpen(true)}
+                >
+                  <SlidersHorizontal size={14} />
+                  {activeFilterCount > 0
+                    ? <span className="mobile-filter-badge">{activeFilterCount}</span>
+                    : <span>Filter</span>
+                  }
+                </button>
                 {user?.role === 'ADMIN' && viewMode !== 'series' && (
                   <button
                     className={`mobile-select-toggle${isSelecting ? ' active' : ''}`}
