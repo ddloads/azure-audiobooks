@@ -722,7 +722,7 @@ const BookDetailsPage: React.FC = () => {
                         <button
                           className="metadata-link"
                           onClick={() =>
-                            navigate(`/?search=${encodeURIComponent(name.trim())}`)
+                            navigate(`/library?narrator=${encodeURIComponent(name.trim())}`)
                           }
                           title={`Browse books narrated by ${name.trim()}`}
                         >
