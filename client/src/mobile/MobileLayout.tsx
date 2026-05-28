@@ -1,37 +1,29 @@
 import { useState } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Library, Headphones, Menu } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import MobileMiniPlayer from './MobileMiniPlayer';
 import MobilePlayer from './MobilePlayer';
 
+const LIBRARY_PATHS = new Set(['/', '/library', '/series']);
+
 const MobilePrivateShell = () => {
-  const { user, loading } = useAuth();
   const { currentBook } = usePlayer();
   const location = useLocation();
   const navigate = useNavigate();
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
 
-  if (loading) {
-    return (
-      <div className="app-loading">
-        <div className="app-loading-spinner" />
-      </div>
-    );
-  }
-
-  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-
   const tabs = [
-    { path: '/', icon: Library, label: 'Library', exact: true },
-    { path: '__player__', icon: Headphones, label: 'Player', exact: false },
-    { path: '/menu', icon: Menu, label: 'Menu', exact: false },
+    { path: '/',          icon: Library,    label: 'Library' },
+    { path: '__player__', icon: Headphones, label: 'Player'  },
+    { path: '/menu',      icon: Menu,       label: 'Menu'    },
   ];
 
-  const isTabActive = (path: string, exact: boolean) => {
+  const isTabActive = (path: string) => {
     if (path === '__player__') return isPlayerOpen;
-    if (exact) return location.pathname === '/';
+    if (path === '/') {
+      return LIBRARY_PATHS.has(location.pathname) || location.pathname.startsWith('/book/');
+    }
     return location.pathname.startsWith(path);
   };
 
@@ -60,7 +52,7 @@ const MobilePrivateShell = () => {
         {tabs.map(tab => (
           <button
             key={tab.path}
-            className={`mobile-nav-tab${isTabActive(tab.path, tab.exact) ? ' active' : ''}`}
+            className={`mobile-nav-tab${isTabActive(tab.path) ? ' active' : ''}`}
             onClick={() => handleTabPress(tab.path)}
           >
             <tab.icon size={22} />

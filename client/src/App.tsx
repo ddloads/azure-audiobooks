@@ -13,6 +13,7 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AdminFileManagerPage from "./pages/AdminFileManagerPage";
 import AccountEmailPrompt from "./components/AccountEmailPrompt";
 import AppShell from "./components/AppShell";
+import MobilePrivateShell from "./mobile/MobileLayout";
 import MobileLibrary from "./mobile/MobileLibrary";
 import MobileBookDetails from "./mobile/MobileBookDetails";
 import MobileMenu from "./mobile/MobileMenu";
@@ -39,61 +40,32 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public — no shell */}
       <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {/* All authenticated routes share the unified AppShell */}
-      <Route element={<AppShell />}>
-        <Route
-          path="/"
-          element={
-            <PrivateRoute>
-              {isMobile ? <MobileLibrary /> : <Home />}
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/library"
-          element={
-            <PrivateRoute>
-              {isMobile ? <MobileLibrary /> : <Library />}
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/series"
-          element={
-            <PrivateRoute>
-              {isMobile ? <MobileLibrary /> : <Library defaultViewMode="series" />}
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/book/:bookId"
-          element={
-            <PrivateRoute>
-              {isMobile ? <MobileBookDetails /> : <BookDetailsPage />}
-            </PrivateRoute>
-          }
-        />
-        <Route
-          path="/menu"
-          element={<PrivateRoute><MobileMenu /></PrivateRoute>}
-        />
-        <Route
-          path="/settings"
-          element={<AdminRoute><AdminSettingsPage /></AdminRoute>}
-        />
-        <Route
-          path="/files"
-          element={<AdminRoute><AdminFileManagerPage /></AdminRoute>}
-        />
-        <Route
-          path="/duplicates"
-          element={<AdminRoute><DuplicatesPage /></AdminRoute>}
-        />
-      </Route>
+      {isMobile ? (
+        <Route element={<MobilePrivateShell />}>
+          <Route path="/"          element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
+          <Route path="/library"   element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
+          <Route path="/series"    element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
+          <Route path="/book/:bookId" element={<PrivateRoute><MobileBookDetails /></PrivateRoute>} />
+          <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
+          <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+          <Route path="/files"     element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
+          <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
+        </Route>
+      ) : (
+        <Route element={<AppShell />}>
+          <Route path="/"          element={<PrivateRoute><Home /></PrivateRoute>} />
+          <Route path="/library"   element={<PrivateRoute><Library /></PrivateRoute>} />
+          <Route path="/series"    element={<PrivateRoute><Library defaultViewMode="series" /></PrivateRoute>} />
+          <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
+          <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
+          <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+          <Route path="/files"     element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
+          <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
+        </Route>
+      )}
     </Routes>
   );
 }
