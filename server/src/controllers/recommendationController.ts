@@ -115,14 +115,23 @@ export const getRecommendations = async (req: AuthRequest, res: Response) => {
         .map(({ book }) => book);
     }
 
+    // Lane 3: Recently Added — newest books the user hasn't started
+    const recentlyAdded = await prisma.book.findMany({
+      where: { id: { notIn: [...engagedBookIds] } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: BOOK_SELECT,
+    });
+
     const normalize = <T extends { coverPath?: string | null }>(b: T): T => ({
       ...b,
       coverPath: normalizeCoverPath(b.coverPath),
     });
 
     res.json({
-      nextInSeries: nextInSeries.map(normalize),
-      youMightLike: youMightLike.map(normalize),
+      nextInSeries:   nextInSeries.map(normalize),
+      youMightLike:   youMightLike.map(normalize),
+      recentlyAdded:  recentlyAdded.map(normalize),
     });
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch recommendations" });

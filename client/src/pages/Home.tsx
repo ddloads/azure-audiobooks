@@ -11,12 +11,14 @@ import {
   MoreVertical,
   PlayCircle,
   Sparkles,
+  Zap,
 } from "lucide-react";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import RecommendationShelf, { type RecommendBook } from "../components/RecommendationShelf";
+import type { AppearanceSettings } from "../features/admin/types";
 
 interface ProgressRecord {
   bookId: string;
@@ -55,7 +57,15 @@ export default function Home() {
   const [recommendations, setRecommendations] = useState<{
     nextInSeries: RecommendBook[];
     youMightLike: RecommendBook[];
-  }>({ nextInSeries: [], youMightLike: [] });
+    recentlyAdded: RecommendBook[];
+  }>({ nextInSeries: [], youMightLike: [], recentlyAdded: [] });
+  const [shelves, setShelves] = useState<AppearanceSettings>({
+    showReviewBooks: true,
+    shelfContinueListening: true,
+    shelfNextInSeries: true,
+    shelfYouMightLike: true,
+    shelfRecentlyAdded: true,
+  });
   const [loading, setLoading] = useState(true);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -66,12 +76,14 @@ export default function Home() {
   async function loadHome() {
     setLoading(true);
     try {
-      const [progressRes, recRes] = await Promise.all([
+      const [progressRes, recRes, settingsRes] = await Promise.all([
         api.get("/progress"),
         api.get("/recommendations"),
+        api.get<AppearanceSettings>("/settings/appearance"),
       ]);
       setProgressRecords(progressRes.data);
       setRecommendations(recRes.data);
+      setShelves(prev => ({ ...prev, ...settingsRes.data }));
     } catch (err) {
       console.error("Failed to load home data", err);
     } finally {
@@ -144,12 +156,14 @@ export default function Home() {
   };
 
   const hasContent =
-    progressRecords.length > 0 ||
-    recommendations.nextInSeries.length > 0 ||
-    recommendations.youMightLike.length > 0;
+    (shelves.shelfContinueListening && progressRecords.length > 0) ||
+    (shelves.shelfNextInSeries && recommendations.nextInSeries.length > 0) ||
+    (shelves.shelfYouMightLike && recommendations.youMightLike.length > 0) ||
+    (shelves.shelfRecentlyAdded && recommendations.recentlyAdded.length > 0);
 
   const recommendationCount =
-    recommendations.nextInSeries.length + recommendations.youMightLike.length;
+    (shelves.shelfNextInSeries ? recommendations.nextInSeries.length : 0) +
+    (shelves.shelfYouMightLike ? recommendations.youMightLike.length : 0);
 
   const menuRecord = progressRecords.find((r) => r.bookId === openMenuId);
 
@@ -212,7 +226,7 @@ export default function Home() {
       </div>
 
       {/* Continue Listening */}
-      {progressRecords.length > 0 && (
+      {shelves.shelfContinueListening && progressRecords.length > 0 && (
         <section className="continue-listening-section">
           <div className="continue-listening-header">
             <Headphones size={18} className="continue-listening-icon" />
@@ -280,20 +294,33 @@ export default function Home() {
         </section>
       )}
 
-      {/* Recommendations */}
-      <RecommendationShelf
-        title="Up Next in Series"
-        icon={<BookMarked size={18} />}
-        books={recommendations.nextInSeries}
-        onBookClick={handleRecommendPlay}
-      />
+      {/* Recommendation shelves */}
+      {shelves.shelfNextInSeries && (
+        <RecommendationShelf
+          title="Up Next in Series"
+          icon={<BookMarked size={18} />}
+          books={recommendations.nextInSeries}
+          onBookClick={handleRecommendPlay}
+        />
+      )}
 
-      <RecommendationShelf
-        title="You Might Like"
-        icon={<Sparkles size={18} />}
-        books={recommendations.youMightLike}
-        onBookClick={handleRecommendPlay}
-      />
+      {shelves.shelfYouMightLike && (
+        <RecommendationShelf
+          title="You Might Like"
+          icon={<Sparkles size={18} />}
+          books={recommendations.youMightLike}
+          onBookClick={handleRecommendPlay}
+        />
+      )}
+
+      {shelves.shelfRecentlyAdded && (
+        <RecommendationShelf
+          title="Recently Added"
+          icon={<Zap size={18} />}
+          books={recommendations.recentlyAdded}
+          onBookClick={handleRecommendPlay}
+        />
+      )}
 
       {/* Empty state */}
       {!loading && !hasContent && (

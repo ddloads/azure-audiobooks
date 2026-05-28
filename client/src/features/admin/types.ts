@@ -10,6 +10,10 @@ export interface OverviewPreferences {
 
 export interface AppearanceSettings {
   showReviewBooks: boolean;
+  shelfContinueListening: boolean;
+  shelfNextInSeries: boolean;
+  shelfYouMightLike: boolean;
+  shelfRecentlyAdded: boolean;
 }
 
 export interface DashboardStats {

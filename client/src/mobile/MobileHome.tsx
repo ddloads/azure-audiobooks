@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookMarked, BookOpen, Headphones, Library, Sparkles } from 'lucide-react';
+import { BookMarked, BookOpen, Headphones, Library, Sparkles, Zap } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { usePlayer } from '../context/PlayerContext';
 import type { RecommendBook } from '../components/RecommendationShelf';
+import type { AppearanceSettings } from '../features/admin/types';
 
 interface ProgressRecord {
   bookId: string;
@@ -17,6 +18,20 @@ interface ProgressRecord {
     author: { name: string };
   };
 }
+
+interface Recommendations {
+  nextInSeries: RecommendBook[];
+  youMightLike: RecommendBook[];
+  recentlyAdded: RecommendBook[];
+}
+
+const defaultSettings: AppearanceSettings = {
+  showReviewBooks: true,
+  shelfContinueListening: true,
+  shelfNextInSeries: true,
+  shelfYouMightLike: true,
+  shelfRecentlyAdded: true,
+};
 
 const formatTimeLeft = (seconds: number) => {
   const h = Math.floor(seconds / 3600);
@@ -38,23 +53,27 @@ const MobileHome = () => {
   const navigate = useNavigate();
 
   const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
-  const [recommendations, setRecommendations] = useState<{
-    nextInSeries: RecommendBook[];
-    youMightLike: RecommendBook[];
-  }>({ nextInSeries: [], youMightLike: [] });
+  const [recommendations, setRecommendations] = useState<Recommendations>({
+    nextInSeries: [],
+    youMightLike: [],
+    recentlyAdded: [],
+  });
+  const [shelves, setShelves] = useState<AppearanceSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [progressRes, recRes] = await Promise.all([
+        const [progressRes, recRes, settingsRes] = await Promise.all([
           api.get('/progress'),
-          api.get('/recommendations'),
+          api.get<Recommendations>('/recommendations'),
+          api.get<AppearanceSettings>('/settings/appearance'),
         ]);
         setProgressRecords(progressRes.data);
         setRecommendations(recRes.data);
+        setShelves({ ...defaultSettings, ...settingsRes.data });
       } catch {
-        // ignore — show empty state
+        // show whatever loaded
       } finally {
         setLoading(false);
       }
@@ -80,9 +99,10 @@ const MobileHome = () => {
   };
 
   const hasContent =
-    progressRecords.length > 0 ||
-    recommendations.nextInSeries.length > 0 ||
-    recommendations.youMightLike.length > 0;
+    (shelves.shelfContinueListening && progressRecords.length > 0) ||
+    (shelves.shelfNextInSeries && recommendations.nextInSeries.length > 0) ||
+    (shelves.shelfYouMightLike && recommendations.youMightLike.length > 0) ||
+    (shelves.shelfRecentlyAdded && recommendations.recentlyAdded.length > 0);
 
   return (
     <div className="mobile-home">
@@ -103,7 +123,7 @@ const MobileHome = () => {
       </section>
 
       {/* Continue Listening */}
-      {progressRecords.length > 0 && (
+      {shelves.shelfContinueListening && progressRecords.length > 0 && (
         <section className="mobile-continue-section">
           <div className="mobile-continue-header">
             <Headphones size={12} />
@@ -136,7 +156,7 @@ const MobileHome = () => {
       )}
 
       {/* Up Next in Series */}
-      {recommendations.nextInSeries.length > 0 && (
+      {shelves.shelfNextInSeries && recommendations.nextInSeries.length > 0 && (
         <section className="mobile-continue-section">
           <div className="mobile-continue-header">
             <BookMarked size={12} />
@@ -163,7 +183,7 @@ const MobileHome = () => {
       )}
 
       {/* You Might Like */}
-      {recommendations.youMightLike.length > 0 && (
+      {shelves.shelfYouMightLike && recommendations.youMightLike.length > 0 && (
         <section className="mobile-continue-section">
           <div className="mobile-continue-header">
             <Sparkles size={12} />
@@ -171,6 +191,30 @@ const MobileHome = () => {
           </div>
           <div className="mobile-continue-shelf">
             {recommendations.youMightLike.map(book => (
+              <div key={book.id} className="mobile-continue-card" onClick={() => handleRecommendPlay(book.id)}>
+                <div className="mobile-continue-art-frame">
+                  {book.coverPath
+                    ? <img src={book.coverPath} alt={book.title} />
+                    : <div className="mobile-continue-art-placeholder"><BookOpen size={24} /></div>
+                  }
+                </div>
+                <div className="mobile-continue-title">{book.title}</div>
+                <div className="mobile-continue-time">{book.author.name}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Recently Added */}
+      {shelves.shelfRecentlyAdded && recommendations.recentlyAdded.length > 0 && (
+        <section className="mobile-continue-section">
+          <div className="mobile-continue-header">
+            <Zap size={12} />
+            Recently Added
+          </div>
+          <div className="mobile-continue-shelf">
+            {recommendations.recentlyAdded.map(book => (
               <div key={book.id} className="mobile-continue-card" onClick={() => handleRecommendPlay(book.id)}>
                 <div className="mobile-continue-art-frame">
                   {book.coverPath
