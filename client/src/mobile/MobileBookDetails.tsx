@@ -426,7 +426,19 @@ const MobileBookDetails = () => {
               {book.narrator && (
                 <div className="mobile-details-meta-item">
                   <div className="mobile-details-meta-label">Narrator</div>
-                  <div className="mobile-details-meta-value">{book.narrator}</div>
+                  <div className="mobile-details-meta-value">
+                    {book.narrator.split(/(?:\s*[,&;]\s*|\s+and\s+)/i).map((name, i, arr) => (
+                      <span key={name}>
+                        <button
+                          className="mobile-details-meta-link"
+                          onClick={() => navigate(`/library?narrator=${encodeURIComponent(name.trim())}`)}
+                        >
+                          {name.trim()}
+                        </button>
+                        {i < arr.length - 1 && ', '}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
               {book.year && (
