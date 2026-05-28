@@ -518,6 +518,11 @@ const MobileLibrary = () => {
                       <div className="mobile-book-meta">
                         <div className="mobile-book-title">{book.title}</div>
                         <div className="mobile-book-author">{book.author.name}</div>
+                        {book.series && (
+                          <div className="mobile-book-series">
+                            {book.series.name}{book.sequence != null ? ` #${book.sequence}` : ''}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -551,6 +556,11 @@ const MobileLibrary = () => {
                       <div className="mobile-book-list-info">
                         <div className="mobile-book-list-title">{book.title}</div>
                         <div className="mobile-book-list-author">{book.author.name}</div>
+                        {book.series && (
+                          <div className="mobile-book-series">
+                            {book.series.name}{book.sequence != null ? ` #${book.sequence}` : ''}
+                          </div>
+                        )}
                         {pct > 0 && (
                           <div className="mobile-book-list-progress-bar">
                             <div className="mobile-book-list-progress-fill" style={{ width: `${pct}%` }} />

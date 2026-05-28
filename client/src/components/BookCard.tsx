@@ -28,6 +28,8 @@ interface Book {
   subtitle?: string | null;
   asin?: string | null;
   author: { name: string };
+  series?: { name: string } | null;
+  sequence?: number | null;
   duration: number;
   coverPath?: string;
 }
@@ -241,6 +243,11 @@ const BookCard: React.FC<{
           <User size={12} />
           <span>{book.author.name}</span>
         </div>
+        {book.series && (
+          <div className="book-series-label">
+            {book.series.name}{book.sequence != null ? ` #${book.sequence}` : ''}
+          </div>
+        )}
         <div className="book-detail">
           <Clock size={12} />
           <span>{formatDuration(book.duration)}</span>

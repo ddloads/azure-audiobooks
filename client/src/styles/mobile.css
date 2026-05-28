@@ -883,6 +883,16 @@
   text-overflow: ellipsis;
 }
 
+.mobile-book-series {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--primary-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
 /* Skeleton */
 .mobile-skeleton-card {
   background: var(--card-bg);
