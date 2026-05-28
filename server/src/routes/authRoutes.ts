@@ -5,6 +5,8 @@ import {
   logout,
   getMe,
   updateMyEmail,
+  updateMyUsername,
+  updateMyPassword,
   createPairingCode,
   redeemPairingCode,
 } from "../controllers/authController";
@@ -16,7 +18,9 @@ router.post("/register", register);
 router.post("/login", login);
 router.post("/logout", logout);
 router.get("/me", authenticate, getMe);
-router.patch("/me/email", authenticate, updateMyEmail);
+router.patch("/me/email",    authenticate, updateMyEmail);
+router.patch("/me/username", authenticate, updateMyUsername);
+router.patch("/me/password", authenticate, updateMyPassword);
 router.post("/pair", authenticate, createPairingCode);
 router.post("/pair/redeem", redeemPairingCode);
 

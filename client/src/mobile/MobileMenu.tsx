@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bug, FolderOpen, LogOut, RefreshCw, Settings, Smartphone, Upload } from 'lucide-react';
+import { Bug, FolderOpen, LogOut, RefreshCw, Settings, Smartphone, Upload, UserCog } from 'lucide-react';
 import { useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -63,6 +63,10 @@ const MobileMenu = () => {
 
       <div className="mobile-menu-section">
         <span className="mobile-menu-section-label">Account</span>
+        <button className="mobile-menu-item" onClick={() => navigate('/account')}>
+          <UserCog size={18} className="mobile-menu-item-icon" />
+          Account Settings
+        </button>
         <button className="mobile-menu-item" onClick={() => setIsConnectMobileOpen(true)}>
           <Smartphone size={18} className="mobile-menu-item-icon" />
           Connect Mobile App

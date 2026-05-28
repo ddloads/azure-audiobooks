@@ -310,6 +310,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
 
                 <button
                   className="topbar-dropdown-item"
+                  onClick={() => { navigate("/account"); setDropOpen(false); }}
+                >
+                  <User size={14} /> Account Settings
+                </button>
+
+                <button
+                  className="topbar-dropdown-item"
                   onClick={() => { navigate("/"); setDropOpen(false); }}
                 >
                   <User size={14} /> Library

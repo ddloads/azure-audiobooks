@@ -18,6 +18,8 @@ import MobileHome from "./mobile/MobileHome";
 import MobileLibrary from "./mobile/MobileLibrary";
 import MobileBookDetails from "./mobile/MobileBookDetails";
 import MobileMenu from "./mobile/MobileMenu";
+import MobileAccountSettings from "./mobile/MobileAccountSettings";
+import AccountSettingsPage from "./pages/AccountSettingsPage";
 import { useIsMobile } from "./hooks/useIsMobile";
 import "./styles/globals.css";
 
@@ -51,6 +53,7 @@ function AppRoutes() {
           <Route path="/series"    element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><MobileBookDetails /></PrivateRoute>} />
           <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
+          <Route path="/account"   element={<PrivateRoute><MobileAccountSettings /></PrivateRoute>} />
           <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
           <Route path="/files"     element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
           <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
@@ -61,6 +64,7 @@ function AppRoutes() {
           <Route path="/library"   element={<PrivateRoute><Library /></PrivateRoute>} />
           <Route path="/series"    element={<PrivateRoute><Library defaultViewMode="series" /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
+          <Route path="/account"   element={<PrivateRoute><AccountSettingsPage /></PrivateRoute>} />
           <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
           <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
           <Route path="/files"     element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />

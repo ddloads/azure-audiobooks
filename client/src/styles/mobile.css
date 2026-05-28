@@ -7,6 +7,102 @@
 }
 
 /* ═══════════════════════════════════════════════════
+   MOBILE ACCOUNT SETTINGS
+   ═══════════════════════════════════════════════════ */
+.mobile-account-settings {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg);
+}
+
+.mobile-account-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.mobile-account-back {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-account-back:active { opacity: 0.6; }
+
+.mobile-account-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.mobile-account-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.mobile-account-section {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.mobile-account-section-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary);
+  margin-bottom: 16px;
+}
+
+.mobile-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mobile-account-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mobile-account-field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.mobile-account-save {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════════════
    MOBILE HOME PAGE
    ═══════════════════════════════════════════════════ */
 .mobile-home {
