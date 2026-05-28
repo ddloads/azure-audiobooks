@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, Boxes, Check, Headphones, LayoutGrid, LayoutList, Loader2, Sparkles, SlidersHorizontal, Square } from 'lucide-react';
+import { BookOpen, Boxes, Check, LayoutGrid, LayoutList, Loader2, Sparkles, SlidersHorizontal, Square } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
@@ -18,18 +18,6 @@ interface Book extends MetadataBook {
   duration: number;
   series?: { id?: string; name: string } | null;
   sequence?: number | null;
-}
-
-interface ProgressRecord {
-  bookId: string;
-  currentTime: number;
-  book: {
-    id: string;
-    title: string;
-    duration: number;
-    coverPath?: string | null;
-    author: { name: string };
-  };
 }
 
 interface ScanProgress {
@@ -73,13 +61,6 @@ const emptyFilterOptions = (): MobileFilterOptions => ({
   years: [],
 });
 
-const formatTimeLeft = (seconds: number) => {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h}h ${m}m left`;
-  return `${m}m left`;
-};
-
 const INITIAL_COUNT = 40;
 const CHUNK_SIZE = 40;
 
@@ -88,12 +69,11 @@ const MobileLibrary = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { playBook, currentBook } = usePlayer();
+  const { currentBook } = usePlayer();
   const returnTo = `${location.pathname}${location.search}`;
 
   const [books, setBooks] = useState<Book[]>([]);
   const [filterOptions, setFilterOptions] = useState<MobileFilterOptions>(emptyFilterOptions);
-  const [progressRecords, setProgressRecords] = useState<ProgressRecord[]>([]);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [filters, setFilters] = useState<MobileFilters>(() => getFiltersFromParams(searchParams));
   const [loading, setLoading] = useState(true);
@@ -179,9 +159,7 @@ const MobileLibrary = () => {
   const fetchProgress = async () => {
     try {
       const res = await api.get('/progress');
-      const records: ProgressRecord[] = res.data;
-      setProgressRecords(records);
-      setProgressMap(new Map(records.map(r => [r.bookId, r.currentTime])));
+      setProgressMap(new Map(res.data.map((r: { bookId: string; currentTime: number }) => [r.bookId, r.currentTime])));
     } catch {
       // ignore
     }
@@ -224,15 +202,6 @@ const MobileLibrary = () => {
     obs.observe(node);
     return () => obs.disconnect();
   }, [books.length, visibleCount]);
-
-  const handleContinuePlay = async (record: ProgressRecord) => {
-    try {
-      const res = await api.get(`/library/${record.bookId}`);
-      playBook(res.data, record.currentTime);
-    } catch {
-      // ignore
-    }
-  };
 
   const updateFilter = (key: keyof MobileFilters, value: string) => {
     const next = new URLSearchParams(searchParams);
@@ -369,45 +338,6 @@ const MobileLibrary = () => {
       )}
 
       <div className="mobile-library-body">
-        <section className="mobile-library-hero">
-          <span>Azure Audiobooks</span>
-          <h1>{user?.username ? `${user.username}'s library` : 'Your library'}</h1>
-          <p>{books.length} {books.length === 1 ? 'title' : 'titles'} ready for your next listen</p>
-        </section>
-
-        {/* Continue Listening */}
-        {progressRecords.length > 0 && (
-          <section className="mobile-continue-section">
-            <div className="mobile-continue-header">
-              <Headphones size={12} />
-              Continue Listening
-            </div>
-            <div className="mobile-continue-shelf">
-              {progressRecords.map(rec => {
-                const pct = rec.book.duration > 0
-                  ? Math.min(100, Math.round((rec.currentTime / rec.book.duration) * 100))
-                  : 0;
-                const remaining = Math.max(0, rec.book.duration - rec.currentTime);
-                return (
-                  <div key={rec.bookId} className="mobile-continue-card" onClick={() => handleContinuePlay(rec)}>
-                    <div className="mobile-continue-art-frame">
-                      {rec.book.coverPath
-                        ? <img src={rec.book.coverPath} alt={rec.book.title} />
-                        : <div className="mobile-continue-art-placeholder"><BookOpen size={24} /></div>
-                      }
-                      <div className="mobile-continue-progress-bar">
-                        <div className="mobile-continue-progress-fill" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-                    <div className="mobile-continue-title">{rec.book.title}</div>
-                    <div className="mobile-continue-time">{formatTimeLeft(remaining)}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
         {/* Book grid */}
         {loading ? (
           <div className="mobile-book-grid">

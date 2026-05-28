@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Library, Headphones, Menu } from 'lucide-react';
+import { Home, Library, Headphones, Menu } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
 import MobileMiniPlayer from './MobileMiniPlayer';
 import MobilePlayer from './MobilePlayer';
-
-const LIBRARY_PATHS = new Set(['/', '/library', '/series']);
 
 const MobilePrivateShell = () => {
   const { currentBook } = usePlayer();
@@ -14,15 +12,17 @@ const MobilePrivateShell = () => {
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
 
   const tabs = [
-    { path: '/',          icon: Library,    label: 'Library' },
+    { path: '/',          icon: Home,       label: 'Home'    },
+    { path: '/library',   icon: Library,    label: 'Library' },
     { path: '__player__', icon: Headphones, label: 'Player'  },
     { path: '/menu',      icon: Menu,       label: 'Menu'    },
   ];
 
   const isTabActive = (path: string) => {
     if (path === '__player__') return isPlayerOpen;
-    if (path === '/') {
-      return LIBRARY_PATHS.has(location.pathname) || location.pathname.startsWith('/book/');
+    if (path === '/') return location.pathname === '/';
+    if (path === '/library') {
+      return ['/library', '/series'].includes(location.pathname) || location.pathname.startsWith('/book/');
     }
     return location.pathname.startsWith(path);
   };

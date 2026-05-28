@@ -7,6 +7,76 @@
 }
 
 /* ═══════════════════════════════════════════════════
+   MOBILE HOME PAGE
+   ═══════════════════════════════════════════════════ */
+.mobile-home {
+  padding: 20px 16px 0;
+}
+
+.mobile-home-greeting {
+  margin-bottom: 24px;
+}
+
+.mobile-home-kicker {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+  margin-bottom: 6px;
+}
+
+.mobile-home-title {
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text);
+  margin: 0 0 6px;
+  line-height: 1.2;
+}
+
+.mobile-home-sub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* Skeleton loader for home */
+.mobile-home-skeleton-card {
+  flex-shrink: 0;
+  width: 110px;
+}
+
+.mobile-home-skeleton-cover {
+  width: 110px;
+  height: 110px;
+  border-radius: 10px;
+  background: var(--card-bg);
+  animation: mobileSkeleton 1.4s ease-in-out infinite;
+  margin-bottom: 8px;
+}
+
+.mobile-home-skeleton-label {
+  height: 14px;
+  width: 140px;
+  border-radius: 6px;
+  background: var(--card-bg);
+  animation: mobileSkeleton 1.4s ease-in-out infinite;
+  margin-bottom: 12px;
+}
+
+.mobile-home-skeleton-line {
+  height: 11px;
+  border-radius: 5px;
+  background: var(--card-bg);
+  animation: mobileSkeleton 1.4s ease-in-out infinite;
+  margin-bottom: 6px;
+}
+
+/* ═══════════════════════════════════════════════════
    LAYOUT SHELL
    ═══════════════════════════════════════════════════ */
 .mobile-layout {

@@ -14,6 +14,7 @@ import AdminFileManagerPage from "./pages/AdminFileManagerPage";
 import AccountEmailPrompt from "./components/AccountEmailPrompt";
 import AppShell from "./components/AppShell";
 import MobilePrivateShell from "./mobile/MobileLayout";
+import MobileHome from "./mobile/MobileHome";
 import MobileLibrary from "./mobile/MobileLibrary";
 import MobileBookDetails from "./mobile/MobileBookDetails";
 import MobileMenu from "./mobile/MobileMenu";
@@ -45,7 +46,7 @@ function AppRoutes() {
 
       {isMobile ? (
         <Route element={<MobilePrivateShell />}>
-          <Route path="/"          element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
+          <Route path="/"          element={<PrivateRoute><MobileHome /></PrivateRoute>} />
           <Route path="/library"   element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
           <Route path="/series"    element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><MobileBookDetails /></PrivateRoute>} />
