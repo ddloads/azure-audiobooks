@@ -336,7 +336,7 @@ const MobileBookDetails = () => {
         {book.series && (
           <button
             className="mobile-details-series-badge"
-            onClick={() => navigate(`/?seriesId=${book.series!.id}&seriesName=${encodeURIComponent(book.series!.name)}`)}
+            onClick={() => navigate(`/library?seriesId=${book.series!.id}&seriesName=${encodeURIComponent(book.series!.name)}`)}
           >
             {book.series.name}{book.sequence != null && ` · Book ${book.sequence}`}
           </button>
@@ -347,7 +347,7 @@ const MobileBookDetails = () => {
 
         <button
           className="mobile-details-author-btn"
-          onClick={() => navigate(`/?authorId=${book.author.id}&authorName=${encodeURIComponent(book.author.name)}`)}
+          onClick={() => navigate(`/library?authorId=${book.author.id}&authorName=${encodeURIComponent(book.author.name)}`)}
         >
           {book.author.name}
         </button>

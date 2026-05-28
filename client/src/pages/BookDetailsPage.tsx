@@ -578,7 +578,7 @@ const BookDetailsPage: React.FC = () => {
                 className="book-details-series-badge"
                 onClick={() =>
                   navigate(
-                    `/?seriesId=${book.series!.id}&seriesName=${encodeURIComponent(book.series!.name)}`,
+                    `/library?seriesId=${book.series!.id}&seriesName=${encodeURIComponent(book.series!.name)}`,
                   )
                 }
                 title={`Browse ${book.series.name} series`}
@@ -699,7 +699,7 @@ const BookDetailsPage: React.FC = () => {
                         className="metadata-link"
                         onClick={() =>
                           navigate(
-                            `/?search=${encodeURIComponent(name.trim())}`,
+                            `/library?search=${encodeURIComponent(name.trim())}`,
                           )
                         }
                         title={`Browse books by ${name.trim()}`}

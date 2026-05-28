@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BookOpen, Boxes, Check, LayoutGrid, LayoutList, Loader2, Sparkles, SlidersHorizontal, Square } from 'lucide-react';
+import { BookOpen, Boxes, Check, LayoutGrid, LayoutList, Loader2, Search, Sparkles, SlidersHorizontal, Square, X } from 'lucide-react';
 import { io } from 'socket.io-client';
 import api from '../api/axios';
 import { getSocketBaseUrl } from '../api/backend';
@@ -76,6 +76,7 @@ const MobileLibrary = () => {
   const [filterOptions, setFilterOptions] = useState<MobileFilterOptions>(emptyFilterOptions);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [filters, setFilters] = useState<MobileFilters>(() => getFiltersFromParams(searchParams));
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT);
@@ -97,7 +98,18 @@ const MobileLibrary = () => {
 
   useEffect(() => {
     setFilters(getFiltersFromParams(searchParams));
+    setSearchQuery(searchParams.get('search') || '');
   }, [searchParams]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      if (searchQuery.trim()) next.set('search', searchQuery.trim());
+      else next.delete('search');
+      setSearchParams(next, { replace: true });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const activeFilterCount = useMemo(() => {
     let n = 0;
@@ -115,6 +127,7 @@ const MobileLibrary = () => {
 
   const buildParams = () => ({
     sortBy: filters.sortBy,
+    search: searchParams.get('search') || undefined,
     libraryId: filters.libraryId !== 'all' ? filters.libraryId : undefined,
     authorId: filters.authorId !== 'all' ? filters.authorId : undefined,
     seriesId: filters.seriesId !== 'all' ? filters.seriesId : undefined,
@@ -170,7 +183,7 @@ const MobileLibrary = () => {
     void fetchProgress();
   }, []);
 
-  useEffect(() => { void fetchBooks(); }, [filters]);
+  useEffect(() => { void fetchBooks(); }, [filters, searchParams.get('search')]);
 
   useEffect(() => {
     const socket = io(getSocketBaseUrl(), { withCredentials: true });
@@ -213,6 +226,7 @@ const MobileLibrary = () => {
   };
 
   const clearFilters = () => {
+    setSearchQuery('');
     setSearchParams(new URLSearchParams());
   };
 
@@ -318,6 +332,23 @@ const MobileLibrary = () => {
 
   return (
     <div className="mobile-library">
+
+      {/* Search bar */}
+      <div className="mobile-library-search">
+        <Search size={15} className="mobile-library-search-icon" />
+        <input
+          className="mobile-library-search-input"
+          type="search"
+          placeholder="Search titles and authors…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        {searchQuery && (
+          <button className="mobile-library-search-clear" onClick={() => setSearchQuery('')} aria-label="Clear search">
+            <X size={15} />
+          </button>
+        )}
+      </div>
 
       {/* Scan progress banner */}
       {scanProgress && (
