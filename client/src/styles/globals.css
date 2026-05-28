@@ -1007,6 +1007,22 @@ select.form-control {
   box-shadow: 0 0 7px rgba(56, 189, 248, 0.55);
 }
 
+.book-card-sequence-badge {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 2;
+}
+
 /* ── Book Details Modal Progress ── */
 .book-details-progress {
   margin-bottom: 1.5rem;

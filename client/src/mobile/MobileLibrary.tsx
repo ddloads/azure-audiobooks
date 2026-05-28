@@ -514,6 +514,9 @@ const MobileLibrary = () => {
                             <div className="mobile-book-progress-fill" style={{ width: `${pct}%` }} />
                           </div>
                         )}
+                        {book.sequence != null && (
+                          <div className="mobile-book-sequence-badge">#{book.sequence}</div>
+                        )}
                       </div>
                       <div className="mobile-book-meta">
                         <div className="mobile-book-title">{book.title}</div>
@@ -552,6 +555,9 @@ const MobileLibrary = () => {
                           ? <img src={book.coverPath} alt={book.title} loading="lazy" />
                           : <BookOpen size={22} color="var(--text-subtle)" />
                         }
+                        {book.sequence != null && (
+                          <div className="mobile-book-sequence-badge">#{book.sequence}</div>
+                        )}
                       </div>
                       <div className="mobile-book-list-info">
                         <div className="mobile-book-list-title">{book.title}</div>

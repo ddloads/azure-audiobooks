@@ -226,6 +226,10 @@ const BookCard: React.FC<{
             </div>
           )}
 
+          {book.sequence != null && (
+            <div className="book-card-sequence-badge">#{book.sequence}</div>
+          )}
+
           <div className="book-play-overlay">
             <div className="book-play-btn" onClick={handlePlay}>
               <Play size={22} style={{ marginLeft: "3px" }} fill="currentColor" />

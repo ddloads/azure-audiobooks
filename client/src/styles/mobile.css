@@ -2064,6 +2064,7 @@
 }
 
 .mobile-book-list-cover {
+  position: relative;
   width: 56px;
   height: 56px;
   border-radius: 8px;
@@ -2073,6 +2074,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.mobile-book-sequence-badge {
+  position: absolute;
+  bottom: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .mobile-book-list-cover img {
