@@ -77,6 +77,21 @@ export const getProgress = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const deleteProgress = async (req: AuthRequest, res: Response) => {
+  try {
+    const bookId = getSingleParam(req.params.bookId);
+    const userId = req.user?.userId;
+    if (!bookId || !userId) {
+      res.status(400).json({ error: "Invalid request" });
+      return;
+    }
+    await prisma.progress.deleteMany({ where: { userId, bookId } });
+    res.status(204).send();
+  } catch {
+    res.status(500).json({ error: "Failed to delete progress" });
+  }
+};
+
 export const updateProgress = async (req: AuthRequest, res: Response) => {
   try {
     const bookId = getSingleParam(req.params.bookId);

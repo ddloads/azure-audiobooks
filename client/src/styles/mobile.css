@@ -1285,6 +1285,38 @@
 /* Progress */
 .mobile-details-progress { margin-bottom: 14px; }
 
+.mobile-details-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.mobile-details-progress-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.mobile-details-progress-discard {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-subtle);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-details-progress-discard:active { opacity: 0.6; }
+
 .mobile-details-progress-bar {
   height: 4px;
   background: var(--border-strong);

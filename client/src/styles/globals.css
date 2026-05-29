@@ -1028,6 +1028,41 @@ select.form-control {
   margin-bottom: 1.5rem;
 }
 
+.book-details-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.book-details-progress-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.book-details-progress-discard {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-subtle);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  padding: 0;
+  transition: color 0.15s, background 0.15s;
+}
+
+.book-details-progress-discard:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
 .book-details-progress-bar {
   height: 5px;
   background: var(--border);

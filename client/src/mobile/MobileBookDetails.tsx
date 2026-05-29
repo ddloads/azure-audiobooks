@@ -355,6 +355,21 @@ const MobileBookDetails = () => {
         {/* Progress bar */}
         {savedTime > 0 && book.duration > 0 && (
           <div className="mobile-details-progress">
+            <div className="mobile-details-progress-header">
+              <span className="mobile-details-progress-label">
+                Your Progress · {Math.round((savedTime / book.duration) * 100)}%
+              </span>
+              <button
+                className="mobile-details-progress-discard"
+                title="Discard progress"
+                onClick={async () => {
+                  await api.delete(`/progress/${book.id}`);
+                  setSavedTime(0);
+                }}
+              >
+                ×
+              </button>
+            </div>
             <div className="mobile-details-progress-bar">
               <div
                 className="mobile-details-progress-fill"
@@ -362,7 +377,7 @@ const MobileBookDetails = () => {
               />
             </div>
             <div className="mobile-details-progress-labels">
-              <span>{Math.round((savedTime / book.duration) * 100)}% complete</span>
+              <span>{formatDuration(savedTime)} listened</span>
               <span>{formatDuration(Math.max(0, book.duration - savedTime))} left</span>
             </div>
           </div>

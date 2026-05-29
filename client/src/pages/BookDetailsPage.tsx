@@ -784,6 +784,21 @@ const BookDetailsPage: React.FC = () => {
 
             {savedTime > 0 && book.duration > 0 && (
               <div className="book-details-progress">
+                <div className="book-details-progress-header">
+                  <span className="book-details-progress-label">
+                    Your Progress · {Math.round((savedTime / book.duration) * 100)}%
+                  </span>
+                  <button
+                    className="book-details-progress-discard"
+                    title="Discard progress"
+                    onClick={async () => {
+                      await api.delete(`/progress/${book.id}`);
+                      setSavedTime(0);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
                 <div className="book-details-progress-bar">
                   <div
                     className="book-details-progress-fill"
@@ -791,7 +806,7 @@ const BookDetailsPage: React.FC = () => {
                   />
                 </div>
                 <div className="book-details-progress-labels">
-                  <span>{Math.round((savedTime / book.duration) * 100)}% complete</span>
+                  <span>{formatDuration(savedTime)} listened</span>
                   <span>{formatDuration(Math.max(0, book.duration - savedTime))} left</span>
                 </div>
               </div>
