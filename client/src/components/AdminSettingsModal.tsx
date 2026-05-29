@@ -403,40 +403,24 @@ const AdminSettingsModal = ({
 
   return (
     <div className="admin-settings-page">
-      <div className="card admin-settings-page-shell animate-fade-in">
+      <div className="admin-settings-page-shell animate-fade-in">
+
+        {/* Header */}
         <div className="admin-settings-header">
-          <div className="admin-settings-header-copy">
-            <div className="admin-settings-kicker">Admin Control Center</div>
-            <h2>Settings</h2>
-            <div className="admin-header-pills">
-              <div className="admin-header-pill">
-                <Shield size={14} />
-                {users.filter((user) => user.role === "ADMIN").length || dashboard?.stats.admins || 0} admins
-              </div>
-              <div className="admin-header-pill">
-                <FolderTree size={14} />
-                {activeLibraries || dashboard?.stats.libraries || 0} libraries
-              </div>
-              <div className="admin-header-pill">
-                <Network size={14} />
-                {enabledSourceCount} live sources
-              </div>
-              <div className="admin-header-pill">
-                <Sparkles size={14} />
-                {runningTaskCount} active tasks
-              </div>
+          <div className="admin-settings-header-left">
+            <Link to={backTarget} className="admin-back-btn" aria-label="Back">
+              <ArrowLeft size={16} />
+            </Link>
+            <div>
+              <h1 className="admin-settings-title">Settings</h1>
+              <p className="admin-settings-subtitle">
+                {activeLibraries || dashboard?.stats.libraries || 0} {(activeLibraries || dashboard?.stats.libraries || 0) === 1 ? "library" : "libraries"}
+                {dashboard?.stats.books ? ` · ${dashboard.stats.books.toLocaleString()} books` : ""}
+                {runningTaskCount > 0 ? ` · ${runningTaskCount} active ${runningTaskCount === 1 ? "task" : "tasks"}` : ""}
+              </p>
             </div>
           </div>
-
           <div className="admin-header-actions">
-            <button
-              className="btn btn-secondary"
-              type="button"
-              onClick={() => navigate("/duplicates", { state: { from: backTarget } })}
-            >
-              <Copy size={15} />
-              Duplicates
-            </button>
             <button
               className="btn btn-secondary"
               type="button"
@@ -454,39 +438,34 @@ const AdminSettingsModal = ({
               <Upload size={15} />
               Upload
             </button>
-            <Link to={backTarget} className="btn btn-secondary">
-              <ArrowLeft size={16} />
-              Back to library
-            </Link>
           </div>
         </div>
 
+        {/* Body */}
         <div className="admin-settings-layout">
           <aside className="admin-settings-sidebar">
-            <div className="admin-sidebar-nav-label">Navigation</div>
-
             {tabs.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
-                className={`admin-nav-btn ${activeTab === key ? "admin-nav-btn-active" : ""}`}
+                className={`admin-nav-btn${activeTab === key ? " admin-nav-btn-active" : ""}`}
                 onClick={() => setActiveTab(key)}
                 type="button"
               >
-                <Icon size={16} />
+                <Icon size={15} />
                 <span>{label}</span>
               </button>
             ))}
 
-            <div className="admin-sidebar-card admin-sidebar-metrics">
-              <div>
-                <span>Writable paths</span>
-                <strong>{writableSourceCount}</strong>
-              </div>
-              <div>
-                <span>Books indexed</span>
-                <strong>{dashboard?.stats.books ?? 0}</strong>
-              </div>
-            </div>
+            <div className="admin-sidebar-divider" />
+
+            <button
+              className="admin-nav-btn admin-nav-btn-muted"
+              type="button"
+              onClick={() => navigate("/duplicates", { state: { from: backTarget } })}
+            >
+              <Copy size={15} />
+              <span>Duplicates</span>
+            </button>
           </aside>
 
           <section className="admin-settings-content">
@@ -497,10 +476,10 @@ const AdminSettingsModal = ({
             ) : (
               <>
                 <div className="admin-content-topbar">
-                  <h3 className="admin-content-title">
-                    <ActiveTabIcon size={17} />
-                    {activeTabConfig.label}
-                  </h3>
+                  <div className="admin-content-title-row">
+                    <ActiveTabIcon size={16} className="admin-content-title-icon" />
+                    <h2 className="admin-content-title">{activeTabConfig.label}</h2>
+                  </div>
                   <p className="admin-content-desc">{activeTabConfig.description}</p>
                 </div>
 
@@ -511,14 +490,9 @@ const AdminSettingsModal = ({
                     runtimeTasks={runtimeTasks}
                   />
                 )}
-
                 {activeTab === "users" && (
-                  <UsersTab
-                    users={users}
-                    onRefresh={loadUsersData}
-                  />
+                  <UsersTab users={users} onRefresh={loadUsersData} />
                 )}
-
                 {activeTab === "library" && (
                   <LibrariesTab
                     libraries={libraries}
@@ -526,28 +500,11 @@ const AdminSettingsModal = ({
                     onRequestUpload={openUploadFlow}
                   />
                 )}
-
-                {activeTab === "appearance" && (
-                  <AppearanceTab />
-                )}
-
-                {activeTab === "scripts" && (
-                  <ScriptsTab />
-                )}
-
-                {activeTab === "system" && (
-                  <SystemTab
-                    onLibraryChanged={onLibraryChanged}
-                  />
-                )}
-
-                {activeTab === "reports" && (
-                  <ReportsTab />
-                )}
-
-                {activeTab === "logs" && (
-                  <LogsTab />
-                )}
+                {activeTab === "appearance" && <AppearanceTab />}
+                {activeTab === "scripts" && <ScriptsTab />}
+                {activeTab === "system" && <SystemTab onLibraryChanged={onLibraryChanged} />}
+                {activeTab === "reports" && <ReportsTab />}
+                {activeTab === "logs" && <LogsTab />}
               </>
             )}
           </section>
