@@ -9689,6 +9689,13 @@ body {
   color: var(--text-muted);
 }
 
+.author-card-review {
+  font-size: 0.68rem;
+  color: var(--warning, #f59e0b);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
 .author-card-skeleton {
   display: flex;
   flex-direction: column;

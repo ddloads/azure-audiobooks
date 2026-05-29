@@ -2454,6 +2454,13 @@
   color: var(--text-muted);
 }
 
+.mobile-author-review {
+  font-size: 0.62rem;
+  color: var(--warning, #f59e0b);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
 .mobile-author-card-skeleton {
   display: flex;
   flex-direction: column;

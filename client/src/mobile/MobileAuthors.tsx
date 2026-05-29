@@ -7,6 +7,7 @@ interface Author {
   id: string;
   name: string;
   bookCount: number;
+  reviewCount: number;
   coverPath: string | null;
 }
 
@@ -95,6 +96,9 @@ const MobileAuthors = () => {
               <div className="mobile-author-count">
                 {author.bookCount} {author.bookCount === 1 ? 'book' : 'books'}
               </div>
+              {author.reviewCount > 0 && (
+                <div className="mobile-author-review">{author.reviewCount} under review</div>
+              )}
             </button>
           ))}
         </div>

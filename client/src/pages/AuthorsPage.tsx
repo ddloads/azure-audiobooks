@@ -7,6 +7,7 @@ interface Author {
   id: string;
   name: string;
   bookCount: number;
+  reviewCount: number;
   coverPath: string | null;
 }
 
@@ -93,6 +94,11 @@ export default function AuthorsPage() {
               <div className="author-card-count">
                 {author.bookCount} {author.bookCount === 1 ? "book" : "books"}
               </div>
+              {author.reviewCount > 0 && (
+                <div className="author-card-review">
+                  {author.reviewCount} under review
+                </div>
+              )}
             </button>
           ))}
         </div>
