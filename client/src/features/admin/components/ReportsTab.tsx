@@ -23,7 +23,7 @@ export default function ReportsTab() {
   const loadBugReports = async () => {
     setReportsLoading(true);
     try {
-      const response = await api.get<AdminBugReport[]>("/admin/bug-reports");
+      const response = await api.get<AdminBugReport[]>("/reports/admin");
       setBugReports(response.data);
     } catch (error) {
       showToast({
