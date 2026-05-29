@@ -15,7 +15,8 @@ model User {
   password  String
   role      String     @default("USER") // ADMIN or USER
   progress  Progress[]
-  bugReports BugReport[]
+  bugReports       BugReport[]
+  listeningSessions ListeningSession[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -93,7 +94,8 @@ model Book {
   audioFiles       AudioFile[]
   indexedFiles     IndexedAudioFile[]
   chapters         Chapter[]
-  progress         Progress[]
+  progress          Progress[]
+  listeningSessions ListeningSession[]
   ignoredDuplicateAsA IgnoredDuplicatePair[] @relation("IgnoredDuplicateBookA")
   ignoredDuplicateAsB IgnoredDuplicatePair[] @relation("IgnoredDuplicateBookB")
   createdAt        DateTime    @default(now())
@@ -269,4 +271,20 @@ model BugReport {
   @@index([createdAt])
   @@index([type])
   @@index([userId])
+}
+
+model ListeningSession {
+  id              String    @id @default(uuid())
+  userId          String
+  bookId          String
+  startedAt       DateTime  @default(now())
+  endedAt         DateTime?
+  secondsListened Int       @default(0)
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@index([bookId])
+  @@index([startedAt])
 }

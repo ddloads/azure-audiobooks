@@ -82,6 +82,10 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   const playbackRateRef = useRef(1);
   const previewModeRef = useRef(false);
 
+  // Session tracking
+  const sessionIdRef = useRef<string | null>(null);
+  const sessionStartPositionRef = useRef(0);
+
   const setCurrentBook = (book: Book | null) => {
     bookRef.current = book;
     _setCurrentBook(book);
@@ -127,6 +131,53 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const openSession = async (book: Book) => {
+    if (previewModeRef.current || sessionIdRef.current) return;
+    try {
+      const res = await api.post<{ id: string }>("/sessions", { bookId: book.id });
+      sessionIdRef.current = res.data.id;
+      sessionStartPositionRef.current =
+        getElapsedBeforeIndex(book, fileIndexRef.current) + timeRef.current;
+    } catch {
+      // non-fatal
+    }
+  };
+
+  const closeSession = (ended: boolean) => {
+    const id = sessionIdRef.current;
+    if (!id || previewModeRef.current) return;
+    const book = bookRef.current;
+    const currentPos = book
+      ? getElapsedBeforeIndex(book, fileIndexRef.current) + timeRef.current
+      : 0;
+    const secondsListened = Math.max(0, Math.round(currentPos - sessionStartPositionRef.current));
+
+    // Use sendBeacon on unload so the request survives page close
+    if (ended && navigator.sendBeacon) {
+      const url = `${api.defaults.baseURL ?? ""}/sessions/${id}`;
+      const blob = new Blob(
+        [JSON.stringify({ secondsListened, ended: true })],
+        { type: "application/json" },
+      );
+      navigator.sendBeacon(url, blob);
+    } else {
+      void api.patch(`/sessions/${id}`, { secondsListened, ended });
+    }
+    sessionIdRef.current = null;
+    sessionStartPositionRef.current = 0;
+  };
+
+  const heartbeatSession = () => {
+    const id = sessionIdRef.current;
+    if (!id || previewModeRef.current) return;
+    const book = bookRef.current;
+    const currentPos = book
+      ? getElapsedBeforeIndex(book, fileIndexRef.current) + timeRef.current
+      : 0;
+    const secondsListened = Math.max(0, Math.round(currentPos - sessionStartPositionRef.current));
+    void api.patch(`/sessions/${id}`, { secondsListened, ended: false });
+  };
+
   useEffect(() => {
     const audio = new Audio();
     audio.crossOrigin = "use-credentials";
@@ -154,8 +205,15 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setDuration(book?.duration || audio.duration || 0);
       audio.playbackRate = playbackRateRef.current;
     };
-    audio.onplay = () => setIsPlaying(true);
-    audio.onpause = () => setIsPlaying(false);
+    audio.onplay = () => {
+      setIsPlaying(true);
+      const book = bookRef.current;
+      if (book) void openSession(book);
+    };
+    audio.onpause = () => {
+      setIsPlaying(false);
+      closeSession(true);
+    };
     audio.onended = () => {
       const book = bookRef.current;
       const idx = fileIndexRef.current;
@@ -178,11 +236,15 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       setIsPlaying(false);
     };
 
+    const handleUnload = () => closeSession(true);
+    window.addEventListener("beforeunload", handleUnload);
+
     return () => {
       audio.pause();
       audio.src = "";
       if (syncTimerRef.current) clearInterval(syncTimerRef.current);
       if (sleepIntervalRef.current) clearInterval(sleepIntervalRef.current);
+      window.removeEventListener("beforeunload", handleUnload);
     };
   }, []);
 
@@ -199,6 +261,7 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       if (!book) return;
       const total = getElapsedBeforeIndex(book, fileIndexRef.current) + timeRef.current;
       void api.post(`/progress/${book.id}`, { currentTime: total, isFinished: false });
+      heartbeatSession();
     }, 10000);
 
     return () => {
@@ -207,6 +270,8 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
   }, [isPlaying, currentBook]);
 
   const playBookInternal = (book: Book, startTime = 0, preview = false) => {
+    // Close any open session before switching books
+    if (sessionIdRef.current) closeSession(true);
     previewModeRef.current = preview;
     setIsPreviewMode(preview);
     setCurrentBook(book);
