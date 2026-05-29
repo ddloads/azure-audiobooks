@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Home,
   Settings,
+  Users,
   X,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -28,6 +29,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/",        icon: <Home size={18} />,     label: "Home" },
   { path: "/library", icon: <BookOpen size={18} />, label: "Library" },
   { path: "/series",  icon: <Boxes size={18} />,    label: "Series" },
+  { path: "/authors", icon: <Users size={18} />,    label: "Authors" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [
@@ -48,7 +50,7 @@ export default function Sidebar({
   const isAdmin = user?.role === "ADMIN";
 
   const isActive = (path: string) =>
-    path === "/" || path === "/library" || path === "/series"
+    ["/", "/library", "/series", "/authors"].includes(path)
       ? location.pathname === path
       : location.pathname.startsWith(path);
 

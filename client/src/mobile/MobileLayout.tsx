@@ -22,7 +22,7 @@ const MobilePrivateShell = () => {
     if (path === '__player__') return isPlayerOpen;
     if (path === '/') return location.pathname === '/';
     if (path === '/library') {
-      return ['/library', '/series'].includes(location.pathname) || location.pathname.startsWith('/book/');
+      return ['/library', '/series', '/authors'].includes(location.pathname) || location.pathname.startsWith('/book/');
     }
     return location.pathname.startsWith(path);
   };

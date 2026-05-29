@@ -9,6 +9,7 @@ import settingsRoutes from "./routes/settingsRoutes";
 import adminRoutes from "./routes/adminRoutes";
 import reportRoutes from "./routes/reportRoutes";
 import recommendationRoutes from "./routes/recommendationRoutes";
+import authorRoutes from "./routes/authorRoutes";
 import {
   errorLoggingMiddleware,
   requestLoggingMiddleware,
@@ -52,6 +53,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/recommendations", recommendationRoutes);
+app.use("/api/authors", authorRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
