@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowLeft, Bug, KeyRound, Loader2, User } from "lucide-react";
+import { ArrowLeft, Bug, Eye, EyeOff, KeyRound, Loader2, Palette, User } from "lucide-react";
 import { isAxiosError } from "axios";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useShelfPrefs } from "../hooks/useShelfPrefs";
 
-type TabKey = "profile" | "security" | "report";
+type TabKey = "profile" | "security" | "appearance" | "report";
 
 interface ApiUser {
   id: string;
@@ -25,10 +26,18 @@ const issueTypes = [
   { value: "other", label: "Something else" },
 ];
 
+const SHELF_LABELS: Record<string, { label: string; description: string }> = {
+  shelfContinueListening: { label: "Continue Listening",  description: "Books you have started but not finished." },
+  shelfNextInSeries:      { label: "Up Next in Series",   description: "Next unread book in a series you've been following." },
+  shelfYouMightLike:      { label: "You Might Like",      description: "Books matched to your listening history." },
+  shelfRecentlyAdded:     { label: "Recently Added",      description: "New arrivals you haven't started yet." },
+};
+
 const tabs: Array<{ key: TabKey; label: string; icon: typeof User; description: string }> = [
-  { key: "profile",  label: "Profile",   icon: User,     description: "Update your display name and email address." },
-  { key: "security", label: "Security",  icon: KeyRound, description: "Change your password." },
-  { key: "report",   label: "Report",    icon: Bug,      description: "Submit a bug report or feedback to the admin." },
+  { key: "profile",    label: "Profile",    icon: User,    description: "Update your display name and email address." },
+  { key: "security",   label: "Security",   icon: KeyRound, description: "Change your password." },
+  { key: "appearance", label: "Appearance", icon: Palette, description: "Choose which shelves appear on your home screen." },
+  { key: "report",     label: "Report",     icon: Bug,     description: "Submit a bug report or feedback to the admin." },
 ];
 
 export default function AccountSettingsPage() {
@@ -53,6 +62,9 @@ export default function AccountSettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // Appearance
+  const { prefs, toggle, SHELF_KEYS } = useShelfPrefs(user?.id ?? "");
 
   // Report
   const [reportType, setReportType] = useState(issueTypes[0].value);
@@ -207,6 +219,30 @@ export default function AccountSettingsPage() {
                   </button>
                 </div>
               </form>
+            )}
+
+            {activeTab === "appearance" && (
+              <div className="account-shelf-toggles">
+                {SHELF_KEYS.map((key) => {
+                  const { label, description } = SHELF_LABELS[key];
+                  const enabled = prefs[key];
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`admin-overview-toggle${enabled ? " is-enabled" : ""}`}
+                      onClick={() => toggle(key)}
+                      aria-pressed={enabled}
+                    >
+                      <div className="admin-overview-toggle-copy">
+                        <strong>{label}</strong>
+                        <small>{description}</small>
+                      </div>
+                      {enabled ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
+                  );
+                })}
+              </div>
             )}
 
             {activeTab === "report" && (

@@ -3877,6 +3877,14 @@ input[type='range']::-moz-range-thumb {
   resize: vertical;
 }
 
+.account-shelf-toggles,
+.mobile-account-shelf-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
 .admin-overview-customize-card {
   gap: 1rem;
 }

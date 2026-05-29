@@ -19,6 +19,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import RecommendationShelf, { type RecommendBook } from "../components/RecommendationShelf";
 import type { AppearanceSettings } from "../features/admin/types";
+import { applyShelfPrefs } from "../hooks/useShelfPrefs";
 
 interface ProgressRecord {
   bookId: string;
@@ -83,7 +84,8 @@ export default function Home() {
       ]);
       setProgressRecords(progressRes.data);
       setRecommendations(recRes.data);
-      setShelves(prev => ({ ...prev, ...settingsRes.data }));
+      const merged = user ? applyShelfPrefs(settingsRes.data, user.id) : settingsRes.data;
+      setShelves(prev => ({ ...prev, ...merged }));
     } catch (err) {
       console.error("Failed to load home data", err);
     } finally {

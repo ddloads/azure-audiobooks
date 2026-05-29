@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bug, KeyRound, Loader2, User } from 'lucide-react';
+import { ArrowLeft, Bug, Eye, EyeOff, KeyRound, Loader2, Palette, User } from 'lucide-react';
 import { isAxiosError } from 'axios';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useShelfPrefs } from '../hooks/useShelfPrefs';
+
+const SHELF_LABELS: Record<string, { label: string; description: string }> = {
+  shelfContinueListening: { label: 'Continue Listening',  description: 'Books you have started but not finished.' },
+  shelfNextInSeries:      { label: 'Up Next in Series',   description: 'Next unread book in a series.' },
+  shelfYouMightLike:      { label: 'You Might Like',      description: 'Books matched to your history.' },
+  shelfRecentlyAdded:     { label: 'Recently Added',      description: 'New arrivals you haven\'t started.' },
+};
 
 interface ApiUser {
   id: string;
@@ -36,6 +44,8 @@ const MobileAccountSettings = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const { prefs, toggle, SHELF_KEYS } = useShelfPrefs(user?.id ?? '');
 
   const [reportType, setReportType] = useState(issueTypes[0].value);
   const [reportComment, setReportComment] = useState('');
@@ -161,6 +171,34 @@ const MobileAccountSettings = () => {
               Update Password
             </button>
           </form>
+        </section>
+
+        <section className="mobile-account-section">
+          <div className="mobile-account-section-head">
+            <Palette size={14} />
+            <span>Appearance</span>
+          </div>
+          <div className="mobile-account-shelf-toggles">
+            {SHELF_KEYS.map((key) => {
+              const { label, description } = SHELF_LABELS[key];
+              const enabled = prefs[key];
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`admin-overview-toggle${enabled ? ' is-enabled' : ''}`}
+                  onClick={() => toggle(key)}
+                  aria-pressed={enabled}
+                >
+                  <div className="admin-overview-toggle-copy">
+                    <strong>{label}</strong>
+                    <small>{description}</small>
+                  </div>
+                  {enabled ? <Eye size={16} /> : <EyeOff size={16} />}
+                </button>
+              );
+            })}
+          </div>
         </section>
 
         <section className="mobile-account-section">
