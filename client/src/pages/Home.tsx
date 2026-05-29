@@ -161,75 +161,42 @@ export default function Home() {
     (shelves.shelfYouMightLike && recommendations.youMightLike.length > 0) ||
     (shelves.shelfRecentlyAdded && recommendations.recentlyAdded.length > 0);
 
-  const recommendationCount =
-    (shelves.shelfNextInSeries ? recommendations.nextInSeries.length : 0) +
-    (shelves.shelfYouMightLike ? recommendations.youMightLike.length : 0);
-
   const menuRecord = progressRecords.find((r) => r.bookId === openMenuId);
 
   return (
     <div className="home-page">
-      <section className="home-hero">
-        <div className="home-greeting">
-          <span className="home-kicker">Azure Audiobooks</span>
+      <div className="home-header">
+        <div className="home-header-copy">
           <h1 className="home-greeting-title">
             {greeting()}{user?.username ? `, ${user.username}` : ""}
           </h1>
           <p className="home-greeting-sub">
             {loading
-              ? "Loading your listening room..."
+              ? "Loading your library…"
               : hasContent
-              ? "Pick up your story, discover the next chapter, and keep your library moving."
-              : "Start your first audiobook and this space will become your listening dashboard."}
+              ? "Pick up where you left off."
+              : "Start your first audiobook."}
           </p>
-          <div className="home-hero-actions">
-            <button className="btn btn-primary" type="button" onClick={() => navigate("/library")}>
-              <Library size={16} />
-              Browse Library
+        </div>
+        <div className="home-header-actions">
+          <button className="btn btn-secondary" type="button" onClick={() => navigate("/library")}>
+            <Library size={15} />
+            Browse Library
+          </button>
+          {progressRecords[0] && (
+            <button className="btn btn-primary" type="button" onClick={() => handlePlay(progressRecords[0])}>
+              <PlayCircle size={15} />
+              Resume
             </button>
-            {progressRecords[0] && (
-              <button className="btn btn-secondary" type="button" onClick={() => handlePlay(progressRecords[0])}>
-                <PlayCircle size={16} />
-                Resume Latest
-              </button>
-            )}
-          </div>
+          )}
         </div>
-
-        <div className="home-hero-stats" aria-label="Library overview">
-          <div className="home-stat-card">
-            <span>In progress</span>
-            <strong>{loading ? "--" : progressRecords.length}</strong>
-          </div>
-          <div className="home-stat-card accent">
-            <span>Recommended</span>
-            <strong>{loading ? "--" : recommendationCount}</strong>
-          </div>
-          <div className="home-stat-card warm">
-            <span>Next up</span>
-            <strong>{loading ? "--" : recommendations.nextInSeries.length}</strong>
-          </div>
-        </div>
-      </section>
-      {/* Greeting */}
-      <div className="home-greeting">
-        <h1 className="home-greeting-title">
-          {greeting()}{user?.username ? `, ${user.username}` : ""}
-        </h1>
-        <p className="home-greeting-sub">
-          {loading
-            ? "Loading your library…"
-            : hasContent
-            ? "Pick up where you left off."
-            : "Start your first audiobook."}
-        </p>
       </div>
 
       {/* Continue Listening */}
       {shelves.shelfContinueListening && progressRecords.length > 0 && (
         <section className="continue-listening-section">
           <div className="continue-listening-header">
-            <Headphones size={18} className="continue-listening-icon" />
+            <Headphones size={16} className="continue-listening-icon" />
             <h2 className="continue-listening-title">Continue Listening</h2>
           </div>
           <div className="continue-shelf">
