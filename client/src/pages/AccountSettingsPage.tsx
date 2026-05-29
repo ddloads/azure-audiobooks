@@ -1,8 +1,12 @@
 import { useState } from "react";
-import { KeyRound, Loader2, User } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { ArrowLeft, Bug, KeyRound, Loader2, User } from "lucide-react";
+import { isAxiosError } from "axios";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+
+type TabKey = "profile" | "security" | "report";
 
 interface ApiUser {
   id: string;
@@ -11,49 +15,69 @@ interface ApiUser {
   role: string;
 }
 
+const issueTypes = [
+  { value: "playback", label: "Playback issue" },
+  { value: "library", label: "Library or scanning" },
+  { value: "metadata", label: "Book metadata" },
+  { value: "account", label: "Account or login" },
+  { value: "performance", label: "Slow or unresponsive" },
+  { value: "visual", label: "Visual problem" },
+  { value: "other", label: "Something else" },
+];
+
+const tabs: Array<{ key: TabKey; label: string; icon: typeof User; description: string }> = [
+  { key: "profile",  label: "Profile",   icon: User,     description: "Update your display name and email address." },
+  { key: "security", label: "Security",  icon: KeyRound, description: "Change your password." },
+  { key: "report",   label: "Report",    icon: Bug,      description: "Submit a bug report or feedback to the admin." },
+];
+
 export default function AccountSettingsPage() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const location = useLocation();
 
-  // Profile form state
+  const backTarget =
+    typeof location.state === "object" && location.state !== null && "from" in location.state
+      ? (location.state as { from: string }).from
+      : "/";
+
+  const [activeTab, setActiveTab] = useState<TabKey>("profile");
+
+  // Profile
   const [username, setUsername] = useState(user?.username ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Password form state
+  // Security
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordLoading, setPasswordLoading] = useState(false);
 
+  // Report
+  const [reportType, setReportType] = useState(issueTypes[0].value);
+  const [reportComment, setReportComment] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setProfileLoading(true);
-
     try {
       const updates: Promise<{ data: ApiUser }>[] = [];
-
-      if (username.trim() && username.trim() !== user.username) {
+      if (username.trim() && username.trim() !== user.username)
         updates.push(api.patch<ApiUser>("/auth/me/username", { username: username.trim() }));
-      }
-      if (email.trim() !== (user.email ?? "")) {
+      if (email.trim() !== (user.email ?? ""))
         updates.push(api.patch<ApiUser>("/auth/me/email", { email: email.trim() }));
-      }
-
-      if (updates.length === 0) {
-        showToast({ title: "No changes to save", tone: "info" });
-        return;
-      }
-
+      if (updates.length === 0) { showToast({ title: "No changes to save", tone: "info" }); return; }
       const results = await Promise.all(updates);
       const latest = results[results.length - 1].data;
       updateUser(latest);
       setUsername(latest.username);
       setEmail(latest.email ?? "");
       showToast({ title: "Profile updated", tone: "success" });
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+    } catch (err) {
+      const msg = isAxiosError<{ error?: string }>(err) ? err.response?.data?.error : undefined;
       showToast({ title: "Update failed", description: msg ?? "Could not save changes.", tone: "error" });
     } finally {
       setProfileLoading(false);
@@ -62,151 +86,157 @@ export default function AccountSettingsPage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      showToast({ title: "Passwords do not match", tone: "error" });
-      return;
-    }
+    if (newPassword !== confirmPassword) { showToast({ title: "Passwords do not match", tone: "error" }); return; }
     setPasswordLoading(true);
     try {
       await api.patch("/auth/me/password", { currentPassword, newPassword });
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      setCurrentPassword(""); setNewPassword(""); setConfirmPassword("");
       showToast({ title: "Password updated", tone: "success" });
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+    } catch (err) {
+      const msg = isAxiosError<{ error?: string }>(err) ? err.response?.data?.error : undefined;
       showToast({ title: "Update failed", description: msg ?? "Could not change password.", tone: "error" });
     } finally {
       setPasswordLoading(false);
     }
   };
 
+  const handleSubmitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setReportLoading(true);
+    try {
+      await api.post("/reports", {
+        type: reportType,
+        comment: reportComment,
+        path: `${window.location.pathname}${window.location.search}`,
+      });
+      setReportComment("");
+      showToast({ title: "Report submitted", description: "An admin will review it.", tone: "success" });
+    } catch (err) {
+      const msg = isAxiosError<{ error?: string }>(err) ? err.response?.data?.error : undefined;
+      showToast({ title: "Submit failed", description: msg ?? "Could not submit the report.", tone: "error" });
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const activeTabConfig = tabs.find((t) => t.key === activeTab) ?? tabs[0];
+  const ActiveTabIcon = activeTabConfig.icon;
+
   return (
     <div className="admin-settings-page">
-      <div className="admin-settings-page-shell">
-        <div className="admin-page-header">
-          <div className="admin-page-title-row">
-            <h1 className="admin-page-title">Account Settings</h1>
+      <div className="admin-settings-page-shell animate-fade-in">
+
+        <div className="admin-settings-header">
+          <div className="admin-settings-header-left">
+            <Link to={backTarget} className="admin-back-btn" aria-label="Back">
+              <ArrowLeft size={16} />
+            </Link>
+            <div>
+              <h1 className="admin-settings-title">Settings</h1>
+              <p className="admin-settings-subtitle">{user?.username}</p>
+            </div>
           </div>
-          <p className="admin-page-subtitle">Manage your profile and password.</p>
         </div>
 
-        <div className="admin-panel-stack" style={{ maxWidth: 560 }}>
+        <div className="admin-settings-layout">
+          <aside className="admin-settings-sidebar">
+            {tabs.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                className={`admin-nav-btn${activeTab === key ? " admin-nav-btn-active" : ""}`}
+                onClick={() => setActiveTab(key)}
+                type="button"
+              >
+                <Icon size={15} />
+                <span>{label}</span>
+              </button>
+            ))}
+          </aside>
 
-          {/* Profile */}
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <div>
-                <h3><User size={15} style={{ verticalAlign: "middle", marginRight: 7 }} />Profile</h3>
-                <p className="admin-library-meta-text">Update your display name and email address.</p>
+          <section className="admin-settings-content">
+            <div className="admin-content-topbar">
+              <div className="admin-content-title-row">
+                <ActiveTabIcon size={16} className="admin-content-title-icon" />
+                <h2 className="admin-content-title">{activeTabConfig.label}</h2>
               </div>
+              <p className="admin-content-desc">{activeTabConfig.description}</p>
             </div>
 
-            <form onSubmit={(e) => void handleSaveProfile(e)} className="account-form">
-              <div className="account-field">
-                <label className="account-field-label" htmlFor="acc-username">Username</label>
-                <input
-                  id="acc-username"
-                  className="form-control"
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  minLength={2}
-                  maxLength={32}
-                  autoComplete="username"
-                />
-              </div>
+            {activeTab === "profile" && (
+              <form onSubmit={(e) => void handleSaveProfile(e)} className="account-form">
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="acc-username">Username</label>
+                  <input id="acc-username" className="form-control" type="text" value={username}
+                    onChange={(e) => setUsername(e.target.value)} minLength={2} maxLength={32} autoComplete="username" />
+                </div>
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="acc-email">Email</label>
+                  <input id="acc-email" className="form-control" type="email" value={email}
+                    onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
+                </div>
+                <div className="account-form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={profileLoading}>
+                    {profileLoading && <Loader2 size={14} className="animate-spin" />}
+                    Save Profile
+                  </button>
+                </div>
+              </form>
+            )}
 
-              <div className="account-field">
-                <label className="account-field-label" htmlFor="acc-email">Email</label>
-                <input
-                  id="acc-email"
-                  className="form-control"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                />
-              </div>
+            {activeTab === "security" && (
+              <form onSubmit={(e) => void handleChangePassword(e)} className="account-form">
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="acc-current-pw">Current password</label>
+                  <input id="acc-current-pw" className="form-control" type="password" value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" required />
+                </div>
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="acc-new-pw">New password</label>
+                  <input id="acc-new-pw" className="form-control" type="password" value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" minLength={6} required />
+                </div>
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="acc-confirm-pw">Confirm new password</label>
+                  <input id="acc-confirm-pw" className="form-control" type="password" value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)} autoComplete="new-password" minLength={6} required />
+                </div>
+                <div className="account-form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={passwordLoading}>
+                    {passwordLoading && <Loader2 size={14} className="animate-spin" />}
+                    Update Password
+                  </button>
+                </div>
+              </form>
+            )}
 
-              <div className="account-form-actions">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={profileLoading}
-                >
-                  {profileLoading && <Loader2 size={14} className="animate-spin" />}
-                  Save Profile
-                </button>
-              </div>
-            </form>
-          </div>
-
-          {/* Change Password */}
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <div>
-                <h3><KeyRound size={15} style={{ verticalAlign: "middle", marginRight: 7 }} />Change Password</h3>
-                <p className="admin-library-meta-text">You'll need your current password to set a new one.</p>
-              </div>
-            </div>
-
-            <form onSubmit={(e) => void handleChangePassword(e)} className="account-form">
-              <div className="account-field">
-                <label className="account-field-label" htmlFor="acc-current-pw">Current password</label>
-                <input
-                  id="acc-current-pw"
-                  className="form-control"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  autoComplete="current-password"
-                  required
-                />
-              </div>
-
-              <div className="account-field">
-                <label className="account-field-label" htmlFor="acc-new-pw">New password</label>
-                <input
-                  id="acc-new-pw"
-                  className="form-control"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  autoComplete="new-password"
-                  minLength={6}
-                  required
-                />
-              </div>
-
-              <div className="account-field">
-                <label className="account-field-label" htmlFor="acc-confirm-pw">Confirm new password</label>
-                <input
-                  id="acc-confirm-pw"
-                  className="form-control"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  autoComplete="new-password"
-                  minLength={6}
-                  required
-                />
-              </div>
-
-              <div className="account-form-actions">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={passwordLoading}
-                >
-                  {passwordLoading && <Loader2 size={14} className="animate-spin" />}
-                  Update Password
-                </button>
-              </div>
-            </form>
-          </div>
-
+            {activeTab === "report" && (
+              <form onSubmit={(e) => void handleSubmitReport(e)} className="account-form">
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="report-type">Issue type</label>
+                  <div className="select-wrap">
+                    <select id="report-type" className="form-control" value={reportType}
+                      onChange={(e) => setReportType(e.target.value)}>
+                      {issueTypes.map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="report-comment">Details</label>
+                  <textarea id="report-comment" className="form-control account-report-textarea"
+                    value={reportComment} onChange={(e) => setReportComment(e.target.value)}
+                    maxLength={2000} placeholder="Describe the problem in as much detail as you can." />
+                </div>
+                <div className="account-form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={reportLoading}>
+                    {reportLoading ? <Loader2 size={14} className="animate-spin" /> : <Bug size={14} />}
+                    {reportLoading ? "Submitting…" : "Submit Report"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </section>
         </div>
       </div>
     </div>

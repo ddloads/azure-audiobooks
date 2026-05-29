@@ -102,6 +102,11 @@
   margin-top: 4px;
 }
 
+.mobile-account-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
 /* ═══════════════════════════════════════════════════
    MOBILE HOME PAGE
    ═══════════════════════════════════════════════════ */

@@ -3872,6 +3872,11 @@ input[type='range']::-moz-range-thumb {
   padding-top: 4px;
 }
 
+.account-report-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
 .admin-overview-customize-card {
   gap: 1rem;
 }
