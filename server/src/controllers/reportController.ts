@@ -58,12 +58,15 @@ export const createBugReport = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
+const VALID_STATUSES = new Set(["open", "fixed", "dismissed"]);
+
 export const listBugReports = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const reports = await prisma.$queryRaw`
       SELECT
         br."id",
         br."type",
+        br."status",
         br."comment",
         br."path",
         br."userAgent",
@@ -81,5 +84,42 @@ export const listBugReports = async (_req: AuthRequest, res: Response): Promise<
   } catch (error) {
     logger.error("Failed to list bug reports", error);
     res.status(500).json({ error: "Failed to load bug reports" });
+  }
+};
+
+export const updateBugReport = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    const status = typeof req.body.status === "string" ? req.body.status.trim() : "";
+    if (!VALID_STATUSES.has(status)) {
+      res.status(400).json({ error: "Invalid status" });
+      return;
+    }
+
+    const updated = await prisma.bugReport.updateMany({
+      where: { id },
+      data: { status },
+    });
+
+    if (updated.count === 0) {
+      res.status(404).json({ error: "Report not found" });
+      return;
+    }
+
+    res.json({ id, status });
+  } catch (error) {
+    logger.error("Failed to update bug report", error);
+    res.status(500).json({ error: "Failed to update report" });
+  }
+};
+
+export const deleteBugReport = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params["id"] as string;
+    await prisma.bugReport.deleteMany({ where: { id } });
+    res.status(204).end();
+  } catch (error) {
+    logger.error("Failed to delete bug report", error);
+    res.status(500).json({ error: "Failed to delete report" });
   }
 };

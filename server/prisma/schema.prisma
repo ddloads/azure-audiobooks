@@ -258,6 +258,7 @@ model AppSetting {
 model BugReport {
   id        String   @id @default(uuid())
   type      String
+  status    String   @default("open")
   comment   String?
   path      String?
   userAgent String?

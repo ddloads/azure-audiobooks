@@ -150,6 +150,7 @@ export interface AdminLogsResponse {
 export interface AdminBugReport {
   id: string;
   type: string;
+  status: "open" | "fixed" | "dismissed";
   comment?: string | null;
   path?: string | null;
   userAgent?: string | null;
