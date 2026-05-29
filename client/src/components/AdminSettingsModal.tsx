@@ -8,11 +8,9 @@ import {
   Database,
   FileText,
   FolderTree,
-  Network,
   Palette,
   RefreshCw,
   Shield,
-  Sparkles,
   Terminal,
   Upload,
   Users,
@@ -150,14 +148,6 @@ const AdminSettingsModal = ({
       ? location.state.from
       : "/";
 
-  const enabledSourceCount = libraries.reduce(
-    (count, library) => count + library.sources.filter((source) => source.isEnabled).length,
-    0,
-  );
-  const writableSourceCount = libraries.reduce(
-    (count, library) => count + library.sources.filter((source) => source.isWritable).length,
-    0,
-  );
   const activeLibraries = libraries.filter((library) => library.isActive).length;
   
   const activeTasks: AdminRuntimeTask[] = [...runtimeTasks];
