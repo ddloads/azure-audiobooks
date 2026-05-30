@@ -6,6 +6,7 @@ import {
   getLibraries,
   getNewBookCount,
   getSearchSuggestions,
+  getSeriesDetail,
   triggerScan,
   stopScan,
   getCover,
@@ -19,6 +20,7 @@ router.get("/libraries", authenticate, getLibraries);
 router.get("/filters", authenticate, getFilterOptions);
 router.get("/new-count", authenticate, getNewBookCount);
 router.get("/search/suggestions", authenticate, getSearchSuggestions);
+router.get("/series/:seriesId", authenticate, getSeriesDetail);
 router.get("/cover/:name", getCover);
 router.get("/:id", authenticate, getBookDetails);
 router.post("/scan", authenticate, authorizeAdmin, triggerScan);

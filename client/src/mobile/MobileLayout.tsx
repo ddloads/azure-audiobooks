@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Home, Library, Headphones, Menu } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
+import { ScanProgressProvider } from '../context/ScanProgressContext';
 import MobileMiniPlayer from './MobileMiniPlayer';
 import MobilePlayer from './MobilePlayer';
 
@@ -37,6 +38,7 @@ const MobilePrivateShell = () => {
   };
 
   return (
+    <ScanProgressProvider>
     <div className="mobile-layout">
       {isPlayerOpen && <MobilePlayer onClose={() => setIsPlayerOpen(false)} />}
 
@@ -61,6 +63,7 @@ const MobilePrivateShell = () => {
         ))}
       </nav>
     </div>
+    </ScanProgressProvider>
   );
 };
 

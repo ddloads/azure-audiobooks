@@ -22,6 +22,7 @@ import RecommendationShelf, { type RecommendBook } from "../components/Recommend
 import ScrollableShelf from "../components/ScrollableShelf";
 import type { AppearanceSettings } from "../features/admin/types";
 import { applyShelfPrefs } from "../hooks/useShelfPrefs";
+import { useScanProgress } from "../context/ScanProgressContext";
 
 interface ProgressRecord {
   bookId: string;
@@ -72,6 +73,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [newBookCount, setNewBookCount] = useState(0);
   const [newBannerDismissed, setNewBannerDismissed] = useState(false);
+  const { scanProgress } = useScanProgress();
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -116,6 +118,10 @@ export default function Home() {
   useEffect(() => {
     void loadHome();
   }, []);
+
+  useEffect(() => {
+    if (scanProgress?.status === "completed") void loadHome();
+  }, [scanProgress?.status]);
 
   useEffect(() => {
     if (!openMenuId) return;

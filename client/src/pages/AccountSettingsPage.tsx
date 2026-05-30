@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Bug, Eye, EyeOff, History, KeyRound, Loader2, Palette, Play, User } from "lucide-react";
+import { ArrowLeft, BookOpen, Bug, Eye, EyeOff, Headphones, History, KeyRound, Loader2, Monitor, Palette, Play, User } from "lucide-react";
 import { isAxiosError } from "axios";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import { useShelfPrefs } from "../hooks/useShelfPrefs";
+import type { UserListeningSession } from "../features/admin/types";
+import { formatListenTime, formatDate } from "../features/admin/helpers";
 
-type TabKey = "profile" | "security" | "appearance" | "history" | "report";
+type TabKey = "profile" | "security" | "appearance" | "sessions" | "history" | "report";
 
 interface FinishedRecord {
   bookId: string;
@@ -52,11 +54,12 @@ const SHELF_LABELS: Record<string, { label: string; description: string }> = {
 };
 
 const tabs: Array<{ key: TabKey; label: string; icon: typeof User; description: string }> = [
-  { key: "profile",    label: "Profile",    icon: User,    description: "Update your display name and email address." },
-  { key: "security",   label: "Security",   icon: KeyRound, description: "Change your password." },
-  { key: "appearance", label: "Appearance", icon: Palette,  description: "Choose which shelves appear on your home screen." },
-  { key: "history",    label: "History",    icon: History,  description: "Books you have finished listening to." },
-  { key: "report",     label: "Report",     icon: Bug,      description: "Submit a bug report or feedback to the admin." },
+  { key: "profile",    label: "Profile",    icon: User,       description: "Update your display name and email address." },
+  { key: "security",   label: "Security",   icon: KeyRound,   description: "Change your password." },
+  { key: "appearance", label: "Appearance", icon: Palette,    description: "Choose which shelves appear on your home screen." },
+  { key: "sessions",   label: "Sessions",   icon: Headphones, description: "Your recent listening sessions." },
+  { key: "history",    label: "History",    icon: History,    description: "Books you have finished listening to." },
+  { key: "report",     label: "Report",     icon: Bug,        description: "Submit a bug report or feedback to the admin." },
 ];
 
 export default function AccountSettingsPage() {
@@ -86,6 +89,19 @@ export default function AccountSettingsPage() {
 
   // Appearance
   const { prefs, toggle, SHELF_KEYS } = useShelfPrefs(user?.id ?? "");
+
+  // Sessions
+  const [sessions, setSessions] = useState<UserListeningSession[] | null>(null);
+  const [sessionsLoading, setSessionsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "sessions" || sessions) return;
+    setSessionsLoading(true);
+    api.get<UserListeningSession[]>("/sessions/me")
+      .then((res) => setSessions(res.data))
+      .catch(() => setSessions([]))
+      .finally(() => setSessionsLoading(false));
+  }, [activeTab, sessions]);
 
   // History
   const [historyRecords, setHistoryRecords] = useState<FinishedRecord[] | null>(null);
@@ -276,6 +292,38 @@ export default function AccountSettingsPage() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {activeTab === "sessions" && (
+              <div className="account-sessions">
+                {sessionsLoading || !sessions ? (
+                  <div className="account-stats-loading">
+                    {sessionsLoading && <Loader2 size={20} className="animate-spin" />}
+                  </div>
+                ) : sessions.length === 0 ? (
+                  <p className="account-stats-empty">No sessions recorded yet.</p>
+                ) : (
+                  <div className="account-session-list">
+                    {sessions.map((s) => (
+                      <div key={s.id} className="account-session-row">
+                        <div className="account-session-info">
+                          <strong>{s.book.title}</strong>
+                          <small>{s.book.author.name} · {formatDate(s.startedAt)}</small>
+                        </div>
+                        <div className="account-session-meta">
+                          <span className="account-session-duration">{formatListenTime(s.secondsListened)}</span>
+                          {s.platform && (
+                            <span className="account-session-platform">
+                              <Monitor size={11} />
+                              {s.platform}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

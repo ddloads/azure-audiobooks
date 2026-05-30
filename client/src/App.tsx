@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { PlayerProvider } from "./context/PlayerContext";
+import { PlayerProvider, usePlayer } from "./context/PlayerContext";
 import { TaskProvider } from "./context/TaskContext";
 import { ToastProvider } from "./context/ToastContext";
 import Login from "./pages/Login";
@@ -24,8 +25,18 @@ import AuthorsPage from "./pages/AuthorsPage";
 import AccountSettingsPage from "./pages/AccountSettingsPage";
 import HistoryPage from "./pages/HistoryPage";
 import StatsPage from "./pages/StatsPage";
+import SeriesPage from "./pages/SeriesPage";
 import { useIsMobile } from "./hooks/useIsMobile";
 import "./styles/globals.css";
+
+function PlaybackGuard() {
+  const { user } = useAuth();
+  const { stopPlayer, currentBook } = usePlayer();
+  useEffect(() => {
+    if (!user && currentBook) stopPlayer();
+  }, [user]);
+  return null;
+}
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -55,6 +66,7 @@ function AppRoutes() {
           <Route path="/"          element={<PrivateRoute><MobileHome /></PrivateRoute>} />
           <Route path="/library"   element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
           <Route path="/series"    element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
+          <Route path="/series/:seriesId" element={<PrivateRoute><SeriesPage /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><MobileBookDetails /></PrivateRoute>} />
           <Route path="/authors"   element={<PrivateRoute><MobileAuthors /></PrivateRoute>} />
           <Route path="/stats"     element={<PrivateRoute><StatsPage /></PrivateRoute>} />
@@ -70,6 +82,7 @@ function AppRoutes() {
           <Route path="/"          element={<PrivateRoute><Home /></PrivateRoute>} />
           <Route path="/library"   element={<PrivateRoute><Library /></PrivateRoute>} />
           <Route path="/series"    element={<PrivateRoute><Library defaultViewMode="series" /></PrivateRoute>} />
+          <Route path="/series/:seriesId" element={<PrivateRoute><SeriesPage /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
           <Route path="/authors"   element={<PrivateRoute><AuthorsPage /></PrivateRoute>} />
           <Route path="/stats"     element={<PrivateRoute><StatsPage /></PrivateRoute>} />
@@ -92,6 +105,7 @@ function App() {
         <TaskProvider>
           <PlayerProvider>
             <Router>
+              <PlaybackGuard />
               <AppRoutes />
               <AccountEmailPrompt />
             </Router>

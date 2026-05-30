@@ -173,6 +173,7 @@ export interface UserListeningSession {
   startedAt: string;
   endedAt: string | null;
   secondsListened: number;
+  platform?: string | null;
   book: { id: string; title: string; coverPath: string | null; author: { name: string } };
 }
 

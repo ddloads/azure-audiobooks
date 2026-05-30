@@ -4,6 +4,25 @@ import prisma from "../lib/prisma";
 import { logger } from "../lib/logger";
 import { AuthRequest } from "../middleware/authMiddleware";
 
+function detectPlatform(ua: string | undefined): string {
+  if (!ua) return "Unknown";
+  const s = ua.toLowerCase();
+  let os = "Unknown";
+  if (s.includes("iphone") || s.includes("ipod")) os = "iOS";
+  else if (s.includes("ipad")) os = "iPadOS";
+  else if (s.includes("android")) os = "Android";
+  else if (s.includes("windows nt")) os = "Windows";
+  else if (s.includes("macintosh") || s.includes("mac os x")) os = "macOS";
+  else if (s.includes("linux")) os = "Linux";
+  let browser = "Unknown";
+  if (s.includes("edg/")) browser = "Edge";
+  else if (s.includes("chrome/")) browser = "Chrome";
+  else if (s.includes("firefox/")) browser = "Firefox";
+  else if (s.includes("safari/") && s.includes("version/")) browser = "Safari";
+  else if (s.includes("safari/")) browser = "Safari";
+  return `${browser} on ${os}`;
+}
+
 export const startSession = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
@@ -20,8 +39,9 @@ export const startSession = async (req: AuthRequest, res: Response): Promise<voi
       return;
     }
 
+    const platform = detectPlatform(req.headers["user-agent"]);
     const session = await prisma.listeningSession.create({
-      data: { id: randomUUID(), userId, bookId },
+      data: { id: randomUUID(), userId, bookId, platform },
       select: { id: true, startedAt: true },
     });
 
@@ -119,6 +139,7 @@ export const getUserStats = async (req: AuthRequest, res: Response): Promise<voi
           startedAt: true,
           endedAt: true,
           secondsListened: true,
+          platform: true,
           book: { select: { id: true, title: true, coverPath: true, author: { select: { name: true } } } },
         },
       }),
@@ -135,6 +156,30 @@ export const getUserStats = async (req: AuthRequest, res: Response): Promise<voi
   } catch (error) {
     logger.error("Failed to get user listening stats", error);
     res.status(500).json({ error: "Failed to load stats" });
+  }
+};
+
+export const getUserSessions = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const sessions = await prisma.listeningSession.findMany({
+      where: { userId },
+      orderBy: { startedAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        startedAt: true,
+        endedAt: true,
+        secondsListened: true,
+        platform: true,
+        book: { select: { id: true, title: true, coverPath: true, author: { select: { name: true } } } },
+      },
+    });
+    res.json(sessions);
+  } catch (error) {
+    logger.error("Failed to get user sessions", error);
+    res.status(500).json({ error: "Failed to load sessions" });
   }
 };
 

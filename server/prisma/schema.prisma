@@ -296,6 +296,7 @@ model ListeningSession {
   startedAt       DateTime  @default(now())
   endedAt         DateTime?
   secondsListened Int       @default(0)
+  platform        String?
 
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)

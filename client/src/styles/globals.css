@@ -10035,3 +10035,203 @@ body {
 }
 
 .mobile-account-nav-row:first-of-type { border-top: none; }
+
+/* ── Series Page ── */
+.series-page {
+  padding: 2rem 2.5rem;
+  max-width: 780px;
+}
+
+.series-header {
+  margin-bottom: 1.75rem;
+}
+
+.series-book-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.series-book-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+  position: relative;
+}
+
+.series-book-item:last-child { border-bottom: none; }
+.series-book-item:hover { background: var(--surface-hover, rgba(255,255,255,0.04)); }
+.series-book-item.is-finished { opacity: 0.75; }
+
+.series-book-seq {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.series-book-cover {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+  position: relative;
+}
+
+.series-book-cover img { width: 100%; height: 100%; object-fit: cover; }
+
+.series-book-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subtle);
+}
+
+.series-book-finished-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  color: var(--success, #22c55e);
+  background: var(--card-bg);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.series-book-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.series-book-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.series-book-author {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 0.25rem;
+}
+
+.series-book-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.series-book-progress-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  max-width: 120px;
+}
+
+.series-book-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.series-book-pct {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.series-book-done {
+  font-size: 0.72rem;
+  color: var(--success, #22c55e);
+  font-weight: 600;
+  margin: 0;
+}
+
+.series-book-play {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.series-book-play:hover { opacity: 0.85; }
+
+.series-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.series-book-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.series-book-cover-skeleton {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  background: var(--skeleton-base);
+  flex-shrink: 0;
+}
+
+.series-book-info-skeleton { flex: 1; }
+
+.series-empty {
+  padding: 3rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* ── Account sessions — platform badge ── */
+.account-session-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.account-session-platform {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+}

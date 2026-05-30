@@ -715,3 +715,51 @@ export const getNewBookCount = async (req: AuthRequest, res: Response) => {
     res.json({ count: 0 });
   }
 };
+
+export const getSeriesDetail = async (req: AuthRequest, res: Response) => {
+  const seriesId = req.params["seriesId"] as string;
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  try {
+    const series = await prisma.series.findUnique({
+      where: { id: seriesId },
+      select: {
+        id: true,
+        name: true,
+        books: {
+          select: {
+            id: true,
+            title: true,
+            subtitle: true,
+            coverPath: true,
+            sequence: true,
+            duration: true,
+            author: { select: { id: true, name: true } },
+          },
+          orderBy: [{ sequence: "asc" }, { title: "asc" }],
+        },
+      },
+    });
+
+    if (!series) { res.status(404).json({ error: "Series not found" }); return; }
+
+    const bookIds = series.books.map((b) => b.id);
+    const progressRecords = await prisma.progress.findMany({
+      where: { userId, bookId: { in: bookIds } },
+      select: { bookId: true, currentTime: true, isFinished: true },
+    });
+    const progressMap = Object.fromEntries(progressRecords.map((p) => [p.bookId, p]));
+
+    res.json({
+      ...series,
+      books: series.books.map((b) => ({
+        ...b,
+        coverPath: normalizeCoverPath(b.coverPath),
+        progress: progressMap[b.id] ?? null,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load series" });
+  }
+};
