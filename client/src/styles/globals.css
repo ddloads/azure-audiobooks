@@ -3293,185 +3293,6 @@ input[type='range']::-moz-range-thumb {
   justify-content: center;
 }
 
-.file-manager-brand-page {
-  background:
-    radial-gradient(900px 560px at 16% 8%, rgba(56, 189, 248, 0.14), transparent 58%),
-    radial-gradient(780px 520px at 88% 82%, rgba(30, 125, 201, 0.14), transparent 52%),
-    linear-gradient(180deg, #07182b 0%, #03111e 100%);
-}
-
-.file-manager-brand-shell {
-  background: linear-gradient(180deg, rgba(7, 24, 43, 0.98), rgba(3, 17, 30, 0.96));
-  border: 1px solid rgba(28, 58, 94, 0.9);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
-}
-
-.file-manager-brand-header {
-  background:
-    radial-gradient(700px 280px at 14% 22%, rgba(56, 189, 248, 0.16), transparent 60%),
-    linear-gradient(180deg, rgba(10, 29, 54, 0.98), rgba(7, 24, 43, 0.82));
-  border-bottom-color: rgba(28, 58, 94, 0.9);
-}
-
-.file-manager-brand-copy {
-  max-width: 900px;
-}
-
-.file-manager-brand-kicker,
-.file-manager-brand-topbar-kicker,
-.file-manager-brand-sidebar-title,
-.file-manager-root-card-meta {
-  font-family: var(--font-mono);
-  letter-spacing: 0.14em;
-}
-
-.file-manager-brand-kicker {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  color: #38bdf8;
-  text-transform: uppercase;
-  font-size: 0.72rem;
-  font-weight: 500;
-  margin-bottom: 0.8rem;
-}
-
-.file-manager-brand-kicker::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.85);
-}
-
-.file-manager-brand-title,
-.file-manager-section-title {
-  font-family: var(--font-display);
-  font-weight: 500;
-  letter-spacing: -0.03em;
-}
-
-.file-manager-brand-title {
-  font-size: clamp(2.4rem, 4vw, 4.6rem);
-  line-height: 0.97;
-  margin: 0;
-}
-
-.file-manager-brand-tagline {
-  margin-top: 1.05rem;
-  max-width: 640px;
-  color: #a7bcd6;
-  font-family: var(--font-display);
-  font-size: 1.12rem;
-  font-style: italic;
-  line-height: 1.45;
-}
-
-.file-manager-brand-pills {
-  margin-top: 1.4rem;
-}
-
-.file-manager-brand-pill {
-  border-color: rgba(42, 85, 126, 0.85);
-  background: rgba(12, 34, 56, 0.72);
-  color: #cce4fb;
-}
-
-.file-manager-brand-sidebar {
-  background: linear-gradient(180deg, rgba(7, 24, 43, 0.98), rgba(12, 34, 56, 0.72));
-  border-right-color: rgba(28, 58, 94, 0.9);
-}
-
-.file-manager-brand-sidebar-card {
-  border-color: rgba(42, 85, 126, 0.8);
-  background: rgba(10, 29, 54, 0.72);
-}
-
-.file-manager-brand-sidebar-title,
-.file-manager-brand-topbar-kicker {
-  color: #38bdf8;
-}
-
-.file-manager-root-card {
-  border-color: rgba(28, 58, 94, 0.9);
-  background: rgba(7, 24, 43, 0.5);
-}
-
-.file-manager-root-card:hover {
-  border-color: rgba(56, 189, 248, 0.28);
-  background: rgba(12, 34, 56, 0.92);
-}
-
-.file-manager-root-card small {
-  display: block;
-}
-
-.file-manager-root-card-meta {
-  margin-top: 0.32rem;
-  font-size: 0.64rem;
-  color: #6f8aa7;
-  text-transform: uppercase;
-}
-
-.file-manager-brand-metrics span {
-  font-family: var(--font-mono);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #6f8aa7;
-}
-
-.file-manager-brand-metrics strong {
-  color: #eaf3ff;
-}
-
-.file-manager-brand-topbar {
-  border-bottom-color: rgba(28, 58, 94, 0.9);
-}
-
-.file-manager-section-title {
-  font-size: 2rem;
-  line-height: 1.02;
-  margin: 0;
-}
-
-.file-manager-section-copy {
-  max-width: 620px;
-  color: #a7bcd6;
-  font-size: 0.95rem;
-  line-height: 1.55;
-}
-
-.file-manager-stat-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin: 1rem 0 0.4rem;
-}
-
-.file-manager-stat-chip {
-  padding: 0.95rem 1rem;
-  border: 1px solid rgba(28, 58, 94, 0.95);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(12, 34, 56, 0.94), rgba(7, 24, 43, 0.86));
-}
-
-.file-manager-stat-chip span {
-  display: block;
-  color: #6f8aa7;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.file-manager-stat-chip strong {
-  display: block;
-  margin-top: 0.28rem;
-  color: #eaf3ff;
-  font-size: 1.45rem;
-  letter-spacing: -0.03em;
-}
 
 .file-manager-mode-btn {
   min-width: 110px;
@@ -3507,10 +3328,6 @@ input[type='range']::-moz-range-thumb {
   flex-wrap: wrap;
 }
 
-.file-manager-root-picker {
-  min-width: min(340px, 100%);
-}
-
 .file-manager-mode-tabs {
   gap: 0.75rem;
 }
@@ -3534,21 +3351,12 @@ input[type='range']::-moz-range-thumb {
   font-family: var(--font-mono);
 }
 
-.file-manager-brand-breadcrumbs {
-  border-bottom: 1px solid rgba(28, 58, 94, 0.7);
-  margin-bottom: 1rem;
-}
-
 .file-manager-action-bar {
   padding: 0.9rem 1rem;
   border: 1px solid rgba(28, 58, 94, 0.78);
   border-radius: var(--radius-lg);
   background: rgba(12, 34, 56, 0.5);
   margin-bottom: 1rem;
-}
-
-.file-manager-brand-action-bar {
-  box-shadow: inset 0 1px 0 rgba(103, 211, 251, 0.03);
 }
 
 .file-manager-selection-copy {
@@ -6336,14 +6144,6 @@ input[type='range']::-moz-range-thumb {
     width: 100%;
   }
 
-  .file-manager-brand-title {
-    font-size: 2.4rem;
-  }
-
-  .file-manager-section-title {
-    font-size: 1.55rem;
-  }
-
   .file-manager-path-cell {
     white-space: normal;
   }
@@ -7969,52 +7769,14 @@ body {
 
 .duplicates-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 18px;
   margin-bottom: 22px;
-  padding: 18px;
-  border: 1px solid rgba(186, 201, 216, 0.12);
+  padding: 14px 18px;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(18, 31, 43, 0.92), rgba(10, 20, 31, 0.82)),
-    radial-gradient(circle at 88% 0%, rgba(242, 184, 75, 0.11), transparent 36%);
-  box-shadow: var(--shadow);
-}
-
-.duplicates-title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  min-width: 0;
-}
-
-.duplicates-back-btn {
-  width: 42px;
-  padding: 0;
-  flex-shrink: 0;
-}
-
-.duplicates-kicker {
-  display: block;
-  margin-bottom: 5px;
-  color: var(--primary-light);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.duplicates-header h1 {
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
-  line-height: 1.05;
-}
-
-.duplicates-header p {
-  margin-top: 6px;
-  color: var(--text-muted);
+  background: var(--surface);
 }
 
 .duplicates-header-actions {
@@ -8133,7 +7895,6 @@ body {
   gap: 18px;
 }
 
-.duplicates-summary,
 .duplicates-decision-panel,
 .duplicates-section,
 .duplicates-empty {
@@ -8143,46 +7904,11 @@ body {
   box-shadow: var(--shadow);
 }
 
-.duplicates-summary {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 18px;
-}
-
-.duplicates-pill {
-  display: inline-flex;
-  margin-bottom: 10px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  border: 1px solid rgba(126, 212, 255, 0.26);
-  background: rgba(126, 212, 255, 0.11);
-  color: var(--primary-light);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.duplicates-summary h2 {
-  color: var(--text);
-  font-size: 1.25rem;
-}
-
-.duplicates-summary p,
 .duplicates-section-head p,
 .duplicates-decision-card p {
   color: var(--text-muted);
 }
 
-.duplicates-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(92px, 1fr));
-  gap: 10px;
-  min-width: 330px;
-}
-
-.duplicates-stats div,
 .duplicates-decision-card {
   padding: 12px;
   border: 1px solid rgba(186, 201, 216, 0.1);
@@ -8190,7 +7916,6 @@ body {
   background: rgba(255,255,255,0.045);
 }
 
-.duplicates-stats span,
 .duplicates-decision-card span {
   display: block;
   color: var(--text-subtle);
@@ -8198,13 +7923,6 @@ body {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.duplicates-stats strong {
-  display: block;
-  margin-top: 7px;
-  color: var(--text);
-  font-size: 1.55rem;
 }
 
 .duplicates-decision-panel {
@@ -8716,7 +8434,6 @@ body {
   }
 
   .duplicates-header,
-  .duplicates-summary,
   .duplicates-file-book-head,
   .duplicates-action-bar {
     flex-direction: column;
@@ -8727,10 +8444,8 @@ body {
     justify-content: flex-start;
   }
 
-  .duplicates-stats,
   .duplicates-decision-panel {
     grid-template-columns: 1fr;
-    min-width: 0;
   }
 
   .duplicates-compare-row,

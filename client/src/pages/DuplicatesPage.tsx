@@ -405,14 +405,13 @@ const DuplicatesPage = () => {
   return (
     <div className="duplicates-page">
       <header className="duplicates-header">
-        <div className="duplicates-title-row">
-          <button className="btn btn-secondary duplicates-back-btn" onClick={() => navigate(backTarget)}>
-            <ArrowLeft size={18} />
+        <div className="admin-settings-header-left">
+          <button className="admin-back-btn" onClick={() => navigate(backTarget)} aria-label="Back">
+            <ArrowLeft size={16} />
           </button>
           <div>
-            <span className="duplicates-kicker">Library maintenance</span>
-            <h1>Duplicate Resolver</h1>
-            <p>
+            <h1 className="admin-settings-title">Duplicate Resolver</h1>
+            <p className="admin-settings-subtitle">
               {groups.length} {groups.length === 1 ? "group" : "groups"} · {affectedBookCount} affected books
             </p>
           </div>
@@ -482,19 +481,6 @@ const DuplicatesPage = () => {
           </aside>
 
           <main className="duplicates-main">
-            <section className="duplicates-summary">
-              <div>
-                <span className="duplicates-pill">{duplicateTypeLabel[currentGroup.type]}</span>
-                <h2>{currentGroup.books[0]?.title ?? "Duplicate group"}</h2>
-                <p>{duplicateTypeDescription[currentGroup.type]}</p>
-              </div>
-              <div className="duplicates-stats">
-                <div><span>Versions</span><strong>{currentGroup.books.length}</strong></div>
-                <div><span>Files kept</span><strong>{filePlan.keep + filePlan.keepSub}</strong></div>
-                <div><span>Files deleted</span><strong>{filePlan.delete}</strong></div>
-              </div>
-            </section>
-
             <section className="duplicates-decision-panel">
               <div className="duplicates-decision-card">
                 <span>Primary book</span>
@@ -517,7 +503,7 @@ const DuplicatesPage = () => {
               <div className="duplicates-section-head">
                 <div>
                   <h2>Choose The Winning Version</h2>
-                  <p>Select the record, metadata, and progress source before merging.</p>
+                  <p>{duplicateTypeDescription[currentGroup.type]}</p>
                 </div>
               </div>
 
