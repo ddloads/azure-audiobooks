@@ -4,6 +4,7 @@ import {
   getBookDetails,
   getFilterOptions,
   getLibraries,
+  getNewBookCount,
   getSearchSuggestions,
   triggerScan,
   stopScan,
@@ -16,8 +17,9 @@ const router = Router();
 router.get("/", authenticate, getBooks);
 router.get("/libraries", authenticate, getLibraries);
 router.get("/filters", authenticate, getFilterOptions);
+router.get("/new-count", authenticate, getNewBookCount);
 router.get("/search/suggestions", authenticate, getSearchSuggestions);
-router.get("/cover/:name", getCover); // Allow public access to covers for simplicity in <img> tags
+router.get("/cover/:name", getCover);
 router.get("/:id", authenticate, getBookDetails);
 router.post("/scan", authenticate, authorizeAdmin, triggerScan);
 router.post("/scan/stop", authenticate, authorizeAdmin, stopScan);

@@ -4,6 +4,7 @@ import {
   Boxes,
   Copy,
   FolderOpen,
+  History,
   Home,
   Settings,
   Users,
@@ -30,6 +31,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/library", icon: <BookOpen size={18} />, label: "Library" },
   { path: "/series",  icon: <Boxes size={18} />,    label: "Series" },
   { path: "/authors", icon: <Users size={18} />,    label: "Authors" },
+  { path: "/history", icon: <History size={18} />,  label: "History" },
 ];
 
 const ADMIN_ITEMS: NavItem[] = [

@@ -77,6 +77,28 @@ export const getProgress = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getFinishedBooks = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    const records = await prisma.progress.findMany({
+      where: { userId, isFinished: true },
+      include: {
+        book: { include: { author: true, series: true } },
+      },
+      orderBy: { lastUpdate: "desc" },
+    });
+    res.json(
+      records.map((r) => ({
+        ...r,
+        book: { ...r.book, coverPath: normalizeCoverPath(r.book.coverPath) },
+      })),
+    );
+  } catch {
+    res.status(500).json({ error: "Failed to fetch finished books" });
+  }
+};
+
 export const deleteProgress = async (req: AuthRequest, res: Response) => {
   try {
     const bookId = getSingleParam(req.params.bookId);

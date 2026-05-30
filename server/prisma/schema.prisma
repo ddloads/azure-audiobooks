@@ -17,6 +17,7 @@ model User {
   progress  Progress[]
   bugReports       BugReport[]
   listeningSessions ListeningSession[]
+  bookmarks        Bookmark[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 }
@@ -96,6 +97,7 @@ model Book {
   chapters         Chapter[]
   progress          Progress[]
   listeningSessions ListeningSession[]
+  bookmarks         Bookmark[]
   ignoredDuplicateAsA IgnoredDuplicatePair[] @relation("IgnoredDuplicateBookA")
   ignoredDuplicateAsB IgnoredDuplicatePair[] @relation("IgnoredDuplicateBookB")
   createdAt        DateTime    @default(now())
@@ -271,6 +273,20 @@ model BugReport {
   @@index([createdAt])
   @@index([type])
   @@index([userId])
+}
+
+model Bookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  bookId    String
+  position  Float
+  label     String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([userId, bookId])
+  @@index([userId, createdAt])
 }
 
 model ListeningSession {

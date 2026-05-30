@@ -11,6 +11,7 @@ import {
   MoreVertical,
   PlayCircle,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import api from "../api/axios";
@@ -68,6 +69,8 @@ export default function Home() {
     shelfRecentlyAdded: true,
   });
   const [loading, setLoading] = useState(true);
+  const [newBookCount, setNewBookCount] = useState(0);
+  const [newBannerDismissed, setNewBannerDismissed] = useState(false);
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -76,20 +79,36 @@ export default function Home() {
 
   async function loadHome() {
     setLoading(true);
+    const lastVisit = localStorage.getItem("lastHomeVisit");
     try {
-      const [progressRes, recRes, settingsRes] = await Promise.all([
+      const requests: Promise<unknown>[] = [
         api.get("/progress"),
         api.get("/recommendations"),
         api.get<AppearanceSettings>("/settings/appearance"),
-      ]);
+      ];
+      if (lastVisit) {
+        requests.push(api.get<{ count: number }>(`/library/new-count?since=${encodeURIComponent(lastVisit)}`));
+      }
+      const results = await Promise.all(requests);
+      const [progressRes, recRes, settingsRes] = results as [
+        { data: ProgressRecord[] },
+        { data: { nextInSeries: RecommendBook[]; youMightLike: RecommendBook[]; recentlyAdded: RecommendBook[] } },
+        { data: AppearanceSettings },
+        ...({ data: { count: number } })[],
+      ];
       setProgressRecords(progressRes.data);
       setRecommendations(recRes.data);
       const merged = user ? applyShelfPrefs(settingsRes.data, user.id) : settingsRes.data;
       setShelves(prev => ({ ...prev, ...merged }));
+      if (lastVisit && results[3]) {
+        const countRes = results[3] as { data: { count: number } };
+        setNewBookCount(countRes.data.count);
+      }
     } catch (err) {
       console.error("Failed to load home data", err);
     } finally {
       setLoading(false);
+      localStorage.setItem("lastHomeVisit", new Date().toISOString());
     }
   }
 
@@ -167,6 +186,28 @@ export default function Home() {
 
   return (
     <div className="home-page">
+      {newBookCount > 0 && !newBannerDismissed && (
+        <div className="home-new-banner">
+          <Zap size={14} className="home-new-banner-icon" />
+          <span>
+            {newBookCount} new book{newBookCount !== 1 ? "s" : ""} added since your last visit
+          </span>
+          <button
+            className="home-new-banner-browse"
+            onClick={() => navigate("/library")}
+          >
+            Browse
+          </button>
+          <button
+            className="home-new-banner-dismiss"
+            onClick={() => setNewBannerDismissed(true)}
+            aria-label="Dismiss"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
       <div className="home-header">
         <div className="home-header-copy">
           <h1 className="home-greeting-title">

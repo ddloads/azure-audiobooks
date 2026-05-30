@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  BookmarkPlus,
   BookOpen,
   List,
   Moon,
@@ -9,12 +10,21 @@ import {
   Redo2,
   SkipBack,
   SkipForward,
+  Trash2,
   Undo2,
   Volume2,
   VolumeX,
   X,
 } from "lucide-react";
+import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
+
+interface Bookmark {
+  id: string;
+  position: number;
+  label?: string | null;
+  createdAt: string;
+}
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const SLEEP_OPTIONS = [15, 30, 45, 60];
@@ -61,10 +71,14 @@ export default function PlayerTray() {
   const [showSpeed, setShowSpeed] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showChapters, setShowChapters] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   const speedRef = useRef<HTMLDivElement>(null);
   const sleepRef = useRef<HTMLDivElement>(null);
   const chapterRef = useRef<HTMLDivElement>(null);
+  const bookmarkRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -72,6 +86,7 @@ export default function PlayerTray() {
       if (speedRef.current && !speedRef.current.contains(target)) setShowSpeed(false);
       if (sleepRef.current && !sleepRef.current.contains(target)) setShowSleep(false);
       if (chapterRef.current && !chapterRef.current.contains(target)) setShowChapters(false);
+      if (bookmarkRef.current && !bookmarkRef.current.contains(target)) setShowBookmarks(false);
     };
 
     document.addEventListener("mousedown", handler);
@@ -86,6 +101,7 @@ export default function PlayerTray() {
         setShowSpeed(false);
         setShowSleep(false);
         setShowChapters(false);
+        setShowBookmarks(false);
         return;
       }
       if (!currentBook) return;
@@ -121,6 +137,39 @@ export default function PlayerTray() {
     setShowSpeed(false);
     setShowSleep(false);
     setShowChapters(false);
+    setShowBookmarks(false);
+  };
+
+  const openBookmarks = async () => {
+    if (showBookmarks) { setShowBookmarks(false); return; }
+    closeMenus();
+    setShowBookmarks(true);
+    if (!currentBook) return;
+    setBookmarkLoading(true);
+    try {
+      const res = await api.get<Bookmark[]>(`/bookmarks/${currentBook.id}`);
+      setBookmarks(res.data);
+    } catch { /* ignore */ } finally {
+      setBookmarkLoading(false);
+    }
+  };
+
+  const addBookmark = async () => {
+    if (!currentBook) return;
+    try {
+      const res = await api.post<Bookmark>("/bookmarks", {
+        bookId: currentBook.id,
+        position: currentTime,
+      });
+      setBookmarks((prev) => [...prev, res.data].sort((a, b) => a.position - b.position));
+    } catch { /* ignore */ }
+  };
+
+  const deleteBookmark = async (id: string) => {
+    try {
+      await api.delete(`/bookmarks/${id}`);
+      setBookmarks((prev) => prev.filter((b) => b.id !== id));
+    } catch { /* ignore */ }
   };
 
   const seekFill = duration > 0 ? `${(currentTime / duration) * 100}%` : "0%";
@@ -223,6 +272,54 @@ export default function PlayerTray() {
               )}
             </div>
           )}
+
+          <div className="tray-popup-wrap" ref={bookmarkRef}>
+            <button
+              className={`tray-btn${showBookmarks ? " active" : ""}`}
+              onClick={() => void openBookmarks()}
+              title="Bookmarks"
+            >
+              <BookmarkPlus size={15} />
+            </button>
+            {showBookmarks && (
+              <div className="tray-popup tray-bookmark-popup">
+                <div className="tray-popup-header">Bookmarks</div>
+                <div className="tray-popup-scroll">
+                  {bookmarkLoading ? (
+                    <div className="tray-bookmark-empty">Loading…</div>
+                  ) : bookmarks.length === 0 ? (
+                    <div className="tray-bookmark-empty">No bookmarks yet</div>
+                  ) : (
+                    bookmarks.map((bm) => (
+                      <div key={bm.id} className="tray-bookmark-row">
+                        <button
+                          className="tray-bookmark-seek"
+                          onClick={() => { seek(bm.position); closeMenus(); }}
+                        >
+                          <span className="tray-bookmark-time">{fmt(bm.position)}</span>
+                          <span className="tray-bookmark-label">{bm.label ?? "Bookmark"}</span>
+                        </button>
+                        <button
+                          className="tray-bookmark-delete"
+                          onClick={() => void deleteBookmark(bm.id)}
+                          title="Delete bookmark"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <button
+                  className="tray-popup-option tray-bookmark-add"
+                  onClick={() => void addBookmark()}
+                >
+                  <BookmarkPlus size={13} />
+                  Add at {fmt(currentTime)}
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="tray-popup-wrap" ref={speedRef}>
             <button

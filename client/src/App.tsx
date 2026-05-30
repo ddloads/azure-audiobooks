@@ -22,6 +22,7 @@ import MobileAccountSettings from "./mobile/MobileAccountSettings";
 import MobileAuthors from "./mobile/MobileAuthors";
 import AuthorsPage from "./pages/AuthorsPage";
 import AccountSettingsPage from "./pages/AccountSettingsPage";
+import HistoryPage from "./pages/HistoryPage";
 import { useIsMobile } from "./hooks/useIsMobile";
 import "./styles/globals.css";
 
@@ -55,6 +56,7 @@ function AppRoutes() {
           <Route path="/series"    element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><MobileBookDetails /></PrivateRoute>} />
           <Route path="/authors"   element={<PrivateRoute><MobileAuthors /></PrivateRoute>} />
+          <Route path="/history"   element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
           <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
           <Route path="/account"   element={<PrivateRoute><MobileAccountSettings /></PrivateRoute>} />
           <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
@@ -68,6 +70,7 @@ function AppRoutes() {
           <Route path="/series"    element={<PrivateRoute><Library defaultViewMode="series" /></PrivateRoute>} />
           <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
           <Route path="/authors"   element={<PrivateRoute><AuthorsPage /></PrivateRoute>} />
+          <Route path="/history"   element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
           <Route path="/account"   element={<PrivateRoute><AccountSettingsPage /></PrivateRoute>} />
           <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
           <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />

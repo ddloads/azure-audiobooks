@@ -11,6 +11,7 @@ import reportRoutes from "./routes/reportRoutes";
 import recommendationRoutes from "./routes/recommendationRoutes";
 import authorRoutes from "./routes/authorRoutes";
 import sessionRoutes from "./routes/sessionRoutes";
+import bookmarkRoutes from "./routes/bookmarkRoutes";
 import {
   errorLoggingMiddleware,
   requestLoggingMiddleware,
@@ -56,6 +57,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/authors", authorRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use("/api/bookmarks", bookmarkRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

@@ -701,3 +701,17 @@ export const getCover = async (req: Request, res: Response) => {
 
   res.sendFile(filePath);
 };
+
+
+export const getNewBookCount = async (req: AuthRequest, res: Response) => {
+  const since = typeof req.query["since"] === "string" ? req.query["since"] : null;
+  if (!since) { res.json({ count: 0 }); return; }
+  try {
+    const count = await prisma.book.count({
+      where: { createdAt: { gt: new Date(since) } },
+    });
+    res.json({ count });
+  } catch {
+    res.json({ count: 0 });
+  }
+};

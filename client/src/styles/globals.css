@@ -9464,3 +9464,301 @@ body {
 .authors-empty-icon {
   color: var(--text-subtle);
 }
+
+/* ── History Page ── */
+.history-page {
+  padding: 2rem 2.5rem;
+  max-width: 900px;
+}
+
+.history-header {
+  margin-bottom: 1.75rem;
+}
+
+.history-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.2rem;
+}
+
+.history-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.history-item:hover {
+  background: var(--surface-hover, var(--card-bg));
+  border-color: var(--border-hover, var(--border));
+}
+
+.history-item-cover {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.history-item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.history-item-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subtle);
+}
+
+.history-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.15rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item-author {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 0.1rem;
+}
+
+.history-item-series {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin: 0 0 0.1rem;
+}
+
+.history-item-date {
+  font-size: 0.73rem;
+  color: var(--text-subtle);
+  margin: 0;
+}
+
+.history-item-play {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.history-item-play:hover { opacity: 0.85; }
+
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 5rem 2rem;
+  gap: 1rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.history-empty-icon { color: var(--text-subtle); }
+
+.history-empty-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+
+.history-empty-sub {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.history-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.history-item-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.history-item-cover-skeleton {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  background: var(--skeleton-base);
+  flex-shrink: 0;
+}
+
+.history-item-info-skeleton { flex: 1; }
+
+.skeleton-line {
+  background: var(--skeleton-base);
+  border-radius: 4px;
+  display: block;
+}
+
+/* ── Home new-books banner ── */
+.home-new-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: var(--text);
+  margin-bottom: 1.25rem;
+}
+
+.home-new-banner-icon { color: var(--accent); flex-shrink: 0; }
+
+.home-new-banner span { flex: 1; }
+
+.home-new-banner-browse {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.home-new-banner-browse:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.home-new-banner-dismiss {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.home-new-banner-dismiss:hover { color: var(--text); }
+
+/* ── Bookmark panel (inside PlayerTray popup) ── */
+.tray-bookmark-popup {
+  min-width: 220px;
+}
+
+.tray-bookmark-empty {
+  padding: 0.6rem 0.875rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.tray-bookmark-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tray-bookmark-seek {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.875rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 0.8rem;
+  text-align: left;
+  transition: background 0.12s;
+  border-radius: 0;
+}
+
+.tray-bookmark-seek:hover { background: var(--surface-hover, rgba(255,255,255,0.06)); }
+
+.tray-bookmark-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.tray-bookmark-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tray-bookmark-delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: color 0.12s;
+}
+
+.tray-bookmark-delete:hover { color: var(--error, #ef4444); }
+
+.tray-bookmark-add {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 0.45rem;
+  color: var(--accent);
+  font-weight: 500;
+}
