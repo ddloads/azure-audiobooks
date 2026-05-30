@@ -1,13 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bug, Eye, EyeOff, Headphones, KeyRound, Loader2, Palette, User } from 'lucide-react';
+import { ArrowLeft, Bug, ChevronRight, Eye, EyeOff, History, KeyRound, Loader2, Palette, User } from 'lucide-react';
 import { isAxiosError } from 'axios';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { useShelfPrefs } from '../hooks/useShelfPrefs';
-import type { UserListeningStats } from '../features/admin/types';
-import { formatListenTime, formatDate } from '../features/admin/helpers';
 
 const SHELF_LABELS: Record<string, { label: string; description: string }> = {
   shelfContinueListening: { label: 'Continue Listening',  description: 'Books you have started but not finished.' },
@@ -48,14 +46,6 @@ const MobileAccountSettings = () => {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const { prefs, toggle, SHELF_KEYS } = useShelfPrefs(user?.id ?? '');
-
-  const [listenStats, setListenStats] = useState<UserListeningStats | null>(null);
-
-  useEffect(() => {
-    api.get<UserListeningStats>('/sessions/stats/me')
-      .then((res) => setListenStats(res.data))
-      .catch(() => undefined);
-  }, []);
 
   const [reportType, setReportType] = useState(issueTypes[0].value);
   const [reportComment, setReportComment] = useState('');
@@ -185,46 +175,16 @@ const MobileAccountSettings = () => {
 
         <section className="mobile-account-section">
           <div className="mobile-account-section-head">
-            <Headphones size={14} />
-            <span>Listening Stats</span>
+            <History size={14} />
+            <span>Listening History</span>
           </div>
-          {listenStats ? (
-            <>
-              <div className="mobile-account-stat-grid">
-                <div className="mobile-account-stat">
-                  <span>Today</span>
-                  <strong>{formatListenTime(listenStats.todaySeconds)}</strong>
-                </div>
-                <div className="mobile-account-stat">
-                  <span>This week</span>
-                  <strong>{formatListenTime(listenStats.weekSeconds)}</strong>
-                </div>
-                <div className="mobile-account-stat">
-                  <span>This month</span>
-                  <strong>{formatListenTime(listenStats.monthSeconds)}</strong>
-                </div>
-                <div className="mobile-account-stat">
-                  <span>All time</span>
-                  <strong>{formatListenTime(listenStats.allTimeSeconds)}</strong>
-                </div>
-              </div>
-              {listenStats.recentSessions.length > 0 && (
-                <div className="mobile-account-session-list">
-                  {listenStats.recentSessions.slice(0, 10).map((s) => (
-                    <div key={s.id} className="mobile-account-session-row">
-                      <div className="mobile-account-session-info">
-                        <strong>{s.book.title}</strong>
-                        <small>{formatDate(s.startedAt)}</small>
-                      </div>
-                      <span className="mobile-account-session-dur">{formatListenTime(s.secondsListened)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="mobile-account-empty">No sessions recorded yet.</p>
-          )}
+          <button
+            className="mobile-account-nav-row"
+            onClick={() => navigate('/history')}
+          >
+            <span>Finished Books</span>
+            <ChevronRight size={16} />
+          </button>
         </section>
 
         <section className="mobile-account-section">

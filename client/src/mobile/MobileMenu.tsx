@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Bug, FolderOpen, History, LogOut, RefreshCw, Settings, Smartphone, Upload, UserCog, Users } from 'lucide-react';
+import { Bug, FolderOpen, Headphones, LogOut, RefreshCw, Settings, Smartphone, Upload, UserCog, Users } from 'lucide-react';
 import { useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -67,9 +67,9 @@ const MobileMenu = () => {
           <Users size={18} className="mobile-menu-item-icon" />
           Authors
         </button>
-        <button className="mobile-menu-item" onClick={() => navigate('/history')}>
-          <History size={18} className="mobile-menu-item-icon" />
-          Listening History
+        <button className="mobile-menu-item" onClick={() => navigate('/stats')}>
+          <Headphones size={18} className="mobile-menu-item-icon" />
+          Listening Stats
         </button>
       </div>
 

@@ -1,15 +1,31 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { ArrowLeft, Bug, Eye, EyeOff, Headphones, KeyRound, Loader2, Palette, User } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, BookOpen, Bug, Eye, EyeOff, History, KeyRound, Loader2, Palette, Play, User } from "lucide-react";
 import { isAxiosError } from "axios";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
+import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import { useShelfPrefs } from "../hooks/useShelfPrefs";
-import type { UserListeningStats } from "../features/admin/types";
-import { formatListenTime, formatDate } from "../features/admin/helpers";
 
-type TabKey = "profile" | "security" | "appearance" | "stats" | "report";
+type TabKey = "profile" | "security" | "appearance" | "history" | "report";
+
+interface FinishedRecord {
+  bookId: string;
+  lastUpdate: string;
+  book: {
+    id: string;
+    title: string;
+    duration: number;
+    coverPath?: string | null;
+    author: { name: string };
+    series?: { id: string; title: string } | null;
+    seriesOrder?: number | null;
+  };
+}
+
+const fmtDate = (iso: string) =>
+  new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 
 interface ApiUser {
   id: string;
@@ -36,17 +52,19 @@ const SHELF_LABELS: Record<string, { label: string; description: string }> = {
 };
 
 const tabs: Array<{ key: TabKey; label: string; icon: typeof User; description: string }> = [
-  { key: "profile",    label: "Profile",    icon: User,       description: "Update your display name and email address." },
-  { key: "security",   label: "Security",   icon: KeyRound,   description: "Change your password." },
-  { key: "appearance", label: "Appearance", icon: Palette,    description: "Choose which shelves appear on your home screen." },
-  { key: "stats",      label: "Stats",      icon: Headphones, description: "Your personal listening history and totals." },
-  { key: "report",     label: "Report",     icon: Bug,        description: "Submit a bug report or feedback to the admin." },
+  { key: "profile",    label: "Profile",    icon: User,    description: "Update your display name and email address." },
+  { key: "security",   label: "Security",   icon: KeyRound, description: "Change your password." },
+  { key: "appearance", label: "Appearance", icon: Palette,  description: "Choose which shelves appear on your home screen." },
+  { key: "history",    label: "History",    icon: History,  description: "Books you have finished listening to." },
+  { key: "report",     label: "Report",     icon: Bug,      description: "Submit a bug report or feedback to the admin." },
 ];
 
 export default function AccountSettingsPage() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const { playBook } = usePlayer();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const backTarget =
     typeof location.state === "object" && location.state !== null && "from" in location.state
@@ -69,18 +87,18 @@ export default function AccountSettingsPage() {
   // Appearance
   const { prefs, toggle, SHELF_KEYS } = useShelfPrefs(user?.id ?? "");
 
-  // Stats
-  const [listenStats, setListenStats] = useState<UserListeningStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
+  // History
+  const [historyRecords, setHistoryRecords] = useState<FinishedRecord[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
-    if (activeTab !== "stats" || listenStats) return;
-    setStatsLoading(true);
-    api.get<UserListeningStats>("/sessions/stats/me")
-      .then((res) => setListenStats(res.data))
-      .catch(() => undefined)
-      .finally(() => setStatsLoading(false));
-  }, [activeTab]);
+    if (activeTab !== "history" || historyRecords) return;
+    setHistoryLoading(true);
+    api.get<FinishedRecord[]>("/progress/finished")
+      .then((res) => setHistoryRecords(res.data))
+      .catch(() => setHistoryRecords([]))
+      .finally(() => setHistoryLoading(false));
+  }, [activeTab, historyRecords]);
 
   // Report
   const [reportType, setReportType] = useState(issueTypes[0].value);
@@ -261,53 +279,53 @@ export default function AccountSettingsPage() {
               </div>
             )}
 
-            {activeTab === "stats" && (
-              <div className="account-stats">
-                {statsLoading || !listenStats ? (
+            {activeTab === "history" && (
+              <div className="account-history">
+                {historyLoading || !historyRecords ? (
                   <div className="account-stats-loading">
-                    {statsLoading && <Loader2 size={20} className="animate-spin" />}
+                    {historyLoading && <Loader2 size={20} className="animate-spin" />}
                   </div>
+                ) : historyRecords.length === 0 ? (
+                  <p className="account-stats-empty">No finished books yet.</p>
                 ) : (
-                  <>
-                    <div className="account-stat-grid">
-                      <div className="account-stat-card">
-                        <span>Today</span>
-                        <strong>{formatListenTime(listenStats.todaySeconds)}</strong>
-                      </div>
-                      <div className="account-stat-card">
-                        <span>This week</span>
-                        <strong>{formatListenTime(listenStats.weekSeconds)}</strong>
-                      </div>
-                      <div className="account-stat-card">
-                        <span>This month</span>
-                        <strong>{formatListenTime(listenStats.monthSeconds)}</strong>
-                      </div>
-                      <div className="account-stat-card">
-                        <span>All time</span>
-                        <strong>{formatListenTime(listenStats.allTimeSeconds)}</strong>
-                        <small>{listenStats.sessionCount} sessions</small>
-                      </div>
-                    </div>
-
-                    <h3 className="account-stats-section-title">Recent sessions</h3>
-                    {listenStats.recentSessions.length === 0 ? (
-                      <p className="account-stats-empty">No sessions recorded yet. Start listening to track your history.</p>
-                    ) : (
-                      <div className="account-session-list">
-                        {listenStats.recentSessions.map((session) => (
-                          <div key={session.id} className="account-session-row">
-                            <div className="account-session-info">
-                              <strong>{session.book.title}</strong>
-                              <small>{session.book.author.name} · {formatDate(session.startedAt)}</small>
+                  <div className="account-history-list">
+                    {historyRecords.map((record) => (
+                      <div
+                        key={record.bookId}
+                        className="account-history-item"
+                        onClick={() => navigate(`/book/${record.bookId}`)}
+                      >
+                        <div className="account-history-cover">
+                          {record.book.coverPath ? (
+                            <img src={record.book.coverPath} alt={record.book.title} />
+                          ) : (
+                            <div className="account-history-cover-placeholder">
+                              <BookOpen size={16} />
                             </div>
-                            <span className="account-session-duration">
-                              {formatListenTime(session.secondsListened)}
-                            </span>
-                          </div>
-                        ))}
+                          )}
+                        </div>
+                        <div className="account-history-info">
+                          <strong>{record.book.title}</strong>
+                          <small>
+                            {record.book.author.name}
+                            {record.book.series ? ` · ${record.book.series.title}` : ""}
+                            {" · "}Finished {fmtDate(record.lastUpdate)}
+                          </small>
+                        </div>
+                        <button
+                          className="account-history-play"
+                          title="Play again"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const bookRes = await api.get(`/library/${record.bookId}`);
+                            playBook(bookRes.data, 0);
+                          }}
+                        >
+                          <Play size={14} fill="currentColor" />
+                        </button>
                       </div>
-                    )}
-                  </>
+                    ))}
+                  </div>
                 )}
               </div>
             )}

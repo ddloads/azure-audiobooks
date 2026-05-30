@@ -9791,3 +9791,247 @@ body {
 
 .shelf-arrow-left  { left: -12px; }
 .shelf-arrow-right { right: -12px; }
+
+/* ── Stats Page ── */
+.stats-page {
+  padding: 2rem 2.5rem;
+  max-width: 900px;
+}
+
+.stats-header {
+  margin-bottom: 1.75rem;
+}
+
+.stats-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.2rem;
+}
+
+.stats-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.stats-loading {
+  display: flex;
+  justify-content: center;
+  padding: 4rem;
+  color: var(--text-muted);
+}
+
+.stats-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 5rem 2rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.stats-empty-sub {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.875rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 700px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.stats-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.stats-card-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-card-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.stats-card-sub {
+  font-size: 0.72rem;
+  color: var(--text-subtle);
+}
+
+.stats-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 0.875rem;
+}
+
+.stats-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.stats-session-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-session-row:last-child { border-bottom: none; }
+
+.stats-session-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stats-session-info strong {
+  font-size: 0.85rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-session-info small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.stats-session-dur {
+  font-size: 0.78rem;
+  color: var(--accent);
+  font-weight: 600;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Account Settings — History tab ── */
+.account-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.account-history-item {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.65rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.account-history-item:last-child { border-bottom: none; }
+.account-history-item:hover { background: var(--surface-hover, rgba(255,255,255,0.04)); }
+
+.account-history-cover {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.account-history-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-history-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-subtle);
+}
+
+.account-history-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.account-history-info strong {
+  font-size: 0.84rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-history-info small {
+  font-size: 0.73rem;
+  color: var(--text-muted);
+}
+
+.account-history-play {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s;
+}
+
+.account-history-play:hover { opacity: 0.85; }
+
+/* ── Mobile Account Settings — nav row ── */
+.mobile-account-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 0;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  border-top: 1px solid var(--border);
+}
+
+.mobile-account-nav-row:first-of-type { border-top: none; }
