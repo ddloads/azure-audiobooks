@@ -9762,3 +9762,32 @@ body {
   color: var(--accent);
   font-weight: 500;
 }
+
+/* ── Shelf scroll arrows ── */
+.shelf-scroll-wrap {
+  position: relative;
+}
+
+.shelf-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(calc(-50% - 0.5rem));
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.shelf-arrow:hover { background: var(--surface-hover, var(--surface)); }
+
+.shelf-arrow-left  { left: -12px; }
+.shelf-arrow-right { right: -12px; }

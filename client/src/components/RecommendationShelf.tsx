@@ -1,4 +1,5 @@
 import { BookOpen } from "lucide-react";
+import ScrollableShelf from "./ScrollableShelf";
 
 export interface RecommendBook {
   id: string;
@@ -32,7 +33,7 @@ export default function RecommendationShelf({
         <span className="continue-listening-icon">{icon}</span>
         <h2 className="continue-listening-title">{title}</h2>
       </div>
-      <div className="continue-shelf">
+      <ScrollableShelf>
         {books.map((book) => (
           <div
             key={book.id}
@@ -66,7 +67,7 @@ export default function RecommendationShelf({
             </div>
           </div>
         ))}
-      </div>
+      </ScrollableShelf>
     </section>
   );
 }

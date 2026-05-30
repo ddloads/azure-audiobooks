@@ -19,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import RecommendationShelf, { type RecommendBook } from "../components/RecommendationShelf";
+import ScrollableShelf from "../components/ScrollableShelf";
 import type { AppearanceSettings } from "../features/admin/types";
 import { applyShelfPrefs } from "../hooks/useShelfPrefs";
 
@@ -242,7 +243,7 @@ export default function Home() {
             <Headphones size={16} className="continue-listening-icon" />
             <h2 className="continue-listening-title">Continue Listening</h2>
           </div>
-          <div className="continue-shelf">
+          <ScrollableShelf>
             {progressRecords.map((record) => {
               const pct = Math.min(100, Math.round((record.currentTime / record.book.duration) * 100));
               const remaining = Math.max(0, record.book.duration - record.currentTime);
@@ -300,7 +301,7 @@ export default function Home() {
                 </div>
               );
             })}
-          </div>
+          </ScrollableShelf>
         </section>
       )}
 
