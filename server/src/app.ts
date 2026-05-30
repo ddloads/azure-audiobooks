@@ -18,6 +18,7 @@ import {
 } from "./middleware/loggingMiddleware";
 
 const app = express();
+app.set("trust proxy", 1);
 const allowedOrigins = new Set(
   (process.env.CLIENT_ORIGIN || "http://localhost:5173")
     .split(",")
