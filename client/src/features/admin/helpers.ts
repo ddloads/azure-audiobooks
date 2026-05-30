@@ -6,6 +6,14 @@ export const formatHours = (seconds: number) => {
   return `${totalHours.toFixed(totalHours >= 100 ? 0 : 1)}h`;
 };
 
+export const formatListenTime = (seconds: number): string => {
+  if (seconds < 60) return `${seconds}s`;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+};
+
 export const formatDate = (value: string) =>
   new Date(value).toLocaleString([], {
     month: "short",

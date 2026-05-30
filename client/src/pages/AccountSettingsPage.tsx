@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowLeft, Bug, Eye, EyeOff, KeyRound, Loader2, Palette, User } from "lucide-react";
+import { ArrowLeft, Bug, Eye, EyeOff, Headphones, KeyRound, Loader2, Palette, User } from "lucide-react";
 import { isAxiosError } from "axios";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useShelfPrefs } from "../hooks/useShelfPrefs";
+import type { UserListeningStats } from "../features/admin/types";
+import { formatListenTime, formatDate } from "../features/admin/helpers";
 
-type TabKey = "profile" | "security" | "appearance" | "report";
+type TabKey = "profile" | "security" | "appearance" | "stats" | "report";
 
 interface ApiUser {
   id: string;
@@ -34,10 +36,11 @@ const SHELF_LABELS: Record<string, { label: string; description: string }> = {
 };
 
 const tabs: Array<{ key: TabKey; label: string; icon: typeof User; description: string }> = [
-  { key: "profile",    label: "Profile",    icon: User,    description: "Update your display name and email address." },
-  { key: "security",   label: "Security",   icon: KeyRound, description: "Change your password." },
-  { key: "appearance", label: "Appearance", icon: Palette, description: "Choose which shelves appear on your home screen." },
-  { key: "report",     label: "Report",     icon: Bug,     description: "Submit a bug report or feedback to the admin." },
+  { key: "profile",    label: "Profile",    icon: User,       description: "Update your display name and email address." },
+  { key: "security",   label: "Security",   icon: KeyRound,   description: "Change your password." },
+  { key: "appearance", label: "Appearance", icon: Palette,    description: "Choose which shelves appear on your home screen." },
+  { key: "stats",      label: "Stats",      icon: Headphones, description: "Your personal listening history and totals." },
+  { key: "report",     label: "Report",     icon: Bug,        description: "Submit a bug report or feedback to the admin." },
 ];
 
 export default function AccountSettingsPage() {
@@ -65,6 +68,19 @@ export default function AccountSettingsPage() {
 
   // Appearance
   const { prefs, toggle, SHELF_KEYS } = useShelfPrefs(user?.id ?? "");
+
+  // Stats
+  const [listenStats, setListenStats] = useState<UserListeningStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== "stats" || listenStats) return;
+    setStatsLoading(true);
+    api.get<UserListeningStats>("/sessions/stats/me")
+      .then((res) => setListenStats(res.data))
+      .catch(() => undefined)
+      .finally(() => setStatsLoading(false));
+  }, [activeTab]);
 
   // Report
   const [reportType, setReportType] = useState(issueTypes[0].value);
@@ -242,6 +258,57 @@ export default function AccountSettingsPage() {
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {activeTab === "stats" && (
+              <div className="account-stats">
+                {statsLoading || !listenStats ? (
+                  <div className="account-stats-loading">
+                    {statsLoading && <Loader2 size={20} className="animate-spin" />}
+                  </div>
+                ) : (
+                  <>
+                    <div className="account-stat-grid">
+                      <div className="account-stat-card">
+                        <span>Today</span>
+                        <strong>{formatListenTime(listenStats.todaySeconds)}</strong>
+                      </div>
+                      <div className="account-stat-card">
+                        <span>This week</span>
+                        <strong>{formatListenTime(listenStats.weekSeconds)}</strong>
+                      </div>
+                      <div className="account-stat-card">
+                        <span>This month</span>
+                        <strong>{formatListenTime(listenStats.monthSeconds)}</strong>
+                      </div>
+                      <div className="account-stat-card">
+                        <span>All time</span>
+                        <strong>{formatListenTime(listenStats.allTimeSeconds)}</strong>
+                        <small>{listenStats.sessionCount} sessions</small>
+                      </div>
+                    </div>
+
+                    <h3 className="account-stats-section-title">Recent sessions</h3>
+                    {listenStats.recentSessions.length === 0 ? (
+                      <p className="account-stats-empty">No sessions recorded yet. Start listening to track your history.</p>
+                    ) : (
+                      <div className="account-session-list">
+                        {listenStats.recentSessions.map((session) => (
+                          <div key={session.id} className="account-session-row">
+                            <div className="account-session-info">
+                              <strong>{session.book.title}</strong>
+                              <small>{session.book.author.name} · {formatDate(session.startedAt)}</small>
+                            </div>
+                            <span className="account-session-duration">
+                              {formatListenTime(session.secondsListened)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

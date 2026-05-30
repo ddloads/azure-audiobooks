@@ -1,6 +1,6 @@
 export type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "reports" | "logs";
 
-export type OverviewSectionKey = "libraries" | "recentBooks" | "recentUsers" | "storage" | "tasks";
+export type OverviewSectionKey = "libraries" | "recentBooks" | "recentUsers" | "storage" | "tasks" | "listening";
 
 export interface OverviewPreferences {
   showStats: boolean;
@@ -158,6 +158,31 @@ export interface AdminBugReport {
   userId: string;
   username: string;
   email?: string | null;
+}
+
+export interface AdminListeningStats {
+  todaySeconds: number;
+  todaySessions: number;
+  weekSeconds: number;
+  topListeners: Array<{ user: { id: string; username: string }; weekSeconds: number }>;
+  topBooks: Array<{ book: { id: string; title: string; author?: { name: string } }; weekSeconds: number }>;
+}
+
+export interface UserListeningSession {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  secondsListened: number;
+  book: { id: string; title: string; coverPath: string | null; author: { name: string } };
+}
+
+export interface UserListeningStats {
+  todaySeconds: number;
+  weekSeconds: number;
+  monthSeconds: number;
+  allTimeSeconds: number;
+  sessionCount: number;
+  recentSessions: UserListeningSession[];
 }
 
 export interface AdminScriptOption {

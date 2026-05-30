@@ -6,6 +6,7 @@ import {
   Eye,
   EyeOff,
   FolderTree,
+  Headphones,
   HardDrive,
   Pencil,
   Save,
@@ -13,14 +14,16 @@ import {
   Users,
 } from "lucide-react";
 import { useTasks, type ClientRuntimeTask } from "../../../context/TaskContext";
+import api from "../../../api/axios";
 import type {
   DashboardData,
   AdminLibrary,
   AdminRuntimeTask,
+  AdminListeningStats,
   OverviewSectionKey,
   OverviewPreferences,
 } from "../types";
-import { formatDate, formatElapsed, formatHours } from "../helpers";
+import { formatDate, formatElapsed, formatHours, formatListenTime } from "../helpers";
 
 type OverviewTask = AdminRuntimeTask | ClientRuntimeTask;
 
@@ -40,6 +43,7 @@ const defaultOverviewPreferences = (): OverviewPreferences => ({
     recentUsers: true,
     storage: true,
     tasks: true,
+    listening: true,
   },
   collapsedSections: {
     libraries: false,
@@ -47,6 +51,7 @@ const defaultOverviewPreferences = (): OverviewPreferences => ({
     recentUsers: false,
     storage: false,
     tasks: false,
+    listening: false,
   },
 });
 
@@ -56,6 +61,7 @@ const overviewSectionLabels: Record<OverviewSectionKey, string> = {
   recentUsers: "Recent users",
   storage: "Storage",
   tasks: "Tasks",
+  listening: "Listening activity",
 };
 
 const loadOverviewPreferences = (): OverviewPreferences => {
@@ -98,6 +104,13 @@ export default function OverviewTab({
   );
   const [isEditingOverview, setIsEditingOverview] = useState(false);
   const [overviewDraft, setOverviewDraft] = useState<OverviewPreferences | null>(null);
+  const [listenStats, setListenStats] = useState<AdminListeningStats | null>(null);
+
+  useEffect(() => {
+    api.get<AdminListeningStats>("/sessions/stats/admin")
+      .then((res) => setListenStats(res.data))
+      .catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -475,6 +488,88 @@ export default function OverviewTab({
                 ))}
                 {dashboard.recentUsers.length === 0 && (
                   <div className="admin-empty-state">No users yet.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {displayedOverviewPreferences.visibleSections.listening && (
+          <div className="card admin-section-card">
+            <div className="admin-section-head">
+              <button
+                className="admin-collapsible-head"
+                type="button"
+                onClick={() => toggleOverviewSection("listening")}
+                aria-expanded={!displayedOverviewPreferences.collapsedSections.listening}
+              >
+                <div className="admin-collapsible-title">
+                  {displayedOverviewPreferences.collapsedSections.listening ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+                  <h3>Listening activity</h3>
+                </div>
+                <Headphones size={15} />
+              </button>
+            </div>
+            {!displayedOverviewPreferences.collapsedSections.listening && (
+              <div className="admin-collapsible-body">
+                {!listenStats ? (
+                  <div className="admin-empty-state">Loading…</div>
+                ) : (
+                  <>
+                    <div className="admin-listen-stat-row">
+                      <div className="admin-listen-stat">
+                        <span>Today</span>
+                        <strong>{formatListenTime(listenStats.todaySeconds)}</strong>
+                        <small>{listenStats.todaySessions} {listenStats.todaySessions === 1 ? "session" : "sessions"}</small>
+                      </div>
+                      <div className="admin-listen-stat">
+                        <span>This week</span>
+                        <strong>{formatListenTime(listenStats.weekSeconds)}</strong>
+                      </div>
+                    </div>
+
+                    <div className="admin-listen-split">
+                      {listenStats.topListeners.length > 0 && (
+                        <div>
+                          <p className="admin-listen-sub-label">Top listeners this week</p>
+                          <div className="admin-list">
+                            {listenStats.topListeners.map(({ user, weekSeconds }) => (
+                              <div key={user.id} className="admin-row">
+                                <div className="admin-row-with-avatar">
+                                  <div className="admin-user-avatar admin-user-avatar-sm">
+                                    {user.username.slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <strong>{user.username}</strong>
+                                </div>
+                                <span className="admin-row-meta">{formatListenTime(weekSeconds)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {listenStats.topBooks.length > 0 && (
+                        <div>
+                          <p className="admin-listen-sub-label">Most listened this week</p>
+                          <div className="admin-list">
+                            {listenStats.topBooks.map(({ book, weekSeconds }) => (
+                              <div key={book.id} className="admin-row">
+                                <div>
+                                  <strong>{book.title}</strong>
+                                  {book.author && <small>{book.author.name}</small>}
+                                </div>
+                                <span className="admin-row-meta">{formatListenTime(weekSeconds)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {listenStats.topListeners.length === 0 && listenStats.topBooks.length === 0 && (
+                        <div className="admin-empty-state">No listening sessions recorded this week.</div>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             )}

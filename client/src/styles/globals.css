@@ -3885,6 +3885,176 @@ input[type='range']::-moz-range-thumb {
   margin-top: 0.25rem;
 }
 
+.account-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.account-stats-loading {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.account-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.account-stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.account-stat-card span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.account-stat-card strong {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--primary-light);
+}
+
+.account-stat-card small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.account-stats-section-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.account-stats-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.account-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.account-session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.account-session-row:last-child {
+  border-bottom: none;
+}
+
+.account-session-row:nth-child(even) {
+  background: var(--surface);
+}
+
+.account-session-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.account-session-info strong {
+  display: block;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account-session-info small {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.account-session-duration {
+  font-size: 0.84rem;
+  color: var(--primary-light);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Admin listening stats */
+.admin-listen-stat-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-listen-stat {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.admin-listen-stat span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-listen-stat strong {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--primary-light);
+}
+
+.admin-listen-stat small {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.admin-listen-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.admin-listen-sub-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.5rem;
+}
+
 .admin-overview-customize-card {
   gap: 1rem;
 }
