@@ -244,7 +244,7 @@ const hasTag = (value: string | null | undefined, tag: string) =>
     .includes(tag);
 
 const INITIAL_BOOK_RENDER_COUNT = 120;
-const BOOK_FETCH_PAGE_SIZE = 500;
+const BOOK_FETCH_PAGE_SIZE = 75;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 
 const SkeletonCard = () => (
