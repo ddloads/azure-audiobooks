@@ -4867,6 +4867,94 @@ input[type='range']::-moz-range-thumb {
   opacity: 0.75;
 }
 
+/* ─── Sessions tab ─────────────────────────────────────────── */
+
+.admin-sessions-head {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-sessions-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-sessions-table-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.5rem;
+}
+
+.admin-sessions-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.admin-sessions-table th {
+  text-align: left;
+  padding: 0.45rem 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  white-space: nowrap;
+}
+
+.admin-sessions-table td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  vertical-align: middle;
+}
+
+.admin-sessions-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-sessions-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sessions-book-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 260px;
+}
+
+.sessions-book-title {
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-book-author {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessions-date {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sessions-badge {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.sessions-badge-active {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
 /* ─── Log stats chips ──────────────────────────────────────── */
 
 .admin-log-stats-grid {

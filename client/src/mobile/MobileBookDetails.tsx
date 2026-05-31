@@ -111,7 +111,9 @@ const MobileBookDetails = () => {
       const [bookRes, progressRes, backupRes] = await Promise.all([
         api.get(`/library/${bookId}`),
         api.get(`/progress/${bookId}`).catch(() => ({ data: { currentTime: 0 } })),
-        api.get(`/admin/books/${bookId}/has-backup`).catch(() => ({ data: { hasBackup: false } })),
+        isAdmin
+          ? api.get(`/admin/books/${bookId}/has-backup`).catch(() => ({ data: { hasBackup: false } }))
+          : Promise.resolve({ data: { hasBackup: false } }),
       ]);
       setBook({ ...bookRes.data, chapters: bookRes.data.chapters ?? [] });
       setSavedTime(progressRes.data.currentTime || 0);

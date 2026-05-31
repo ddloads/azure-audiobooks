@@ -8,6 +8,7 @@ import {
   Database,
   FileText,
   FolderTree,
+  Headphones,
   Palette,
   RefreshCw,
   Shield,
@@ -58,6 +59,7 @@ import ScriptsTab from "../features/admin/components/ScriptsTab";
 import SystemTab from "../features/admin/components/SystemTab";
 import ReportsTab from "../features/admin/components/ReportsTab";
 import LogsTab from "../features/admin/components/LogsTab";
+import SessionsTab from "../features/admin/components/SessionsTab";
 
 interface AdminSettingsModalProps {
   onLibraryChanged: () => Promise<void> | void;
@@ -112,6 +114,12 @@ const tabs: Array<{ key: TabKey; label: string; icon: typeof Shield; description
     label: "Logs",
     icon: FileText,
     description: "Structured application logs, request traces, and error inspection.",
+  },
+  {
+    key: "sessions",
+    label: "Sessions",
+    icon: Headphones,
+    description: "All user listening sessions with platform, duration, and activity.",
   },
 ];
 
@@ -232,7 +240,7 @@ const AdminSettingsModal = ({
     if (activeTab === "overview") {
       void loadDashboard();
       void loadRuntimeTasks();
-    } else if (activeTab === "users") {
+    } else if (activeTab === "users" || activeTab === "sessions") {
       void loadUsersData();
     } else if (activeTab === "library") {
       void loadLibrariesData();
@@ -495,6 +503,7 @@ const AdminSettingsModal = ({
                 {activeTab === "system" && <SystemTab onLibraryChanged={onLibraryChanged} />}
                 {activeTab === "reports" && <ReportsTab />}
                 {activeTab === "logs" && <LogsTab />}
+                {activeTab === "sessions" && <SessionsTab users={users} />}
               </>
             )}
           </section>

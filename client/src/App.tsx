@@ -13,20 +13,13 @@ import BookDetailsPage from "./pages/BookDetailsPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AdminFileManagerPage from "./pages/AdminFileManagerPage";
 import AccountEmailPrompt from "./components/AccountEmailPrompt";
-import AppShell from "./components/AppShell";
-import MobilePrivateShell from "./mobile/MobileLayout";
-import MobileHome from "./mobile/MobileHome";
-import MobileLibrary from "./mobile/MobileLibrary";
-import MobileBookDetails from "./mobile/MobileBookDetails";
+import UnifiedShell from "./components/UnifiedShell";
 import MobileMenu from "./mobile/MobileMenu";
-import MobileAccountSettings from "./mobile/MobileAccountSettings";
-import MobileAuthors from "./mobile/MobileAuthors";
 import AuthorsPage from "./pages/AuthorsPage";
 import AccountSettingsPage from "./pages/AccountSettingsPage";
 import HistoryPage from "./pages/HistoryPage";
 import StatsPage from "./pages/StatsPage";
 import SeriesPage from "./pages/SeriesPage";
-import { useIsMobile } from "./hooks/useIsMobile";
 import "./styles/globals.css";
 
 function PlaybackGuard() {
@@ -54,46 +47,26 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function AppRoutes() {
-  const isMobile = useIsMobile();
-
   return (
     <Routes>
       <Route path="/login"    element={<Login />} />
       <Route path="/register" element={<Register />} />
 
-      {isMobile ? (
-        <Route element={<MobilePrivateShell />}>
-          <Route path="/"          element={<PrivateRoute><MobileHome /></PrivateRoute>} />
-          <Route path="/library"   element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
-          <Route path="/series"    element={<PrivateRoute><MobileLibrary /></PrivateRoute>} />
-          <Route path="/series/:seriesId" element={<PrivateRoute><SeriesPage /></PrivateRoute>} />
-          <Route path="/book/:bookId" element={<PrivateRoute><MobileBookDetails /></PrivateRoute>} />
-          <Route path="/authors"   element={<PrivateRoute><MobileAuthors /></PrivateRoute>} />
-          <Route path="/stats"     element={<PrivateRoute><StatsPage /></PrivateRoute>} />
-          <Route path="/history"   element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
-          <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
-          <Route path="/account"   element={<PrivateRoute><MobileAccountSettings /></PrivateRoute>} />
-          <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
-          <Route path="/files"     element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
-          <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
-        </Route>
-      ) : (
-        <Route element={<AppShell />}>
-          <Route path="/"          element={<PrivateRoute><Home /></PrivateRoute>} />
-          <Route path="/library"   element={<PrivateRoute><Library /></PrivateRoute>} />
-          <Route path="/series"    element={<PrivateRoute><Library defaultViewMode="series" /></PrivateRoute>} />
-          <Route path="/series/:seriesId" element={<PrivateRoute><SeriesPage /></PrivateRoute>} />
-          <Route path="/book/:bookId" element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
-          <Route path="/authors"   element={<PrivateRoute><AuthorsPage /></PrivateRoute>} />
-          <Route path="/stats"     element={<PrivateRoute><StatsPage /></PrivateRoute>} />
-          <Route path="/history"   element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
-          <Route path="/account"   element={<PrivateRoute><AccountSettingsPage /></PrivateRoute>} />
-          <Route path="/menu"      element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
-          <Route path="/settings"  element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
-          <Route path="/files"     element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
-          <Route path="/duplicates" element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
-        </Route>
-      )}
+      <Route element={<UnifiedShell />}>
+        <Route path="/"                    element={<PrivateRoute><Home /></PrivateRoute>} />
+        <Route path="/library"             element={<PrivateRoute><Library /></PrivateRoute>} />
+        <Route path="/series"              element={<PrivateRoute><Library defaultViewMode="series" /></PrivateRoute>} />
+        <Route path="/series/:seriesId"    element={<PrivateRoute><SeriesPage /></PrivateRoute>} />
+        <Route path="/book/:bookId"        element={<PrivateRoute><BookDetailsPage /></PrivateRoute>} />
+        <Route path="/authors"             element={<PrivateRoute><AuthorsPage /></PrivateRoute>} />
+        <Route path="/stats"               element={<PrivateRoute><StatsPage /></PrivateRoute>} />
+        <Route path="/history"             element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
+        <Route path="/account"             element={<PrivateRoute><AccountSettingsPage /></PrivateRoute>} />
+        <Route path="/menu"                element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
+        <Route path="/settings"            element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+        <Route path="/files"               element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
+        <Route path="/duplicates"          element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
+      </Route>
     </Routes>
   );
 }

@@ -1,4 +1,4 @@
-export type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "reports" | "logs";
+export type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "reports" | "logs" | "sessions";
 
 export type OverviewSectionKey = "libraries" | "recentBooks" | "recentUsers" | "storage" | "tasks" | "listening";
 
@@ -256,3 +256,21 @@ export type PendingAdminConfirm = {
 
 export type AdminLogLevel = "debug" | "info" | "warn" | "error";
 export type AdminLogScope = "all" | "metadata";
+
+export interface AdminSession {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  secondsListened: number;
+  platform: string | null;
+  book: { id: string; title: string; coverPath: string | null; author: { name: string } };
+  user: { id: string; username: string };
+}
+
+export interface AdminSessionsResponse {
+  sessions: AdminSession[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}

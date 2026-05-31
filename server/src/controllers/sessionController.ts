@@ -183,6 +183,39 @@ export const getUserSessions = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
+export const listAdminSessions = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page)) || 1);
+    const limit = Math.min(Math.max(1, parseInt(String(req.query.limit)) || 25), 100);
+    const userId = typeof req.query.userId === "string" && req.query.userId ? req.query.userId : undefined;
+
+    const where = userId ? { userId } : {};
+    const [sessions, total] = await Promise.all([
+      prisma.listeningSession.findMany({
+        where,
+        orderBy: { startedAt: "desc" },
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          startedAt: true,
+          endedAt: true,
+          secondsListened: true,
+          platform: true,
+          book: { select: { id: true, title: true, coverPath: true, author: { select: { name: true } } } },
+          user: { select: { id: true, username: true } },
+        },
+      }),
+      prisma.listeningSession.count({ where }),
+    ]);
+
+    res.json({ sessions, page, limit, total, totalPages: Math.ceil(total / limit) });
+  } catch (error) {
+    logger.error("Failed to list admin sessions", error);
+    res.status(500).json({ error: "Failed to load sessions" });
+  }
+};
+
 export const getAdminStats = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const now = new Date();

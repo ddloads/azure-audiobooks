@@ -6,7 +6,7 @@ import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import { getCandidateSourceLabel, metadataProviderOptions } from "../features/metadata/providers";
 import type { MatchCandidate, MetadataBook, MetadataProvider } from "../features/metadata/types";
-import { useIsMobile } from "../hooks/useIsMobile";
+import { useBreakpoint } from "../hooks/useBreakpoint";
 
 interface BookMetadataModalProps {
   book: MetadataBook;
@@ -200,7 +200,7 @@ const BookMetadataModal = ({
   onQueuePrevious,
   onQueueNext,
 }: BookMetadataModalProps) => {
-  const isMobile = useIsMobile();
+  const { isNarrow: isMobile } = useBreakpoint();
   const [currentBook, setCurrentBook] = useState<MetadataBook>(book);
   const [activeTab, setActiveTab] = useState<"edit" | "fetch">(initialTab);
   const [searchCollapsed, setSearchCollapsed] = useState(false);

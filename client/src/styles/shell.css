@@ -10,6 +10,8 @@
   --sidebar-w-sm:      64px;
   --tray-h-mini:       68px;
   --tray-h-full:       292px;
+  --mobile-nav-h:      64px;
+  --mobile-mini-h:     68px;
 
   /* Brand colour ramp (brand-identity.html) */
   --az-50:  #e6f5ff;
@@ -83,9 +85,35 @@
   margin-left: var(--sidebar-w-sm);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
+  .shell-body {
+    margin-top: 0;
+  }
   .shell-main {
     margin-left: 0 !important;
+    /* always reserve space for bottom nav */
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  /* desktop player tray padding not needed on mobile */
+  .shell-main.has-player {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
+  }
+  /* mini player (64px) sits above the nav */
+  .shell-main.mobile-has-mini {
+    padding-bottom: calc(124px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Hide desktop-only shell elements on narrow viewports */
+  .topbar,
+  .player-tray {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Hide mobile-only shell elements on desktop */
+  .mobile-bottom-nav,
+  .mobile-mini-player {
+    display: none !important;
   }
 }
 
@@ -551,17 +579,10 @@
   width: var(--sidebar-w-sm);
 }
 
-/* Mobile: sidebar is an overlay drawer */
-@media (max-width: 768px) {
+/* Mobile: sidebar is hidden entirely — bottom nav replaces it */
+@media (max-width: 1023px) {
   .sidebar {
-    width: var(--sidebar-w) !important;
-    transform: translateX(-100%);
-    top: 0;
-    box-shadow: none;
-  }
-  .sidebar.mobile-open {
-    transform: translateX(0);
-    box-shadow: 4px 0 32px rgba(0,0,0,0.6);
+    display: none;
   }
 }
 
@@ -757,10 +778,8 @@
   flex-shrink: 0;
 }
 
-@media (max-width: 768px) {
-  .sidebar-mobile-top {
-    display: flex;
-  }
+/* sidebar-mobile-top and collapse btn are desktop-only concerns */
+@media (max-width: 1023px) {
   .sidebar-collapse-btn {
     display: none;
   }
@@ -843,7 +862,7 @@
   left: var(--sidebar-w-sm);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .player-tray {
     left: 0 !important;
   }
@@ -1527,7 +1546,7 @@
   gap: 7px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   .home-page {
     padding: 20px 16px 32px;
   }

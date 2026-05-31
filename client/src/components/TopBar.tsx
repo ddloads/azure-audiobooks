@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Bug, CheckCircle2, Loader2, LogOut, Menu, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
-import { useIsMobile } from "../hooks/useIsMobile";
 import AppLogo from "./AppLogo";
 import SearchBox from "./SearchBox";
 import BugReportModal from "./BugReportModal";
@@ -31,7 +30,6 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const { scanProgress, silenceCheckProgress } = useScanProgress();
   const navigate = useNavigate();
   const location = useLocation();
-  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dropOpen, setDropOpen] = useState(false);
   const [isConnectMobileOpen, setIsConnectMobileOpen] = useState(false);
@@ -42,7 +40,7 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
   const isBrowseRoute = isLibraryRoute || isSeriesRoute;
   const searchValue = isBrowseRoute ? searchParams.get("search") || "" : "";
 
-  const showLibraryControls = isBrowseRoute && !isMobile && Boolean(user);
+  const showLibraryControls = isBrowseRoute && Boolean(user);
   const sortBy = searchParams.get("sortBy") || "newest";
   const isFilterPanelOpen = searchParams.get("filterPanel") === "open";
   let activeFilterCount = 0;
