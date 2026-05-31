@@ -244,7 +244,8 @@ const hasTag = (value: string | null | undefined, tag: string) =>
     .includes(tag);
 
 const INITIAL_BOOK_RENDER_COUNT = 120;
-const BOOK_FETCH_PAGE_SIZE = 75;
+const BOOK_FETCH_PAGE_SIZE = 100;
+const BOOK_FETCH_CONCURRENCY = 6;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 
 const SkeletonCard = () => (
@@ -434,30 +435,56 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     setSearchParams({});
   };
 
-  // Books endpoint is paginated server-side now — large unpaginated
-  // responses (~1MB+) get truncated mid-stream by the proxy/tunnel in
-  // front of the container, leaving the client with broken JSON and an
-  // empty books array. Fetch pages of BOOK_FETCH_PAGE_SIZE and append.
+  // Books endpoint is paginated server-side — large unpaginated responses
+  // get truncated mid-stream by the proxy (~80KB limit). Fetch page 0 first
+  // to show content immediately, then fetch remaining pages in parallel.
   const fetchAllBooksPaginated = async (
     isCancelled: () => boolean,
-    onFirstPage?: (books: LibraryBook[]) => void,
+    onPartialUpdate?: (books: LibraryBook[]) => void,
   ): Promise<LibraryBook[]> => {
     const params = buildBookParams();
-    let collected: LibraryBook[] = [];
-    let page = 0;
-    while (!isCancelled()) {
+
+    // Fetch first page immediately so the UI shows content fast
+    const firstRes = await api.get("/library", {
+      params: { ...params, limit: BOOK_FETCH_PAGE_SIZE, page: 0 },
+    });
+    if (isCancelled()) return [];
+
+    const firstData = firstRes.data;
+    const firstResults: LibraryBook[] = Array.isArray(firstData) ? firstData : firstData.results;
+    const total: number = Array.isArray(firstData) ? firstData.length : firstData.total;
+
+    if (onPartialUpdate) onPartialUpdate(firstResults);
+    if (firstResults.length >= total) return firstResults;
+
+    // Compute remaining page indices
+    const totalPages = Math.ceil(total / BOOK_FETCH_PAGE_SIZE);
+    const remainingPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 1);
+
+    // Allocate slots so results can be merged in order regardless of arrival
+    const pageSlots: LibraryBook[][] = new Array(totalPages - 1).fill(null);
+
+    const fetchPage = async (page: number, slotIndex: number) => {
+      if (isCancelled()) return;
       const res = await api.get("/library", {
         params: { ...params, limit: BOOK_FETCH_PAGE_SIZE, page },
       });
-      const data = res.data;
-      const results: LibraryBook[] = Array.isArray(data) ? data : data.results;
-      const total: number = Array.isArray(data) ? data.length : data.total;
-      collected = collected.concat(results);
-      if (page === 0 && onFirstPage) onFirstPage(collected);
-      if (!results.length || collected.length >= total) break;
-      page++;
+      pageSlots[slotIndex] = Array.isArray(res.data) ? res.data : res.data.results;
+    };
+
+    // Process in parallel batches
+    for (let i = 0; i < remainingPages.length; i += BOOK_FETCH_CONCURRENCY) {
+      if (isCancelled()) return [];
+      const batch = remainingPages.slice(i, i + BOOK_FETCH_CONCURRENCY);
+      await Promise.all(batch.map((page, j) => fetchPage(page, i + j)));
+      if (!isCancelled() && onPartialUpdate) {
+        const soFar = [firstResults, ...pageSlots.filter(Boolean)].flat();
+        onPartialUpdate(soFar);
+      }
     }
-    return collected;
+
+    if (isCancelled()) return [];
+    return [firstResults, ...pageSlots].flat();
   };
 
   const fetchBooks = async () => {
