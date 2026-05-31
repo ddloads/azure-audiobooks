@@ -152,17 +152,20 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       : 0;
     const secondsListened = Math.max(0, Math.round(currentPos - sessionStartPositionRef.current));
 
-    // Use sendBeacon on unload so the request survives page close
-    if (ended && navigator.sendBeacon) {
-      const url = `${api.defaults.baseURL ?? ""}/sessions/${id}`;
-      const blob = new Blob(
-        [JSON.stringify({ secondsListened, ended: true })],
-        { type: "application/json" },
-      );
-      navigator.sendBeacon(url, blob);
-    } else {
-      void api.patch(`/sessions/${id}`, { secondsListened, ended });
-    }
+    // Use fetch with keepalive so the request survives page close, and
+    // include the Authorization header (sendBeacon cannot send custom headers).
+    const token = localStorage.getItem("token");
+    void fetch(`${api.defaults.baseURL ?? ""}/sessions/${id}`, {
+      method: "POST",
+      keepalive: true,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ secondsListened, ended }),
+    });
+
     sessionIdRef.current = null;
     sessionStartPositionRef.current = 0;
   };
