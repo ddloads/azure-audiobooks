@@ -84,6 +84,55 @@ const FIELD_DEFINITIONS: Array<{
   { key: "abridged", label: "Abridged", type: "checkbox" },
 ];
 
+const LANGUAGE_OPTIONS = [
+  { value: "", label: "Any language" },
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish" },
+  { value: "fr", label: "French" },
+  { value: "de", label: "German" },
+  { value: "it", label: "Italian" },
+  { value: "pt", label: "Portuguese" },
+  { value: "nl", label: "Dutch" },
+  { value: "ru", label: "Russian" },
+  { value: "ja", label: "Japanese" },
+  { value: "zh", label: "Chinese" },
+  { value: "eng", label: "English (eng)" },
+  { value: "spa", label: "Spanish (spa)" },
+  { value: "fra", label: "French (fra)" },
+  { value: "deu", label: "German (deu)" },
+  { value: "jpn", label: "Japanese (jpn)" },
+];
+
+const LanguageInput = ({
+  id,
+  value,
+  onChange,
+  placeholder = "Any language",
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) => (
+  <>
+    <input
+      className="form-control metadata-language-input"
+      list={id}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      autoComplete="off"
+    />
+    <datalist id={id}>
+      {LANGUAGE_OPTIONS.map((option) => (
+        <option key={`${id}-${option.value || "any"}`} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </datalist>
+  </>
+);
+
 const emptyFields = (): EditableFields => ({
   title: "",
   subtitle: "",
@@ -717,11 +766,10 @@ const BookMetadataModal = ({
                       </div>
                       <div className="form-group">
                         <label>Language</label>
-                        <input
-                          className="form-control"
+                        <LanguageInput
+                          id="metadata-search-language-mobile"
                           value={languageFilter}
-                          onChange={(event) => setLanguageFilter(event.target.value)}
-                          placeholder="Any language"
+                          onChange={setLanguageFilter}
                         />
                       </div>
                     </div>
@@ -850,6 +898,12 @@ const BookMetadataModal = ({
                                     onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
                                   />
                                 </div>
+                              ) : field.key === "language" ? (
+                                <LanguageInput
+                                  id="metadata-mobile-fetch-language"
+                                  value={fetchFields.language}
+                                  onChange={(value) => handleFetchFieldChange(field.key, value)}
+                                />
                               ) : field.type === "textarea" ? (
                                 <textarea
                                   className="form-control"
@@ -947,11 +1001,10 @@ const BookMetadataModal = ({
                   </div>
                   <div className="form-group">
                     <label>Language</label>
-                    <input
-                      className="form-control"
+                    <LanguageInput
+                      id="metadata-search-language-desktop"
                       value={languageFilter}
-                      onChange={(event) => setLanguageFilter(event.target.value)}
-                      placeholder="Any language"
+                      onChange={setLanguageFilter}
                     />
                   </div>
                 </div>
@@ -1086,6 +1139,12 @@ const BookMetadataModal = ({
                                   onChange={(event) => handleFetchFieldChange(field.key, event.target.value)}
                                 />
                               </div>
+                            ) : field.key === "language" ? (
+                              <LanguageInput
+                                id="metadata-fetch-language"
+                                value={fetchFields.language}
+                                onChange={(value) => handleFetchFieldChange(field.key, value)}
+                              />
                             ) : field.type === "textarea" ? (
                               <textarea
                                 className="form-control"
@@ -1192,7 +1251,13 @@ const BookMetadataModal = ({
                   </label>
 
                   <div className="book-match-field-control">
-                    {field.type === "textarea" ? (
+                    {field.key === "language" ? (
+                      <LanguageInput
+                        id="metadata-edit-language"
+                        value={editFields.language}
+                        onChange={(value) => handleEditFieldChange(field.key, value)}
+                      />
+                    ) : field.type === "textarea" ? (
                       <textarea
                         className="form-control"
                         rows={10}

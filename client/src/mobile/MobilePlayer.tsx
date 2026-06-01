@@ -1,9 +1,33 @@
 import { useState } from 'react';
-import { BookOpen, ChevronDown, Moon, Pause, Play, Redo2, SkipBack, SkipForward, Undo2 } from 'lucide-react';
+import {
+  BookmarkPlus,
+  BookOpen,
+  ChevronDown,
+  List,
+  Moon,
+  Pause,
+  Play,
+  Redo2,
+  SkipBack,
+  SkipForward,
+  Trash2,
+  Undo2,
+  Volume2,
+  VolumeX,
+  X,
+} from 'lucide-react';
+import api from '../api/axios';
 import { usePlayer } from '../context/PlayerContext';
 
 interface Props {
   onClose: () => void;
+}
+
+interface Bookmark {
+  id: string;
+  position: number;
+  label?: string | null;
+  createdAt: string;
 }
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -25,9 +49,11 @@ const formatSleepRemaining = (seconds: number) => {
 const MobilePlayer = ({ onClose }: Props) => {
   const {
     currentBook,
+    currentFileIndex,
     isPlaying,
     currentTime,
     duration,
+    volume,
     playbackRate,
     sleepRemaining,
     togglePlay,
@@ -36,25 +62,81 @@ const MobilePlayer = ({ onClose }: Props) => {
     skipBackward,
     nextTrack,
     prevTrack,
+    setVolume,
     setPlaybackRate,
     startSleepTimer,
+    stopPlayer,
   } = usePlayer();
 
   const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [activePanel, setActivePanel] = useState<null | 'chapters' | 'bookmarks' | 'speed' | 'volume'>(null);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
   if (!currentBook) return null;
 
-  const cycleSpeed = () => {
-    const idx = SPEEDS.indexOf(playbackRate);
-    setPlaybackRate(SPEEDS[(idx + 1) % SPEEDS.length]);
+  const currentTrack = currentBook.audioFiles[currentFileIndex];
+  const currentChapter = currentBook.chapters?.find(
+    (chapter) => currentTime >= chapter.start && currentTime < chapter.end,
+  );
+  const trackLabel = currentChapter?.title || currentTrack?.title || `Track ${currentFileIndex + 1}`;
+
+  const closePanels = () => {
+    setActivePanel(null);
+    setShowSleepMenu(false);
   };
 
   const handleSleepToggle = () => {
+    setActivePanel(null);
     if (sleepRemaining !== null) {
       startSleepTimer(null);
     } else {
-      setShowSleepMenu(v => !v);
+      setShowSleepMenu((value) => !value);
     }
+  };
+
+  const openBookmarks = async () => {
+    setShowSleepMenu(false);
+    if (activePanel === 'bookmarks') {
+      setActivePanel(null);
+      return;
+    }
+    setActivePanel('bookmarks');
+    setBookmarkLoading(true);
+    try {
+      const res = await api.get<Bookmark[]>(`/bookmarks/${currentBook.id}`);
+      setBookmarks(res.data);
+    } catch {
+      setBookmarks([]);
+    } finally {
+      setBookmarkLoading(false);
+    }
+  };
+
+  const addBookmark = async () => {
+    try {
+      const res = await api.post<Bookmark>('/bookmarks', {
+        bookId: currentBook.id,
+        position: currentTime,
+      });
+      setBookmarks((prev) => [...prev, res.data].sort((a, b) => a.position - b.position));
+    } catch {
+      // Bookmark creation is non-fatal to playback.
+    }
+  };
+
+  const deleteBookmark = async (id: string) => {
+    try {
+      await api.delete(`/bookmarks/${id}`);
+      setBookmarks((prev) => prev.filter((bookmark) => bookmark.id !== id));
+    } catch {
+      // Bookmark deletion is non-fatal to playback.
+    }
+  };
+
+  const handleStop = () => {
+    stopPlayer();
+    onClose();
   };
 
   return (
@@ -84,6 +166,7 @@ const MobilePlayer = ({ onClose }: Props) => {
       <div className="mobile-player-info">
         <div className="mobile-player-book-title">{currentBook.title}</div>
         <div className="mobile-player-book-author">{currentBook.author.name}</div>
+        <div className="mobile-player-track-label">{trackLabel}</div>
       </div>
 
       <div className="mobile-player-progress-section">
@@ -131,12 +214,42 @@ const MobilePlayer = ({ onClose }: Props) => {
       </div>
 
       <div className="mobile-player-extras">
-        <button className="mobile-player-extra-btn" onClick={cycleSpeed} aria-label="Change speed">
-          <span className="mobile-player-speed-label">{playbackRate}×</span>
+        {currentBook.chapters && currentBook.chapters.length > 0 && (
+          <button
+            className={`mobile-player-extra-btn ${activePanel === 'chapters' ? 'active' : ''}`}
+            onClick={() => {
+              setShowSleepMenu(false);
+              setActivePanel(activePanel === 'chapters' ? null : 'chapters');
+            }}
+            aria-label="Chapters"
+          >
+            <List size={20} />
+            <span>Chapters</span>
+          </button>
+        )}
+
+        <button
+          className={`mobile-player-extra-btn ${activePanel === 'bookmarks' ? 'active' : ''}`}
+          onClick={() => void openBookmarks()}
+          aria-label="Bookmarks"
+        >
+          <BookmarkPlus size={20} />
+          <span>Bookmarks</span>
+        </button>
+
+        <button
+          className={`mobile-player-extra-btn ${activePanel === 'speed' || playbackRate !== 1 ? 'active' : ''}`}
+          onClick={() => {
+            setShowSleepMenu(false);
+            setActivePanel(activePanel === 'speed' ? null : 'speed');
+          }}
+          aria-label="Playback speed"
+        >
+          <span className="mobile-player-speed-label">{playbackRate}x</span>
           <span>Speed</span>
         </button>
 
-        <div style={{ position: 'relative' }}>
+        <div className="mobile-player-extra-wrap">
           <button
             className={`mobile-player-extra-btn ${sleepRemaining !== null ? 'active' : ''}`}
             onClick={handleSleepToggle}
@@ -147,7 +260,7 @@ const MobilePlayer = ({ onClose }: Props) => {
           </button>
           {showSleepMenu && (
             <div className="mobile-player-sleep-menu">
-              {SLEEP_OPTIONS.map(min => (
+              {SLEEP_OPTIONS.map((min) => (
                 <button
                   key={min}
                   className="mobile-player-sleep-option"
@@ -159,7 +272,135 @@ const MobilePlayer = ({ onClose }: Props) => {
             </div>
           )}
         </div>
+
+        <button
+          className={`mobile-player-extra-btn ${activePanel === 'volume' || volume === 0 ? 'active' : ''}`}
+          onClick={() => {
+            setShowSleepMenu(false);
+            setActivePanel(activePanel === 'volume' ? null : 'volume');
+          }}
+          aria-label="Volume"
+        >
+          {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          <span>{volume === 0 ? 'Muted' : 'Volume'}</span>
+        </button>
+
+        <button className="mobile-player-extra-btn danger" onClick={handleStop} aria-label="Stop and close player">
+          <X size={20} />
+          <span>Stop</span>
+        </button>
       </div>
+
+      {activePanel && (
+        <div className="mobile-player-panel" role="dialog" aria-label={`${activePanel} controls`}>
+          <div className="mobile-player-panel-header">
+            <span>
+              {activePanel === 'chapters' && 'Chapters'}
+              {activePanel === 'bookmarks' && 'Bookmarks'}
+              {activePanel === 'speed' && 'Playback Speed'}
+              {activePanel === 'volume' && 'Volume'}
+            </span>
+            <button className="mobile-player-panel-close" onClick={closePanels} aria-label="Close panel">
+              <X size={18} />
+            </button>
+          </div>
+
+          {activePanel === 'chapters' && (
+            <div className="mobile-player-panel-list">
+              {currentBook.chapters.map((chapter) => (
+                <button
+                  key={chapter.id}
+                  className={`mobile-player-panel-row${chapter.id === currentChapter?.id ? ' active' : ''}`}
+                  onClick={() => {
+                    seek(chapter.start);
+                    closePanels();
+                  }}
+                >
+                  <span>{chapter.title}</span>
+                  <span>{formatTime(chapter.start)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activePanel === 'bookmarks' && (
+            <>
+              <div className="mobile-player-panel-list">
+                {bookmarkLoading ? (
+                  <div className="mobile-player-panel-empty">Loading...</div>
+                ) : bookmarks.length === 0 ? (
+                  <div className="mobile-player-panel-empty">No bookmarks yet</div>
+                ) : (
+                  bookmarks.map((bookmark) => (
+                    <div key={bookmark.id} className="mobile-player-bookmark-row">
+                      <button
+                        className="mobile-player-bookmark-seek"
+                        onClick={() => {
+                          seek(bookmark.position);
+                          closePanels();
+                        }}
+                      >
+                        <span>{bookmark.label ?? 'Bookmark'}</span>
+                        <span>{formatTime(bookmark.position)}</span>
+                      </button>
+                      <button
+                        className="mobile-player-bookmark-delete"
+                        onClick={() => void deleteBookmark(bookmark.id)}
+                        aria-label="Delete bookmark"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+              <button className="mobile-player-panel-action" onClick={() => void addBookmark()}>
+                <BookmarkPlus size={16} />
+                Add at {formatTime(currentTime)}
+              </button>
+            </>
+          )}
+
+          {activePanel === 'speed' && (
+            <div className="mobile-player-speed-grid">
+              {SPEEDS.map((speed) => (
+                <button
+                  key={speed}
+                  className={`mobile-player-speed-option${speed === playbackRate ? ' active' : ''}`}
+                  onClick={() => {
+                    setPlaybackRate(speed);
+                    closePanels();
+                  }}
+                >
+                  {speed === 1 ? '1x' : `${speed}x`}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activePanel === 'volume' && (
+            <div className="mobile-player-volume-panel">
+              <button
+                className="mobile-player-volume-toggle"
+                onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
+              >
+                {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                {volume === 0 ? 'Unmute' : 'Mute'}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.02}
+                value={volume}
+                onChange={(event) => setVolume(Number(event.target.value))}
+                className="mobile-player-volume-slider"
+                aria-label="Volume"
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

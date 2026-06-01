@@ -2445,8 +2445,8 @@ input[type='range']::-moz-range-thumb {
 }
 
 .book-match-modal {
-  width: min(1120px, 100%);
-  max-width: min(1120px, 100%);
+  width: min(1360px, calc(100vw - 2rem));
+  max-width: min(1360px, calc(100vw - 2rem));
   max-height: min(92vh, 980px);
   overflow: auto;
 }
@@ -2494,7 +2494,7 @@ input[type='range']::-moz-range-thumb {
 
 .book-match-search-grid {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr) 260px;
+  grid-template-columns: 170px minmax(240px, 1fr) 220px 170px;
   gap: 0.85rem;
   flex: 1;
 }
@@ -2995,6 +2995,10 @@ input[type='range']::-moz-range-thumb {
 
 .metadata-path-input {
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.metadata-language-input {
+  padding-right: 2.15rem;
 }
 
 .book-match-link {
@@ -9213,6 +9217,10 @@ body {
   line-height: 1.2;
 }
 
+.mobile-player-track-label {
+  margin-top: 5px;
+}
+
 .mobile-player-progress-section {
   padding: 12px 24px;
 }
@@ -9243,12 +9251,13 @@ body {
 }
 
 .mobile-player-extras {
-  gap: 12px;
+  gap: 8px;
   padding: 10px 24px 18px;
+  flex-wrap: wrap;
 }
 
 .mobile-player-extra-btn {
-  min-width: 92px;
+  min-width: 78px;
   min-height: 50px;
   border: 1px solid rgba(186, 201, 216, 0.1);
   border-radius: 8px;
