@@ -112,6 +112,7 @@ const BookDetailsPage: React.FC = () => {
   const [merging, setMerging] = useState(false);
   const [mergeProgress, setMergeProgress] = useState<MergeProgress | null>(null);
   const [hasBackup, setHasBackup] = useState(false);
+  const [isChaptersCollapsed, setIsChaptersCollapsed] = useState(true);
   const [isTracksCollapsed, setIsTracksCollapsed] = useState(true);
   const [confirmAction, setConfirmAction] = useState<null | "merge" | "undo" | "rescan" | "cleanup" | "merge-duplicates" | "delete">(null);
   const [duplicates, setDuplicates] = useState<Book[]>([]);
@@ -895,43 +896,60 @@ const BookDetailsPage: React.FC = () => {
         {/* Chapters */}
         {book.chapters && book.chapters.length > 0 && (
           <div className="book-details-tracks-section">
-            <h3 className="section-subtitle">Chapters</h3>
-            <div className="book-details-track-list">
-              {book.chapters.map((chapter) => (
-                <div
-                  key={chapter.id}
-                  className="book-details-track-row"
-                  onClick={() => playBook(book, chapter.start)}
-                >
-                  <div className="track-row-left">
-                    <div className="track-play-indicator">
-                      <Play size={12} fill="currentColor" />
+            <button
+              type="button"
+              className="section-header collapsible"
+              onClick={() => setIsChaptersCollapsed(!isChaptersCollapsed)}
+              aria-expanded={!isChaptersCollapsed}
+            >
+              <h3 className="section-subtitle">Chapters</h3>
+              <div className="section-header-right">
+                <span className="track-count">{book.chapters.length} chapters</span>
+                {isChaptersCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+              </div>
+            </button>
+
+            {!isChaptersCollapsed && (
+              <div className="book-details-track-list">
+                {book.chapters.map((chapter, idx) => (
+                  <div
+                    key={chapter.id}
+                    className="book-details-track-row"
+                    onClick={() => playBook(book, chapter.start)}
+                  >
+                    <div className="track-row-left">
+                      <span className="track-num">{idx + 1}</span>
+                      <div className="track-play-indicator">
+                        <Play size={12} fill="currentColor" />
+                      </div>
+                    </div>
+                    <div className="track-row-main">
+                      <span className="track-filename">{chapter.title}</span>
+                    </div>
+                    <div className="track-row-right">
+                      <span className="track-time-label">{formatDuration(chapter.start)}</span>
                     </div>
                   </div>
-                  <div className="track-row-main">
-                    <span className="track-filename">{chapter.title}</span>
-                  </div>
-                  <div className="track-row-right">
-                    <span className="track-time-label">{formatDuration(chapter.start)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* Tracks */}
         <div className="book-details-tracks-section">
-          <div
+          <button
+            type="button"
             className="section-header collapsible"
             onClick={() => setIsTracksCollapsed(!isTracksCollapsed)}
+            aria-expanded={!isTracksCollapsed}
           >
             <h3 className="section-subtitle">Tracks</h3>
             <div className="section-header-right">
               <span className="track-count">{book.audioFiles.length} files</span>
               {isTracksCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
             </div>
-          </div>
+          </button>
 
           {!isTracksCollapsed && (
             <div className="book-details-track-list">
