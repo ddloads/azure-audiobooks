@@ -820,9 +820,19 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     () => selectedBooks.filter((book) => !hasTag(book.tags, "matched") && !hasTag(book.tags, "quick-matched")),
     [selectedBooks],
   );
+  const displayBooks = useMemo(() => {
+    if (!filterSeriesId) return books;
+    return books
+      .slice()
+      .sort((a, b) => {
+        const aSequence = a.sequence ?? Number.MAX_SAFE_INTEGER;
+        const bSequence = b.sequence ?? Number.MAX_SAFE_INTEGER;
+        return aSequence - bSequence || a.title.localeCompare(b.title);
+      });
+  }, [books, filterSeriesId]);
   const visibleBooks = useMemo(
-    () => books.slice(0, visibleBookCount),
-    [books, visibleBookCount],
+    () => displayBooks.slice(0, visibleBookCount),
+    [displayBooks, visibleBookCount],
   );
   const seriesGroups = useMemo(() => {
     const groups = new Map<string, { id?: string; name: string; books: LibraryBook[] }>();

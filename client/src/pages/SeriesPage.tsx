@@ -28,6 +28,15 @@ const fmtPct = (book: SeriesBook) => {
   return Math.min(99, Math.round((book.progress.currentTime / book.duration) * 100));
 };
 
+const sortSeriesBooks = (books: SeriesBook[]) =>
+  books
+    .slice()
+    .sort((a, b) => {
+      const aSequence = a.sequence ?? Number.MAX_SAFE_INTEGER;
+      const bSequence = b.sequence ?? Number.MAX_SAFE_INTEGER;
+      return aSequence - bSequence || a.title.localeCompare(b.title);
+    });
+
 export default function SeriesPage() {
   const { seriesId } = useParams<{ seriesId: string }>();
   const navigate = useNavigate();
@@ -52,6 +61,7 @@ export default function SeriesPage() {
   };
 
   const completedCount = series?.books.filter((b) => b.progress?.isFinished).length ?? 0;
+  const sortedBooks = series ? sortSeriesBooks(series.books) : [];
 
   return (
     <div className="series-page">
@@ -90,7 +100,7 @@ export default function SeriesPage() {
         <div className="series-empty">Series not found.</div>
       ) : (
         <div className="series-book-list">
-          {series.books.map((book) => {
+          {sortedBooks.map((book) => {
             const pct = fmtPct(book);
             const finished = book.progress?.isFinished ?? false;
             return (
