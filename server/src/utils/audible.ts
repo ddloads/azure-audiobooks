@@ -101,6 +101,13 @@ const cleanDescription = (value: string | null | undefined) => {
   return cleaned || null;
 };
 
+const cleanSubtitle = (value: string | null | undefined) => {
+  const subtitle = normalizeWhitespace(stripHtml(value) ?? value ?? "");
+  if (!subtitle) return null;
+  if (/^failed to add items?$/i.test(subtitle)) return null;
+  return subtitle;
+};
+
 const normalizeForCompare = (value: string | null | undefined) =>
   normalizeWhitespace(value)
     .toLowerCase()
@@ -366,7 +373,7 @@ const parseAudibleProductPage = (html: string, audibleUrl: string): AudibleMetad
   const visibleText = extractVisibleText(html);
   const jsonLd = findJsonLdBook(html);
   const title = headingContent(html, "h1") || firstString(jsonLd?.name) || metaContent(html, "og:title");
-  const subtitle = headingContent(html, "h2");
+  const subtitle = cleanSubtitle(headingContent(html, "h2"));
   const description = cleanDescription(
     firstString(jsonLd?.description) || metaContent(html, "og:description") || metaContent(html, "description"),
   );

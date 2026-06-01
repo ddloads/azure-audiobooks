@@ -386,6 +386,13 @@ const stripHtml = (s: string | null | undefined): string | null => {
   return stripped || null;
 };
 
+const cleanSubtitle = (value: string | null | undefined): string | null => {
+  const subtitle = stripHtml(value);
+  if (!subtitle) return null;
+  if (/^failed to add items?$/i.test(subtitle)) return null;
+  return subtitle;
+};
+
 const parseYear = (s: string | null | undefined): string | null =>
   s?.match(/\b(\d{4})\b/)?.[1] ?? null;
 
@@ -435,7 +442,7 @@ const mapProduct = (product: AudibleApiProduct): AudibleMatchCandidate => {
     confidenceLabel: "100%",
     metadata: {
       title: product.title || null,
-      subtitle: product.subtitle || null,
+      subtitle: cleanSubtitle(product.subtitle),
       author,
       narrator,
       description: stripHtml(product.publisher_summary || product.merchandising_summary),
