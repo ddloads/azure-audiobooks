@@ -3686,13 +3686,6 @@ input[type='range']::-moz-range-thumb {
 }
 
 .account-shelf-toggles,
-.mobile-account-shelf-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-}
-
 .account-stats {
   display: flex;
   flex-direction: column;
@@ -7675,72 +7668,12 @@ body {
   color: var(--text);
 }
 
-.mobile-library {
-  min-height: 100dvh;
-}
-
-.mobile-search-area {
-  background: rgba(7, 16, 24, 0.9);
-  border-bottom-color: rgba(186, 201, 216, 0.1);
-  padding: max(12px, env(safe-area-inset-top)) 12px 12px;
-}
-
-.mobile-library-body {
-  padding: 14px 12px 0;
-}
-
-.mobile-library-hero {
-  margin-bottom: 16px;
-  padding: 18px;
-  border-radius: 8px;
-  border: 1px solid rgba(186, 201, 216, 0.13);
-  background:
-    linear-gradient(135deg, rgba(22, 39, 54, 0.94), rgba(12, 25, 38, 0.9)),
-    radial-gradient(circle at 92% 10%, rgba(242, 184, 75, 0.14), transparent 42%);
-}
-
-.mobile-library-hero span {
-  color: var(--primary-light);
-  font-size: 0.66rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.mobile-library-hero h1 {
-  margin-top: 7px;
-  color: var(--text);
-  font-family: var(--font-display);
-  font-size: 1.65rem;
-  line-height: 1.05;
-}
-
-.mobile-library-hero p {
-  margin-top: 8px;
-  color: var(--text-muted);
-  font-size: 0.86rem;
-}
-
-.mobile-book-card,
-.mobile-book-list-item,
-.mobile-series-card,
 .mobile-mini-player,
 .mobile-menu-item,
 .mobile-menu-user {
   border-radius: 8px;
   background: rgba(17, 29, 40, 0.82);
   border-color: rgba(186, 201, 216, 0.12);
-}
-
-.mobile-book-cover-wrap,
-.mobile-continue-art-frame,
-.mobile-book-list-cover,
-.mobile-series-cover {
-  border-radius: 7px;
-}
-
-.mobile-book-grid {
-  gap: 12px;
 }
 
 .mobile-bottom-nav {
@@ -10108,22 +10041,6 @@ body {
 .account-history-play:hover { opacity: 0.85; }
 
 /* ── Mobile Account Settings — nav row ── */
-.mobile-account-nav-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0.75rem 0;
-  background: none;
-  border: none;
-  color: var(--text);
-  font-size: 0.875rem;
-  cursor: pointer;
-  border-top: 1px solid var(--border);
-}
-
-.mobile-account-nav-row:first-of-type { border-top: none; }
-
 /* ── Series Page ── */
 .series-page {
   padding: 2rem 2.5rem;
@@ -10322,4 +10239,82 @@ body {
   gap: 0.3rem;
   font-size: 0.7rem;
   color: var(--text-subtle);
+}
+
+/* ── Mobile library toolbar ── */
+/* Hidden on desktop; shown on mobile in place of TopBar controls */
+.library-mobile-toolbar {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  /* Remove top padding — mobile toolbar provides the visual start */
+  .library-page {
+    padding-top: 0 !important;
+  }
+
+  .library-mobile-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 1.75rem 12px;
+    margin: 0 -1.75rem 1.25rem;
+    background: rgba(2, 9, 18, 0.97);
+    border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .library-mobile-toolbar .search-box {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .library-mobile-toolbar .select-wrap {
+    flex-shrink: 0;
+  }
+
+  .library-mobile-toolbar .select-wrap select {
+    height: 38px;
+    font-size: 13px;
+    padding: 0 26px 0 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .library-mobile-toolbar {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    margin-left: -1rem;
+    margin-right: -1rem;
+  }
+}
+
+/* ── Authors page mobile ── */
+@media (max-width: 1023px) {
+  .authors-page {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .authors-page-header {
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .authors-page-title {
+    font-size: 1.3rem;
+  }
+
+  .authors-search-wrap {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .authors-search-input {
+    width: 100%;
+  }
 }

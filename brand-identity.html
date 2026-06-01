@@ -1,0 +1,1330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Azure · Brand Identity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #03111e;
+    --navy: #07182b;
+    --navy-2: #0c2238;
+    --navy-3: #143052;
+    --line: #1c3a5e;
+    --line-strong: #2a557e;
+    --text-1: #eaf3ff;
+    --text-2: #a7bcd6;
+    --text-3: #6f8aa7;
+    --text-4: #4a627d;
+    --paper: #f4f7fb;
+    --paper-2: #e6eef7;
+
+    /* primary azure ramp — pulled from logo */
+    --az-50: #e6f5ff;
+    --az-100: #b9e3ff;
+    --az-200: #7dcbfa;
+    --az-300: #4cb5f4;
+    --az-400: #1f9be4;
+    --az-500: #1e7dc9;   /* "Azure Core" */
+    --az-600: #155e9d;
+    --az-700: #0e4471;
+    --az-800: #0a2d4f;
+    --az-900: #061d36;
+
+    /* tactical accents */
+    --bright: #38bdf8;
+    --glow: #67d3fb;
+    --amber: #f8b738;
+    --rose: #f87171;
+    --mint: #34d399;
+
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 22px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--navy);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'cv11','ss01';
+    overflow-x: hidden;
+  }
+  ::selection { background: rgba(56,189,248,.25); }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--line); border-radius: 10px; border: 2px solid var(--navy); }
+
+  /* ------------ shell ------------ */
+  .page {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 32px 40px 80px;
+  }
+
+  /* topbar */
+  .topbar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 0; margin-bottom: 40px;
+    border-bottom: 1px solid var(--line);
+    position: sticky; top: 0; z-index: 20;
+    background: linear-gradient(180deg, var(--navy) 75%, transparent);
+    backdrop-filter: blur(8px);
+  }
+  .topbar-mark { display: flex; align-items: center; gap: 10px; }
+  .topbar-mark svg { width: 26px; height: 26px; }
+  .topbar-name { font-family: var(--font-display); font-weight: 700; font-size: 17px; letter-spacing: -0.01em; }
+  .topbar-meta { color: var(--text-3); font-size: 12px; padding-left: 14px; border-left: 1px solid var(--line); }
+  .topbar-meta b { color: var(--text-2); font-weight: 500; }
+  .topbar-spacer { flex: 1; }
+  .topbar-nav { display: flex; gap: 4px; }
+  .topbar-nav a {
+    font-size: 12px; padding: 6px 10px; border-radius: 6px;
+    color: var(--text-3); text-decoration: none; transition: 140ms ease;
+  }
+  .topbar-nav a:hover { color: var(--text-1); background: var(--navy-2); }
+  .topbar-version {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+    padding: 4px 9px; border: 1px solid var(--line); border-radius: 999px;
+  }
+
+  /* numbered section header */
+  .sec { margin-top: 96px; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 22px; margin-bottom: 28px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--line);
+  }
+  .sec-num {
+    font-family: var(--font-mono); font-size: 12px; color: var(--bright);
+    letter-spacing: .14em; min-width: 56px;
+  }
+  .sec-title {
+    font-family: var(--font-display); font-weight: 500; font-size: 32px;
+    letter-spacing: -0.02em; margin: 0; line-height: 1.05;
+  }
+  .sec-title em { font-style: italic; color: var(--bright); font-weight: 400; }
+  .sec-sub { color: var(--text-3); font-size: 14px; max-width: 540px; margin-left: auto; line-height: 1.5; }
+
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    letter-spacing: .14em; text-transform: uppercase; color: var(--bright);
+    font-weight: 500;
+  }
+  .eyebrow::before {
+    content: ""; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--bright); box-shadow: 0 0 10px var(--bright);
+  }
+
+  /* ============== HERO ============== */
+  .hero {
+    position: relative;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background:
+      radial-gradient(1100px 700px at 18% 30%, rgba(56,189,248,.22), transparent 55%),
+      radial-gradient(900px 600px at 90% 80%, rgba(30,125,201,.18), transparent 50%),
+      linear-gradient(180deg, #061427 0%, #0a2138 100%);
+    border: 1px solid var(--line);
+    padding: 64px 56px 56px;
+    isolation: isolate;
+  }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(circle at 50% 50%, black, transparent 75%);
+    pointer-events: none;
+  }
+  .hero-grid {
+    position: relative;
+    display: grid; grid-template-columns: 1.05fr 1fr; gap: 56px;
+    align-items: center;
+  }
+  @media (max-width: 980px) { .hero-grid { grid-template-columns: 1fr; gap: 32px; } }
+  .hero-left .hero-eyebrow { margin-bottom: 22px; }
+  .hero-title {
+    font-family: var(--font-display); font-weight: 500;
+    font-size: clamp(48px, 6.4vw, 88px); line-height: .95;
+    letter-spacing: -0.035em; margin: 0;
+  }
+  .hero-title em { font-style: italic; font-weight: 400; color: var(--bright); }
+  .hero-title .stroke {
+    -webkit-text-stroke: 1.5px var(--bright); color: transparent;
+    font-style: italic; font-weight: 300;
+  }
+  .hero-tagline {
+    font-family: var(--font-display);
+    font-style: italic; font-weight: 400;
+    font-size: 19px; color: var(--text-2);
+    margin: 28px 0 0; max-width: 460px; line-height: 1.4;
+  }
+  .hero-tagline em { color: var(--bright); font-style: normal; font-weight: 500; }
+  .hero-meta {
+    display: flex; gap: 28px; margin-top: 36px; flex-wrap: wrap;
+  }
+  .hero-meta-item { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); letter-spacing: .04em; }
+  .hero-meta-item b { display: block; color: var(--text-1); font-size: 14px; font-family: var(--font-sans); font-weight: 600; margin-top: 4px; letter-spacing: -0.005em; }
+
+  .hero-mark-wrap {
+    display: grid; place-items: center;
+    aspect-ratio: 1 / 1; width: 100%; max-width: 480px; margin-left: auto;
+    position: relative;
+  }
+  .hero-mark-wrap::after {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 50%, rgba(56,189,248,.28), transparent 55%);
+    filter: blur(20px); z-index: -1;
+  }
+
+  /* ============== Sections ============== */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; }
+  @media (max-width: 980px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--navy-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+  }
+  .panel-head {
+    padding: 16px 20px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .panel-head h4 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-1); letter-spacing: -0.005em; }
+  .panel-head .tag {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+    padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; letter-spacing: .04em;
+  }
+  .panel-body { padding: 28px 20px; }
+
+  /* ============== Logo lockups ============== */
+  .lockup-stage {
+    display: grid; place-items: center; min-height: 280px;
+    background:
+      repeating-linear-gradient(45deg, rgba(255,255,255,.015) 0 8px, transparent 8px 16px),
+      linear-gradient(180deg, #081a2e, #061427);
+    border-bottom: 1px solid var(--line);
+    padding: 40px;
+  }
+  .lockup-stage.light {
+    background:
+      repeating-linear-gradient(45deg, rgba(11,24,40,.04) 0 8px, transparent 8px 16px),
+      var(--paper);
+  }
+  .lockup-stage.ink {
+    background: var(--ink);
+  }
+  .lockup-stage.bright {
+    background: linear-gradient(160deg, var(--az-400), var(--az-600));
+  }
+  .lockup-foot {
+    padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+  }
+  .lockup-foot b { color: var(--text-2); font-weight: 500; }
+
+  /* mark construction */
+  .construction {
+    position: relative;
+    background:
+      linear-gradient(rgba(56,189,248,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,.07) 1px, transparent 1px),
+      var(--navy-2);
+    background-size: 24px 24px;
+  }
+  .construction-foot {
+    padding: 14px 18px; display: flex; justify-content: space-between;
+    border-top: 1px solid var(--line); font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+  }
+
+  /* ============== Color ============== */
+  .swatch {
+    border-radius: var(--radius); padding: 22px;
+    aspect-ratio: 1 / 1.18; display: flex; flex-direction: column;
+    justify-content: space-between; position: relative; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .swatch.dark .swatch-name, .swatch.dark .swatch-hex { color: rgba(255,255,255,.95); }
+  .swatch.dark .swatch-meta { color: rgba(255,255,255,.5); }
+  .swatch.light .swatch-name, .swatch.light .swatch-hex { color: #0c2238; }
+  .swatch.light .swatch-meta { color: rgba(12,34,56,.55); }
+  .swatch-name { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1; }
+  .swatch-meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; margin-top: 4px; }
+  .swatch-hex { font-family: var(--font-mono); font-size: 13px; }
+  .swatch-token { font-family: var(--font-mono); font-size: 10px; color: rgba(255,255,255,.45); margin-top: 2px; }
+  .swatch.light .swatch-token { color: rgba(12,34,56,.45); }
+
+  .ramp { display: grid; grid-template-columns: repeat(10, 1fr); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); }
+  .ramp-step { aspect-ratio: 1 / 1.4; display: flex; flex-direction: column; justify-content: flex-end; padding: 12px 10px; transition: 140ms; }
+  .ramp-step:hover { transform: scaleY(1.04); }
+  .ramp-step .n { font-family: var(--font-mono); font-size: 11px; opacity: .65; }
+  .ramp-step .h { font-family: var(--font-mono); font-size: 10px; opacity: .55; margin-top: 2px; }
+
+  /* ============== Type ============== */
+  .type-stage { padding: 36px 28px; }
+  .type-display { font-family: var(--font-display); font-weight: 500; font-size: 84px; line-height: .95; letter-spacing: -0.03em; margin: 0; }
+  .type-display em { font-style: italic; font-weight: 400; color: var(--bright); }
+  .type-italic-show { font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 36px; color: var(--text-2); letter-spacing: -0.01em; margin: 10px 0 0; }
+  .type-row { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; margin-top: 18px; }
+  .type-tok { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); letter-spacing: .04em; }
+  .type-tok b { color: var(--bright); font-weight: 500; }
+
+  .type-spec { padding: 22px 24px; border-top: 1px solid var(--line); display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .type-spec-item .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px; }
+  .type-spec-item .val { font-size: 13px; color: var(--text-1); font-weight: 500; }
+
+  .scale-row {
+    display: flex; align-items: baseline; gap: 18px;
+    padding: 14px 0; border-bottom: 1px dashed var(--line);
+  }
+  .scale-row:last-child { border-bottom: 0; }
+  .scale-row .label { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); min-width: 110px; }
+  .scale-row .specimen { flex: 1; color: var(--text-1); }
+  .scale-row .specifics { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); min-width: 130px; text-align: right; }
+
+  /* ============== Motifs ============== */
+  .motif {
+    background: var(--navy-2); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; display: flex; flex-direction: column; gap: 14px;
+    position: relative; overflow: hidden;
+  }
+  .motif-art { aspect-ratio: 4 / 3; display: grid; place-items: center; background: radial-gradient(circle at 50% 50%, rgba(56,189,248,.1), transparent 60%); border-radius: var(--radius); }
+  .motif h5 { margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .motif p { margin: 0; color: var(--text-3); font-size: 13px; line-height: 1.5; }
+
+  /* ============== Don'ts ============== */
+  .dont-card { padding: 24px; display: flex; flex-direction: column; gap: 16px; min-height: 240px; }
+  .dont-flag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 5px;
+  }
+  .dont-flag.dont { background: rgba(248,113,113,.14); color: #fca5a5; border: 1px solid rgba(248,113,113,.3); }
+  .dont-flag.do { background: rgba(52,211,153,.14); color: var(--mint); border: 1px solid rgba(52,211,153,.3); }
+  .dont-art { flex: 1; display: grid; place-items: center; background: var(--navy-3); border-radius: 10px; min-height: 110px; }
+  .dont-art.bad { position: relative; overflow: hidden; }
+  .dont-art.bad::after { content: ""; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 49%, rgba(248,113,113,.4) 49.5%, rgba(248,113,113,.4) 50.5%, transparent 51%); pointer-events: none; }
+  .dont-cap { font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
+
+  /* ============== Voice ============== */
+  .voice-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .voice-table th, .voice-table td { padding: 14px 18px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .voice-table th { font-size: 11px; color: var(--text-3); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; background: var(--navy-2); }
+  .voice-table td.is { color: var(--text-1); font-family: var(--font-display); font-style: italic; font-size: 16px; }
+  .voice-table td.isnt { color: var(--text-3); font-size: 13.5px; }
+  .voice-table tr:last-child td { border-bottom: 0; }
+
+  /* ============== Applications ============== */
+  .app-icon {
+    aspect-ratio: 1; border-radius: 22.5%; /* macOS curvature */
+    box-shadow: 0 14px 40px -16px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08);
+    display: grid; place-items: center; position: relative; overflow: hidden;
+  }
+  .app-icon.macos-mask { border-radius: 22.5%; }
+  .app-icon.ios-mask { border-radius: 22.5%; }
+  .app-icon.circle { border-radius: 50%; }
+  .app-icon-foot { padding-top: 10px; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); text-align: center; }
+
+  /* macOS window mock */
+  .window {
+    border-radius: 12px; overflow: hidden;
+    background: var(--navy-2); border: 1px solid var(--line);
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.8);
+  }
+  .window-bar { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: var(--navy-3); border-bottom: 1px solid var(--line); }
+  .window-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .window-title { flex: 1; text-align: center; font-size: 11px; color: var(--text-3); margin-right: 36px; }
+
+  /* OG image */
+  .og-card {
+    aspect-ratio: 1.91 / 1; padding: 48px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background:
+      radial-gradient(900px 600px at 80% 110%, rgba(56,189,248,.28), transparent 60%),
+      linear-gradient(160deg, var(--ink) 0%, var(--az-800) 100%);
+    border-radius: var(--radius); position: relative; overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .og-card::before {
+    content: ""; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,.05) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(circle at 80% 80%, black, transparent 70%);
+  }
+
+  /* sticker + business card */
+  .sticker {
+    aspect-ratio: 1; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--paper); color: var(--ink);
+    box-shadow: 0 20px 50px -20px rgba(0,0,0,.7);
+    position: relative; overflow: hidden;
+  }
+  .sticker.dark { background: var(--ink); color: var(--paper); }
+  .sticker .ring {
+    position: absolute; inset: 12px;
+    border: 2px dashed rgba(0,0,0,.18); border-radius: 50%;
+    transform: rotate(0deg); animation: spin 28s linear infinite;
+  }
+  .sticker.dark .ring { border-color: rgba(255,255,255,.18); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .card-stack { position: relative; aspect-ratio: 1.6 / 1; }
+  .biz-card {
+    position: absolute; inset: 0;
+    border-radius: 10px; padding: 22px;
+    box-shadow: 0 24px 60px -20px rgba(0,0,0,.7), inset 0 1px 0 rgba(255,255,255,.04);
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .biz-card.front {
+    background:
+      radial-gradient(700px 400px at 110% 110%, rgba(56,189,248,.25), transparent 50%),
+      linear-gradient(170deg, var(--ink) 0%, var(--az-800) 100%);
+    color: var(--paper);
+    z-index: 2; transform: rotate(-2deg) translate(-6%, 4%);
+    border: 1px solid var(--line-strong);
+  }
+  .biz-card.back {
+    background: var(--paper); color: var(--ink);
+    transform: rotate(3deg) translate(6%, -4%);
+    border: 1px solid var(--paper-2);
+  }
+
+  /* sound bars */
+  .bar-track { display: flex; align-items: flex-end; gap: 3px; height: 28px; }
+  .bar-track .bar { width: 3px; background: var(--bright); border-radius: 2px; }
+
+  /* utility */
+  .hr { height: 1px; background: var(--line); margin: 24px 0; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .pill { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); padding: 3px 8px; border: 1px solid var(--line); border-radius: 999px; letter-spacing: .04em; }
+  .mono { font-family: var(--font-mono); }
+  .muted { color: var(--text-3); }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Logo gradient: pulled from the original logo's cloud/book -->
+    <linearGradient id="azureGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#67d3fb" />
+      <stop offset="60%" stop-color="#1f9be4" />
+      <stop offset="100%" stop-color="#0e4471" />
+    </linearGradient>
+    <linearGradient id="azureGradFlat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#1e7dc9" />
+    </linearGradient>
+    <linearGradient id="navyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0e2746" />
+      <stop offset="100%" stop-color="#03111e" />
+    </linearGradient>
+
+    <!-- PRIMARY MARK: refined from the original logo. Cloud + open book + waveform inside, framed by headphones, sitting on a server stack. -->
+    <symbol id="azure-mark" viewBox="0 0 240 240">
+      <!-- headphones arc -->
+      <path d="M52 124 C52 78, 84 50, 120 50 S188 78, 188 124"
+            fill="none" stroke="#03111e" stroke-width="11" stroke-linecap="round" />
+      <!-- earcups -->
+      <rect x="40" y="108" width="34" height="56" rx="10" fill="#03111e" />
+      <rect x="46" y="118" width="22" height="36" rx="6" fill="#1f3a5e" />
+      <rect x="166" y="108" width="34" height="56" rx="10" fill="#03111e" />
+      <rect x="172" y="118" width="22" height="36" rx="6" fill="#1f3a5e" />
+
+      <!-- cloud -->
+      <path d="M82 112 C82 88, 102 74, 122 78 C132 64, 158 64, 162 84 C176 86, 182 104, 172 116 L82 116 Z"
+            fill="url(#azureGrad)" />
+
+      <!-- open book + spine, layered on the cloud -->
+      <path d="M82 116 L82 174 C82 174, 100 168, 120 178 L120 122 C100 114, 82 116, 82 116 Z" fill="url(#azureGradFlat)" />
+      <path d="M158 116 L158 174 C158 174, 140 168, 120 178 L120 122 C140 114, 158 116, 158 116 Z" fill="#1e7dc9" />
+      <!-- page highlight stripes -->
+      <path d="M86 124 L114 130 L114 134 L86 128 Z" fill="rgba(255,255,255,.18)" />
+      <path d="M126 130 L154 124 L154 128 L126 134 Z" fill="rgba(255,255,255,.12)" />
+
+      <!-- waveform on left page -->
+      <g fill="#eaf3ff">
+        <rect x="92" y="138" width="3" height="22" rx="1.5" />
+        <rect x="98" y="132" width="3" height="34" rx="1.5" />
+        <rect x="104" y="142" width="3" height="14" rx="1.5" />
+        <rect x="110" y="136" width="3" height="26" rx="1.5" />
+      </g>
+      <!-- waveform on right page -->
+      <g fill="#eaf3ff">
+        <rect x="128" y="136" width="3" height="26" rx="1.5" opacity=".95" />
+        <rect x="134" y="142" width="3" height="14" rx="1.5" opacity=".95" />
+        <rect x="140" y="130" width="3" height="38" rx="1.5" opacity=".95" />
+        <rect x="146" y="140" width="3" height="18" rx="1.5" opacity=".95" />
+      </g>
+
+      <!-- server stack -->
+      <g>
+        <rect x="74" y="184" width="92" height="14" rx="3" fill="#03111e" />
+        <circle cx="156" cy="191" r="2" fill="#38bdf8" />
+        <circle cx="150" cy="191" r="2" fill="#67d3fb" opacity=".7" />
+        <rect x="80" y="189" width="22" height="3" fill="#1f3a5e" />
+
+        <rect x="74" y="202" width="92" height="14" rx="3" fill="#0a2138" />
+        <circle cx="156" cy="209" r="2" fill="#67d3fb" />
+        <circle cx="150" cy="209" r="2" fill="#38bdf8" opacity=".7" />
+        <rect x="80" y="207" width="22" height="3" fill="#1f3a5e" />
+      </g>
+    </symbol>
+
+    <!-- SIMPLIFIED MARK: cloud + waveform only, for app icons / favicons -->
+    <symbol id="azure-simple" viewBox="0 0 240 240">
+      <path d="M60 144 C60 110, 92 92, 120 100 C134 76, 174 78, 184 108 C212 110, 220 144, 196 158 L60 158 Z"
+            fill="url(#azureGrad)" />
+      <g fill="#eaf3ff">
+        <rect x="92" y="128" width="6" height="20" rx="3" />
+        <rect x="104" y="118" width="6" height="40" rx="3" />
+        <rect x="116" y="134" width="6" height="14" rx="3" />
+        <rect x="128" y="122" width="6" height="36" rx="3" />
+        <rect x="140" y="130" width="6" height="20" rx="3" />
+        <rect x="152" y="126" width="6" height="28" rx="3" />
+      </g>
+    </symbol>
+
+    <!-- MONOGRAM: the play-A from the wordmark -->
+    <symbol id="azure-mono" viewBox="0 0 240 240">
+      <!-- A with play -->
+      <path d="M40 200 L114 50 L188 200"
+            fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M99 160 L138 160 L118.5 192 Z" fill="#38bdf8" transform="rotate(-90 118.5 174)" />
+    </symbol>
+
+    <!-- Wordmark — “Azure” with play-A inside the A -->
+    <symbol id="azure-wordmark" viewBox="0 0 520 140">
+      <!-- A -->
+      <path d="M22 122 L70 22 L118 122" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M64 84 L86 84 L75 102 Z" fill="#38bdf8" transform="rotate(-90 75 93)" />
+      <!-- z -->
+      <path d="M145 56 L207 56 L145 122 L207 122" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- u -->
+      <path d="M230 56 L230 100 C230 116, 244 124, 258 124 C272 124, 286 116, 286 100 L286 56 L286 122"
+            fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- r -->
+      <path d="M310 122 L310 56 C310 56, 320 56, 332 56 C346 56, 356 64, 356 78"
+            fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+      <!-- e -->
+      <path d="M425 92 C425 72, 410 56, 390 56 C370 56, 354 72, 354 92 C354 112, 370 124, 390 124 C404 124, 416 118, 422 110 M358 86 L422 86"
+            fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+    </symbol>
+
+    <!-- Decorative motif glyphs -->
+    <symbol id="m-cloud" viewBox="0 0 200 120">
+      <path d="M30 88 C30 64, 56 50, 78 58 C90 38, 124 36, 138 60 C162 60, 174 84, 158 100 L30 100 Z"
+        fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round" />
+    </symbol>
+    <symbol id="m-book" viewBox="0 0 200 140">
+      <path d="M20 30 L20 116 C20 116, 56 108, 96 118 L96 42 C56 32, 20 30, 20 30 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M180 30 L180 116 C180 116, 144 108, 96 118 L96 42 C144 32, 180 30, 180 30 Z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="m-headphones" viewBox="0 0 200 140">
+      <path d="M30 86 C30 50, 60 28, 100 28 C140 28, 170 50, 170 86" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" />
+      <rect x="20" y="78" width="32" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="3.5" />
+      <rect x="148" y="78" width="32" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="3.5" />
+    </symbol>
+    <symbol id="m-server" viewBox="0 0 200 140">
+      <rect x="24" y="24" width="152" height="30" rx="5" fill="none" stroke="currentColor" stroke-width="3.5"/>
+      <rect x="24" y="60" width="152" height="30" rx="5" fill="none" stroke="currentColor" stroke-width="3.5"/>
+      <rect x="24" y="96" width="152" height="30" rx="5" fill="none" stroke="currentColor" stroke-width="3.5"/>
+      <circle cx="152" cy="39" r="2.5" fill="currentColor"/>
+      <circle cx="160" cy="39" r="2.5" fill="currentColor" opacity=".5"/>
+      <circle cx="152" cy="75" r="2.5" fill="currentColor"/>
+      <circle cx="160" cy="75" r="2.5" fill="currentColor" opacity=".5"/>
+      <circle cx="152" cy="111" r="2.5" fill="currentColor"/>
+      <circle cx="160" cy="111" r="2.5" fill="currentColor" opacity=".5"/>
+    </symbol>
+    <symbol id="m-wave" viewBox="0 0 200 140">
+      <g stroke="currentColor" stroke-width="4" stroke-linecap="round">
+        <line x1="20" y1="60" x2="20" y2="80" />
+        <line x1="32" y1="40" x2="32" y2="100" />
+        <line x1="44" y1="56" x2="44" y2="84" />
+        <line x1="56" y1="20" x2="56" y2="120" />
+        <line x1="68" y1="48" x2="68" y2="92" />
+        <line x1="80" y1="36" x2="80" y2="104" />
+        <line x1="92" y1="58" x2="92" y2="82" />
+        <line x1="104" y1="24" x2="104" y2="116" />
+        <line x1="116" y1="44" x2="116" y2="96" />
+        <line x1="128" y1="54" x2="128" y2="86" />
+        <line x1="140" y1="28" x2="140" y2="112" />
+        <line x1="152" y1="50" x2="152" y2="90" />
+        <line x1="164" y1="62" x2="164" y2="78" />
+        <line x1="176" y1="42" x2="176" y2="98" />
+      </g>
+    </symbol>
+
+    <!-- play triangle icon -->
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5 L19 12 L7 19 Z" fill="currentColor"/></symbol>
+    <symbol id="i-hp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 14a9 9 0 0 1 18 0v3" /><path d="M21 16a2 2 0 0 1-2 2h-1v-6h3z"/><path d="M3 16a2 2 0 0 0 2 2h1v-6H3z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="page">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-mark">
+      <svg viewBox="0 0 240 240" aria-hidden="true"><use href="#azure-mark"/></svg>
+      <span class="topbar-name">Azure</span>
+    </div>
+    <span class="topbar-meta">Brand Identity · <b>v1.0</b></span>
+    <span class="topbar-spacer"></span>
+    <nav class="topbar-nav">
+      <a href="#mark">Mark</a>
+      <a href="#color">Color</a>
+      <a href="#type">Type</a>
+      <a href="#motifs">Motifs</a>
+      <a href="#voice">Voice</a>
+      <a href="#apps">In use</a>
+    </nav>
+    <span class="topbar-version">May 2026</span>
+  </div>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid">
+      <div class="hero-left">
+        <span class="eyebrow hero-eyebrow">Brand Identity · Self-hosted audiobook server</span>
+        <h1 class="hero-title">
+          Your library,<br/>
+          your <em>server</em>,<br/>
+          <span class="stroke">your sound.</span>
+        </h1>
+        <p class="hero-tagline">
+          Azure is a private, dockerized audiobook server for people who'd rather own their library than rent access to it. The brand is built on the simple promise of <em>a cloud that's actually yours</em>.
+        </p>
+        <div class="hero-meta">
+          <div class="hero-meta-item">Category<b>Self-hosted media server</b></div>
+          <div class="hero-meta-item">Tone<b>Studio · Confident · Quiet</b></div>
+          <div class="hero-meta-item">Core color<b>Azure 500 / Bright 400</b></div>
+          <div class="hero-meta-item">Typeface<b>Fraunces &middot; Inter &middot; JetBrains Mono</b></div>
+        </div>
+      </div>
+      <div class="hero-mark-wrap">
+        <svg viewBox="0 0 240 240" style="width:100%; height:100%" aria-label="Azure primary mark"><use href="#azure-mark"/></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- 01. The Mark -->
+  <section id="mark" class="sec">
+    <header class="sec-head">
+      <span class="sec-num">01 / 06</span>
+      <h2 class="sec-title">The <em>mark</em></h2>
+      <p class="sec-sub">Five symbols of the product stacked into one icon: a cloud (self-hosted), an open book (the library), a waveform (the audio), headphones (the listener), and a server stack (the machine running it).</p>
+    </header>
+
+    <!-- mark construction -->
+    <div class="grid-2" style="grid-template-columns: 1.2fr 1fr;">
+      <div class="panel">
+        <div class="panel-head">
+          <h4>Anatomy</h4>
+          <span class="tag">240 × 240 grid</span>
+        </div>
+        <div class="lockup-stage construction">
+          <svg viewBox="0 0 240 240" style="width: 280px; height: 280px"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="construction-foot">
+          <span><b>Headphones</b> arc · 11px stroke</span>
+          <span><b>Cloud</b> · Azure gradient 300→700</span>
+          <span><b>Server</b> · 14px rack rows</span>
+        </div>
+      </div>
+
+      <div class="grid-2" style="grid-template-columns: 1fr; gap: 22px;">
+        <div class="panel">
+          <div class="panel-head">
+            <h4>Primary lockup (horizontal)</h4>
+            <span class="tag">For headers &amp; signage</span>
+          </div>
+          <div class="lockup-stage" style="min-height: 180px;">
+            <div style="display: flex; align-items: center; gap: 22px;">
+              <svg viewBox="0 0 240 240" style="width: 88px; height: 88px"><use href="#azure-mark"/></svg>
+              <svg viewBox="0 0 520 140" style="height: 56px; color: var(--paper)"><use href="#azure-wordmark"/></svg>
+            </div>
+          </div>
+          <div class="lockup-foot">
+            <span><b>Min height</b> 32px digital · 14mm print</span>
+            <span class="mono">Clear space = ½ mark height</span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h4>Stacked lockup</h4>
+            <span class="tag">For app icons &amp; covers</span>
+          </div>
+          <div class="lockup-stage" style="min-height: 180px;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 12px;">
+              <svg viewBox="0 0 240 240" style="width: 78px; height: 78px"><use href="#azure-mark"/></svg>
+              <svg viewBox="0 0 520 140" style="height: 36px; color: var(--paper)"><use href="#azure-wordmark"/></svg>
+              <span class="mono" style="font-size: 10px; color: var(--text-3); letter-spacing: .28em; text-transform: uppercase;">audiobook server</span>
+            </div>
+          </div>
+          <div class="lockup-foot">
+            <span><b>Use the descriptor</b> only when context isn't clear</span>
+            <span class="mono">"AUDIOBOOK SERVER"</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- variants -->
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Variants &amp; reductions</h3>
+    <div class="grid-4">
+      <div class="panel">
+        <div class="lockup-stage">
+          <svg viewBox="0 0 240 240" style="width: 140px; height: 140px"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="lockup-foot"><b>Primary</b><span>Full color on dark</span></div>
+      </div>
+      <div class="panel">
+        <div class="lockup-stage light">
+          <svg viewBox="0 0 240 240" style="width: 140px; height: 140px"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="lockup-foot"><b>Primary</b><span>Full color on light</span></div>
+      </div>
+      <div class="panel">
+        <div class="lockup-stage ink">
+          <svg viewBox="0 0 240 240" style="width: 140px; height: 140px; color: var(--paper)"><use href="#azure-simple"/></svg>
+        </div>
+        <div class="lockup-foot"><b>Simplified</b><span>For app icon / favicon</span></div>
+      </div>
+      <div class="panel">
+        <div class="lockup-stage bright">
+          <svg viewBox="0 0 240 240" style="width: 140px; height: 140px; color: var(--ink)"><use href="#azure-mono"/></svg>
+        </div>
+        <div class="lockup-foot"><b>Monogram</b><span>Avatar / loading state</span></div>
+      </div>
+    </div>
+
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Scale &amp; reduction</h3>
+    <div class="panel">
+      <div class="panel-head">
+        <h4>How the mark survives at small sizes</h4>
+        <span class="tag">At ≤ 32px, switch to the simplified mark.</span>
+      </div>
+      <div class="lockup-stage" style="padding: 56px 32px; gap: 48px; flex-direction: row; display: flex; min-height: auto;">
+        <div style="text-align: center;">
+          <svg viewBox="0 0 240 240" style="width: 140px; height: 140px"><use href="#azure-mark"/></svg>
+          <div class="mono" style="font-size: 11px; color: var(--text-3); margin-top: 10px;">140px · Primary</div>
+        </div>
+        <div style="text-align: center;">
+          <svg viewBox="0 0 240 240" style="width: 80px; height: 80px"><use href="#azure-mark"/></svg>
+          <div class="mono" style="font-size: 11px; color: var(--text-3); margin-top: 10px;">80px · Primary</div>
+        </div>
+        <div style="text-align: center;">
+          <svg viewBox="0 0 240 240" style="width: 48px; height: 48px"><use href="#azure-mark"/></svg>
+          <div class="mono" style="font-size: 11px; color: var(--text-3); margin-top: 10px;">48px · Primary</div>
+        </div>
+        <div style="text-align: center;">
+          <svg viewBox="0 0 240 240" style="width: 32px; height: 32px"><use href="#azure-simple"/></svg>
+          <div class="mono" style="font-size: 11px; color: var(--text-3); margin-top: 10px;">32px · Simplified</div>
+        </div>
+        <div style="text-align: center;">
+          <svg viewBox="0 0 240 240" style="width: 20px; height: 20px"><use href="#azure-simple"/></svg>
+          <div class="mono" style="font-size: 11px; color: var(--text-3); margin-top: 10px;">20px · Simplified</div>
+        </div>
+        <div style="text-align: center; color: var(--bright);">
+          <svg viewBox="0 0 240 240" style="width: 16px; height: 16px"><use href="#azure-mono"/></svg>
+          <div class="mono" style="font-size: 11px; color: var(--text-3); margin-top: 10px;">16px · Monogram</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Things to avoid</h3>
+    <div class="grid-4">
+      <div class="panel dont-card">
+        <span class="dont-flag dont">Don't</span>
+        <div class="dont-art bad">
+          <svg viewBox="0 0 240 240" style="width: 80px; height: 80px; transform: skewX(-12deg) scaleY(.7)"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="dont-cap">Distort, skew, or stretch the mark. Always lock proportions.</div>
+      </div>
+      <div class="panel dont-card">
+        <span class="dont-flag dont">Don't</span>
+        <div class="dont-art bad" style="background: linear-gradient(135deg, #ff4d8d, #ffd84d);">
+          <svg viewBox="0 0 240 240" style="width: 80px; height: 80px"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="dont-cap">Place the full-color mark on busy or off-brand backgrounds. Use the simplified mark.</div>
+      </div>
+      <div class="panel dont-card">
+        <span class="dont-flag dont">Don't</span>
+        <div class="dont-art bad">
+          <svg viewBox="0 0 240 240" style="width: 26px; height: 26px"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="dont-cap">Use the full mark below 32&nbsp;px. Reduce to the simplified mark or monogram.</div>
+      </div>
+      <div class="panel dont-card">
+        <span class="dont-flag do">Do</span>
+        <div class="dont-art">
+          <svg viewBox="0 0 240 240" style="width: 80px; height: 80px"><use href="#azure-mark"/></svg>
+        </div>
+        <div class="dont-cap">Give the mark ½ its own height in clear space, and let it breathe.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02. Color -->
+  <section id="color" class="sec">
+    <header class="sec-head">
+      <span class="sec-num">02 / 06</span>
+      <h2 class="sec-title">The <em>palette</em></h2>
+      <p class="sec-sub">Pulled directly from the logo. Deep navy is the default surface — this is a server, not a website. Bright cyan is reserved for moments of focus: a now-playing waveform, an active filter, a primary action.</p>
+    </header>
+
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 18px;">Core five</h3>
+    <div class="grid-4" style="grid-template-columns: repeat(5, 1fr);">
+      <div class="swatch dark" style="background: #03111e;">
+        <div>
+          <div class="swatch-name">Ink</div>
+          <div class="swatch-meta">Body backdrop</div>
+        </div>
+        <div>
+          <div class="swatch-hex">#03111E</div>
+          <div class="swatch-token">--ink</div>
+        </div>
+      </div>
+      <div class="swatch dark" style="background: #07182b;">
+        <div>
+          <div class="swatch-name">Navy</div>
+          <div class="swatch-meta">App surface</div>
+        </div>
+        <div>
+          <div class="swatch-hex">#07182B</div>
+          <div class="swatch-token">--navy</div>
+        </div>
+      </div>
+      <div class="swatch dark" style="background: linear-gradient(160deg, #38bdf8, #1e7dc9);">
+        <div>
+          <div class="swatch-name">Azure</div>
+          <div class="swatch-meta">Brand core</div>
+        </div>
+        <div>
+          <div class="swatch-hex">#1E7DC9</div>
+          <div class="swatch-token">--az-500</div>
+        </div>
+      </div>
+      <div class="swatch light" style="background: #38bdf8;">
+        <div>
+          <div class="swatch-name">Bright</div>
+          <div class="swatch-meta">Focus / accent</div>
+        </div>
+        <div>
+          <div class="swatch-hex">#38BDF8</div>
+          <div class="swatch-token">--bright</div>
+        </div>
+      </div>
+      <div class="swatch light" style="background: #f4f7fb;">
+        <div>
+          <div class="swatch-name">Paper</div>
+          <div class="swatch-meta">Inverse surface</div>
+        </div>
+        <div>
+          <div class="swatch-hex">#F4F7FB</div>
+          <div class="swatch-token">--paper</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Azure ramp</h3>
+    <div class="ramp">
+      <div class="ramp-step" style="background: #e6f5ff; color: #03111e;"><span class="n">50</span><span class="h">E6F5FF</span></div>
+      <div class="ramp-step" style="background: #b9e3ff; color: #03111e;"><span class="n">100</span><span class="h">B9E3FF</span></div>
+      <div class="ramp-step" style="background: #7dcbfa; color: #03111e;"><span class="n">200</span><span class="h">7DCBFA</span></div>
+      <div class="ramp-step" style="background: #4cb5f4; color: #03111e;"><span class="n">300</span><span class="h">4CB5F4</span></div>
+      <div class="ramp-step" style="background: #1f9be4; color: #fff;"><span class="n">400</span><span class="h">1F9BE4</span></div>
+      <div class="ramp-step" style="background: #1e7dc9; color: #fff;"><span class="n">500</span><span class="h">1E7DC9</span></div>
+      <div class="ramp-step" style="background: #155e9d; color: #fff;"><span class="n">600</span><span class="h">155E9D</span></div>
+      <div class="ramp-step" style="background: #0e4471; color: #fff;"><span class="n">700</span><span class="h">0E4471</span></div>
+      <div class="ramp-step" style="background: #0a2d4f; color: #fff;"><span class="n">800</span><span class="h">0A2D4F</span></div>
+      <div class="ramp-step" style="background: #061d36; color: #fff;"><span class="n">900</span><span class="h">061D36</span></div>
+    </div>
+
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Functional accents</h3>
+    <div class="grid-4">
+      <div class="swatch light" style="background: #34d399;">
+        <div><div class="swatch-name">Mint</div><div class="swatch-meta">Success · resolved</div></div>
+        <div><div class="swatch-hex">#34D399</div><div class="swatch-token">--mint</div></div>
+      </div>
+      <div class="swatch light" style="background: #f8b738;">
+        <div><div class="swatch-name">Amber</div><div class="swatch-meta">Caution · differs</div></div>
+        <div><div class="swatch-hex">#F8B738</div><div class="swatch-token">--amber</div></div>
+      </div>
+      <div class="swatch light" style="background: #f87171;">
+        <div><div class="swatch-name">Rose</div><div class="swatch-meta">Destructive · delete</div></div>
+        <div><div class="swatch-hex">#F87171</div><div class="swatch-token">--rose</div></div>
+      </div>
+      <div class="swatch dark" style="background: #0c2238; color: var(--text-1);">
+        <div><div class="swatch-name">Slate</div><div class="swatch-meta">Card / row</div></div>
+        <div><div class="swatch-hex">#0C2238</div><div class="swatch-token">--navy-2</div></div>
+      </div>
+    </div>
+
+    <p class="muted" style="font-size: 13px; margin-top: 24px; max-width: 700px; line-height: 1.6;">
+      <b style="color: var(--text-1);">Rule of thumb.</b> Roughly <span class="mono" style="color: var(--bright);">85%</span> of any screen should sit between Ink and Navy-2. Azure 400/500 carries identity moments — the logo, primary buttons, links. Bright 400 is the loudest color and should appear in fewer than five places at once.
+    </p>
+  </section>
+
+  <!-- 03. Type -->
+  <section id="type" class="sec">
+    <header class="sec-head">
+      <span class="sec-num">03 / 06</span>
+      <h2 class="sec-title">The <em>type</em></h2>
+      <p class="sec-sub">A serif for the literary half of the product, a sans for the systems half, and a mono for the server's voice. The italic Fraunces does the talking — it's how Azure sounds when it's confident.</p>
+    </header>
+
+    <div class="grid-2" style="grid-template-columns: 1.4fr 1fr;">
+      <div class="panel">
+        <div class="panel-head">
+          <h4>Display · <span class="mono" style="color: var(--bright);">Fraunces</span></h4>
+          <span class="tag">For titles, hero copy, book covers</span>
+        </div>
+        <div class="type-stage">
+          <h2 class="type-display">A novel <em>way</em></h2>
+          <p class="type-italic-show">to hear your library.</p>
+          <div class="type-row">
+            <span class="type-tok"><b>OPSZ</b> 9..144</span>
+            <span class="type-tok"><b>WGHT</b> 400 / 500 / 600</span>
+            <span class="type-tok"><b>SOFT</b> 100</span>
+            <span class="type-tok">Italic for emphasis</span>
+          </div>
+        </div>
+        <div class="type-spec">
+          <div class="type-spec-item"><div class="lbl">Use for</div><div class="val">Hero, section titles, book covers</div></div>
+          <div class="type-spec-item"><div class="lbl">Tracking</div><div class="val">−2% to −3.5%</div></div>
+          <div class="type-spec-item"><div class="lbl">Leading</div><div class="val">0.95–1.1</div></div>
+          <div class="type-spec-item"><div class="lbl">Sizes</div><div class="val">22 / 28 / 38 / 56 / 88</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h4>UI · <span class="mono" style="color: var(--bright);">Inter</span></h4>
+          <span class="tag">For interface chrome</span>
+        </div>
+        <div class="type-stage">
+          <div style="font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 14px;">Scan complete</div>
+          <div style="font-size: 17px; color: var(--text-2); margin-bottom: 12px;">1,580 books · 12 new · 3 duplicates</div>
+          <div style="font-size: 13px; color: var(--text-3);">Most-played narrators: Kramer, Reading, Podehl.</div>
+          <div class="type-row">
+            <span class="type-tok"><b>WGHT</b> 400 / 500 / 600 / 700</span>
+            <span class="type-tok"><b>FEAT</b> cv11, ss01</span>
+          </div>
+        </div>
+        <div class="type-spec">
+          <div class="type-spec-item"><div class="lbl">Body</div><div class="val">14px / 1.5</div></div>
+          <div class="type-spec-item"><div class="lbl">Caption</div><div class="val">12px / 1.4</div></div>
+          <div class="type-spec-item"><div class="lbl">Min</div><div class="val">11px (mono only)</div></div>
+          <div class="type-spec-item"><div class="lbl">Weights</div><div class="val">400 · 500 · 600 · 700</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 22px;">
+      <div class="panel-head">
+        <h4>Mono · <span class="mono" style="color: var(--bright);">JetBrains Mono</span> — the server's voice</h4>
+        <span class="tag">For metadata, paths, timestamps, ASINs, IDs</span>
+      </div>
+      <div class="type-stage" style="padding-top: 22px;">
+        <pre class="mono" style="margin: 0; color: var(--text-2); font-size: 14px; line-height: 1.65;">
+<span style="color: var(--text-3);">$</span> azure scan --library Audiobooks
+<span style="color: var(--bright);">[scanning]</span> /app/library/Brandon Sanderson/Stormlight/
+  ↳ Book 1.m4b · <span style="color: var(--mint);">indexed</span> · ASIN <b style="color: var(--text-1);">B0041OBHM0</b> · 45h 30m
+  ↳ Book 2.m4b · <span style="color: var(--mint);">indexed</span> · ASIN <b style="color: var(--text-1);">B00DUR2DJG</b> · 48h 56m
+<span style="color: var(--amber);">[duplicate]</span> 2 versions of "The Way of Kings" detected
+<span style="color: var(--text-3);">14:32:08</span>  done · 1,580 books · 2 libraries · 4.3 TB</pre>
+      </div>
+    </div>
+
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Hierarchy in practice</h3>
+    <div class="panel">
+      <div class="panel-body">
+        <div class="scale-row">
+          <span class="label">DISPLAY / D1</span>
+          <span class="specimen" style="font-family: var(--font-display); font-size: 64px; font-weight: 500; letter-spacing: -0.025em; line-height: .95;">The Way of Kings</span>
+          <span class="specifics">Fraunces 500 · 64/61 · −2.5%</span>
+        </div>
+        <div class="scale-row">
+          <span class="label">DISPLAY / D2</span>
+          <span class="specimen" style="font-family: var(--font-display); font-size: 38px; font-weight: 500; letter-spacing: -0.02em;">Continue listening</span>
+          <span class="specifics">Fraunces 500 · 38/42 · −2%</span>
+        </div>
+        <div class="scale-row">
+          <span class="label">HEADING / H1</span>
+          <span class="specimen" style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em;">Duplicate Resolver</span>
+          <span class="specifics">Inter 600 · 22/28 · −1%</span>
+        </div>
+        <div class="scale-row">
+          <span class="label">BODY</span>
+          <span class="specimen" style="font-size: 14px;">Compare possible duplicates side-by-side, pick the version to keep, and merge metadata in one pass.</span>
+          <span class="specifics">Inter 400 · 14/22</span>
+        </div>
+        <div class="scale-row">
+          <span class="label">EYEBROW</span>
+          <span class="specimen" style="font-family: var(--font-mono); font-size: 11px; color: var(--bright); letter-spacing: .14em; text-transform: uppercase;">Library hygiene</span>
+          <span class="specifics">JetBrains 500 · 11px · +14%</span>
+        </div>
+        <div class="scale-row">
+          <span class="label">METADATA</span>
+          <span class="specimen" style="font-family: var(--font-mono); font-size: 12px; color: var(--text-3);">ASIN B0041OBHM0 · 45h 30m · 1.3 GB</span>
+          <span class="specifics">JetBrains 400 · 12/16</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04. Motifs -->
+  <section id="motifs" class="sec">
+    <header class="sec-head">
+      <span class="sec-num">04 / 06</span>
+      <h2 class="sec-title">The <em>motifs</em></h2>
+      <p class="sec-sub">Each piece of the mark can stand on its own as a decorative element — empty states, section dividers, swag, OG images. Used line-only so the mark stays the only "filled" version.</p>
+    </header>
+
+    <div class="grid-4">
+      <div class="motif">
+        <div class="motif-art" style="color: var(--bright);">
+          <svg viewBox="0 0 200 120" style="width: 80%; height: auto;"><use href="#m-cloud"/></svg>
+        </div>
+        <h5>Cloud</h5>
+        <p>Self-hosted. The cloud you built yourself, not one you rent. Used near hosting, deployment, and sync.</p>
+      </div>
+      <div class="motif">
+        <div class="motif-art" style="color: var(--text-2);">
+          <svg viewBox="0 0 200 140" style="width: 80%; height: auto;"><use href="#m-book"/></svg>
+        </div>
+        <h5>Open book</h5>
+        <p>The library. Used near scan, import, metadata, and any view of the collection itself.</p>
+      </div>
+      <div class="motif">
+        <div class="motif-art" style="color: var(--bright);">
+          <svg viewBox="0 0 200 140" style="width: 80%; height: auto;"><use href="#m-wave"/></svg>
+        </div>
+        <h5>Waveform</h5>
+        <p>Playback. The "now" of the product. Animates left-to-right when audio is active. Used in the player and on covers.</p>
+      </div>
+      <div class="motif">
+        <div class="motif-art" style="color: var(--text-2);">
+          <svg viewBox="0 0 200 140" style="width: 80%; height: auto;"><use href="#m-headphones"/></svg>
+        </div>
+        <h5>Headphones</h5>
+        <p>The listener. Used for personal moments — account, sessions, profile, sleep timer.</p>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top: 22px;">
+      <div class="panel">
+        <div class="panel-head"><h4>Pattern · the waveform texture</h4><span class="tag">Background motif</span></div>
+        <div class="lockup-stage" style="background: var(--ink); padding: 0; min-height: 220px; position: relative; overflow: hidden;">
+          <svg viewBox="0 0 800 220" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%; opacity: .55;">
+            <g stroke="#38bdf8" stroke-width="2" stroke-linecap="round">
+              <!-- generated waveform: rhythmic -->
+              <g id="wavepat"></g>
+            </g>
+          </svg>
+          <div style="position: relative; text-align: center; padding: 32px;">
+            <div style="font-family: var(--font-display); font-style: italic; font-size: 28px; letter-spacing: -0.01em;">Press play.</div>
+            <div class="mono" style="font-size: 11px; color: var(--text-3); letter-spacing: .2em; text-transform: uppercase; margin-top: 8px;">Waveform · 1px / 6px stride</div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h4>Grid · the server rack</h4><span class="tag">Layout motif</span></div>
+        <div class="lockup-stage" style="background: var(--navy); padding: 0; min-height: 220px; position: relative; overflow: hidden;">
+          <div style="position: absolute; inset: 0;
+            background-image: linear-gradient(rgba(56,189,248,.16) 1px, transparent 1px);
+            background-size: 100% 14px;"></div>
+          <div style="position: absolute; inset: 0;
+            background-image: linear-gradient(90deg, rgba(56,189,248,.06) 1px, transparent 1px);
+            background-size: 56px 100%;"></div>
+          <div style="position: relative; text-align: center; padding: 32px;">
+            <div style="font-family: var(--font-display); font-style: italic; font-size: 28px; letter-spacing: -0.01em;">Stacked. Organized.</div>
+            <div class="mono" style="font-size: 11px; color: var(--text-3); letter-spacing: .2em; text-transform: uppercase; margin-top: 8px;">Rack · 14px row · 56px column</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 05. Voice -->
+  <section id="voice" class="sec">
+    <header class="sec-head">
+      <span class="sec-num">05 / 06</span>
+      <h2 class="sec-title">The <em>voice</em></h2>
+      <p class="sec-sub">Azure speaks the way a librarian who happens to run servers would speak. Quiet, specific, occasionally dry. Never breathless, never marketing-y, never "✨magical✨".</p>
+    </header>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head"><h4>What we sound like</h4><span class="tag">Tone words</span></div>
+        <div class="panel-body" style="padding: 0;">
+          <table class="voice-table">
+            <thead><tr><th style="width: 50%;">Is</th><th>Isn't</th></tr></thead>
+            <tbody>
+              <tr><td class="is">"Studio, not a stage."</td><td class="isnt">Loud, breathless, exclamatory</td></tr>
+              <tr><td class="is">"Quietly confident."</td><td class="isnt">Cocky, hype-y, "industry-leading"</td></tr>
+              <tr><td class="is">"Technical when it helps."</td><td class="isnt">Technical to show off</td></tr>
+              <tr><td class="is">"Plain English, on purpose."</td><td class="isnt">Jargon-laden, AI-flavored</td></tr>
+              <tr><td class="is">"Specific over clever."</td><td class="isnt">Cute, punny, emoji-heavy</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h4>Sample copy</h4><span class="tag">Where Azure speaks</span></div>
+        <div class="panel-body" style="display: flex; flex-direction: column; gap: 20px;">
+          <div>
+            <div class="mono" style="font-size: 10px; color: var(--bright); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px;">Tagline</div>
+            <div style="font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 28px; line-height: 1.15; letter-spacing: -0.02em;">Your library, your server, your sound.</div>
+          </div>
+          <div>
+            <div class="mono" style="font-size: 10px; color: var(--bright); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px;">One-liner</div>
+            <div style="font-size: 15px; color: var(--text-2); line-height: 1.55;">A private audiobook server you actually run yourself. Drop your collection in, scan once, listen from anywhere.</div>
+          </div>
+          <div>
+            <div class="mono" style="font-size: 10px; color: var(--bright); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px;">Empty state</div>
+            <div style="font-size: 15px; color: var(--text-2); line-height: 1.55;"><span style="font-family: var(--font-display); font-style: italic;">Nothing here yet.</span> Point Azure at a folder and it'll take care of the rest.</div>
+          </div>
+          <div>
+            <div class="mono" style="font-size: 10px; color: var(--bright); letter-spacing: .14em; text-transform: uppercase; margin-bottom: 6px;">Error</div>
+            <div style="font-size: 15px; color: var(--text-2); line-height: 1.55;">Scan stopped — couldn't reach <span class="mono" style="color: var(--text-1);">/app/library/Audiobooks</span>. Check that the volume is mounted and try again.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 06. Applications -->
+  <section id="apps" class="sec">
+    <header class="sec-head">
+      <span class="sec-num">06 / 06</span>
+      <h2 class="sec-title">In <em>use</em></h2>
+      <p class="sec-sub">A few opinionated applications of the system — app icons, the boot splash, social cards, swag. None of these are required surfaces; they're sketches of how the brand sits in the world.</p>
+    </header>
+
+    <!-- App icons -->
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 0 0 18px;">App icon set</h3>
+    <div class="grid-4">
+      <div>
+        <div class="app-icon ios-mask" style="background: linear-gradient(160deg, #061d36, #0e4471);">
+          <svg viewBox="0 0 240 240" style="width: 64%; height: 64%; filter: drop-shadow(0 4px 12px rgba(0,0,0,.4));"><use href="#azure-simple"/></svg>
+        </div>
+        <div class="app-icon-foot">iOS · simplified mark on navy</div>
+      </div>
+      <div>
+        <div class="app-icon ios-mask" style="background: linear-gradient(160deg, #38bdf8, #1e7dc9);">
+          <svg viewBox="0 0 240 240" style="width: 64%; height: 64%; color: #061d36;"><use href="#azure-simple"/></svg>
+        </div>
+        <div class="app-icon-foot">iOS · light tile</div>
+      </div>
+      <div>
+        <div class="app-icon ios-mask" style="background: #03111e; position: relative;">
+          <svg viewBox="0 0 240 240" style="width: 56%; height: 56%; color: var(--bright);"><use href="#azure-mono"/></svg>
+        </div>
+        <div class="app-icon-foot">Monochrome · dark mode home screen</div>
+      </div>
+      <div>
+        <div class="app-icon ios-mask" style="background: var(--paper); position: relative; overflow: hidden;">
+          <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(11,40,71,.07) 1px, transparent 1px); background-size: 100% 8px;"></div>
+          <svg viewBox="0 0 240 240" style="position: relative; width: 56%; height: 56%; color: var(--ink);"><use href="#azure-mono"/></svg>
+        </div>
+        <div class="app-icon-foot">Paper · documentation site</div>
+      </div>
+    </div>
+
+    <!-- splash / login -->
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Boot splash &amp; sign-in</h3>
+    <div class="grid-2">
+      <div class="window">
+        <div class="window-bar">
+          <div class="window-dot" style="background: #ff5f57;"></div>
+          <div class="window-dot" style="background: #febc2e;"></div>
+          <div class="window-dot" style="background: #28c840;"></div>
+          <div class="window-title">azure.local</div>
+        </div>
+        <div style="aspect-ratio: 16 / 10; background: radial-gradient(800px 600px at 50% 80%, rgba(56,189,248,.2), transparent 60%), linear-gradient(180deg, #061427 0%, #0a2138 100%); display: grid; place-items: center; position: relative; overflow: hidden;">
+          <!-- subtle grid -->
+          <div style="position: absolute; inset: 0; background-image: linear-gradient(rgba(56,189,248,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,.06) 1px, transparent 1px); background-size: 48px 48px; mask-image: radial-gradient(circle at 50% 50%, black, transparent 70%);"></div>
+          <div style="position: relative; text-align: center;">
+            <svg viewBox="0 0 240 240" style="width: 120px; height: 120px; margin: 0 auto 18px; display: block; filter: drop-shadow(0 12px 32px rgba(56,189,248,.4));"><use href="#azure-mark"/></svg>
+            <div style="font-family: var(--font-display); font-weight: 500; font-size: 36px; letter-spacing: -0.02em;">Welcome back.</div>
+            <div style="font-family: var(--font-display); font-style: italic; font-size: 18px; color: var(--bright); margin-top: 4px;">Your library is ready.</div>
+            <div style="display: inline-flex; gap: 4px; align-items: center; margin-top: 18px; padding: 6px 12px; background: rgba(56,189,248,.1); border: 1px solid rgba(56,189,248,.3); border-radius: 999px; font-family: var(--font-mono); font-size: 11px; color: var(--bright); letter-spacing: .04em;">
+              <span style="width: 6px; height: 6px; background: var(--mint); border-radius: 50%; box-shadow: 0 0 8px var(--mint);"></span>
+              SERVER ONLINE · 1,580 BOOKS
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="window">
+        <div class="window-bar">
+          <div class="window-dot" style="background: #ff5f57;"></div>
+          <div class="window-dot" style="background: #febc2e;"></div>
+          <div class="window-dot" style="background: #28c840;"></div>
+          <div class="window-title">azure · sign in</div>
+        </div>
+        <div style="aspect-ratio: 16 / 10; background: linear-gradient(180deg, #061427 0%, #0a2138 100%); padding: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: center;">
+          <div>
+            <svg viewBox="0 0 240 240" style="width: 56px; height: 56px; margin-bottom: 18px;"><use href="#azure-mark"/></svg>
+            <div style="font-family: var(--font-display); font-weight: 500; font-size: 28px; letter-spacing: -0.02em; line-height: 1.05;">Sign in to <em style="color: var(--bright); font-style: italic;">Azure</em></div>
+            <div style="color: var(--text-3); font-size: 13px; margin-top: 10px; line-height: 1.5;">Default credentials are <span class="mono" style="color: var(--text-2);">admin / admin123</span> on first run. Change them.</div>
+          </div>
+          <div>
+            <div style="background: var(--navy-2); border: 1px solid var(--line); border-radius: 12px; padding: 18px;">
+              <div style="font-size: 11px; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px;">Username</div>
+              <div style="height: 36px; background: var(--ink); border: 1px solid var(--line); border-radius: 7px; margin-bottom: 14px; padding: 9px 12px; font-family: var(--font-mono); font-size: 13px; color: var(--text-1);">cori</div>
+              <div style="font-size: 11px; color: var(--text-3); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 6px;">Password</div>
+              <div style="height: 36px; background: var(--ink); border: 1px solid var(--bright); border-radius: 7px; margin-bottom: 16px; padding: 9px 12px; font-family: var(--font-mono); font-size: 13px; color: var(--text-1); box-shadow: 0 0 0 3px rgba(56,189,248,.18);">••••••••</div>
+              <div style="height: 38px; background: linear-gradient(180deg, #38bdf8, #1e7dc9); border-radius: 8px; display: grid; place-items: center; color: #042233; font-weight: 600; font-size: 13px; box-shadow: 0 6px 20px -8px rgba(56,189,248,.6);">Sign in →</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OG image -->
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Social card (1200 × 630)</h3>
+    <div class="og-card">
+      <div style="position: relative; display: flex; align-items: center; gap: 14px;">
+        <svg viewBox="0 0 240 240" style="width: 44px; height: 44px;"><use href="#azure-mark"/></svg>
+        <span style="font-family: var(--font-display); font-weight: 700; font-size: 24px; letter-spacing: -0.01em;">Azure</span>
+        <span class="mono" style="font-size: 11px; color: var(--text-3); padding-left: 14px; border-left: 1px solid var(--line); margin-left: 4px; letter-spacing: .1em;">SELF-HOSTED · OPEN SOURCE</span>
+      </div>
+      <div style="position: relative;">
+        <div style="font-family: var(--font-display); font-weight: 500; font-size: 64px; line-height: .95; letter-spacing: -0.025em; max-width: 700px;">A private audiobook server <em style="color: var(--bright); font-style: italic;">you actually run.</em></div>
+        <div style="font-family: var(--font-display); font-style: italic; font-size: 22px; color: var(--text-2); margin-top: 22px;">Drop a folder in. Scan once. Listen from anywhere.</div>
+      </div>
+      <div style="position: relative; display: flex; align-items: center; gap: 18px; font-family: var(--font-mono); font-size: 12px; color: var(--text-3); letter-spacing: .04em;">
+        <span><b style="color: var(--text-1); font-family: var(--font-sans); font-weight: 600;">Docker</b> · one-command deploy</span>
+        <span style="width: 4px; height: 4px; background: var(--text-4); border-radius: 50%;"></span>
+        <span><b style="color: var(--text-1); font-family: var(--font-sans); font-weight: 600;">PWA</b> · works on every phone</span>
+        <span style="width: 4px; height: 4px; background: var(--text-4); border-radius: 50%;"></span>
+        <span><b style="color: var(--text-1); font-family: var(--font-sans); font-weight: 600;">Postgres</b> · your data, your db</span>
+      </div>
+    </div>
+
+    <!-- swag -->
+    <h3 style="font-family: var(--font-display); font-weight: 500; font-size: 22px; letter-spacing: -0.01em; margin: 48px 0 18px;">Swag — sticker &amp; business card</h3>
+    <div class="grid-2">
+      <div class="grid-2">
+        <div>
+          <div class="sticker dark" style="aspect-ratio: 1;">
+            <div class="ring"></div>
+            <div style="text-align: center;">
+              <svg viewBox="0 0 240 240" style="width: 56%; display: block; margin: 0 auto;"><use href="#azure-simple"/></svg>
+              <div style="font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: 14px; margin-top: 4px; color: var(--paper);">your sound</div>
+            </div>
+          </div>
+          <div class="app-icon-foot">3" die-cut · matte black</div>
+        </div>
+        <div>
+          <div class="sticker" style="aspect-ratio: 1;">
+            <div class="ring"></div>
+            <div style="text-align: center;">
+              <svg viewBox="0 0 240 240" style="width: 56%; display: block; margin: 0 auto;"><use href="#azure-mark"/></svg>
+              <div style="font-family: var(--font-mono); font-size: 9px; margin-top: 4px; letter-spacing: .2em; color: var(--ink);">SELF · HOSTED</div>
+            </div>
+          </div>
+          <div class="app-icon-foot">3" die-cut · soft-touch white</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card-stack">
+          <div class="biz-card back">
+            <div>
+              <svg viewBox="0 0 240 240" style="width: 28px; height: 28px;"><use href="#azure-mark"/></svg>
+              <div style="font-family: var(--font-display); font-weight: 500; font-size: 18px; margin-top: 10px; letter-spacing: -0.01em;">Azure</div>
+              <div class="mono" style="font-size: 10px; color: var(--text-3); letter-spacing: .14em; text-transform: uppercase; margin-top: 2px;">Audiobook Server</div>
+            </div>
+            <div style="font-family: var(--font-mono); font-size: 11px; line-height: 1.6;">
+              <div>azure.<b>local</b></div>
+              <div style="color: var(--text-3); margin-top: 2px;">github.com/azure-audiobooks</div>
+            </div>
+          </div>
+          <div class="biz-card front">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <svg viewBox="0 0 240 240" style="width: 36px; height: 36px;"><use href="#azure-mark"/></svg>
+              <div class="bar-track">
+                <div class="bar" style="height: 20%;"></div>
+                <div class="bar" style="height: 70%;"></div>
+                <div class="bar" style="height: 40%;"></div>
+                <div class="bar" style="height: 90%;"></div>
+                <div class="bar" style="height: 30%;"></div>
+                <div class="bar" style="height: 60%;"></div>
+                <div class="bar" style="height: 50%;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-family: var(--font-display); font-style: italic; font-size: 22px; letter-spacing: -0.01em; line-height: 1.15;">Your library, your server, your sound.</div>
+              <div class="mono" style="font-size: 11px; color: var(--text-2); margin-top: 14px; letter-spacing: .04em;">CORI ·  ADMIN ·  ROOM 09</div>
+            </div>
+          </div>
+        </div>
+        <div class="app-icon-foot">3.5" × 2.2" · soft-touch laminate</div>
+      </div>
+    </div>
+
+    <!-- footer card -->
+    <div class="panel" style="margin-top: 64px;">
+      <div class="panel-body" style="padding: 28px; display: flex; align-items: center; gap: 24px; justify-content: space-between; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <svg viewBox="0 0 240 240" style="width: 56px; height: 56px;"><use href="#azure-mark"/></svg>
+          <div>
+            <div style="font-family: var(--font-display); font-weight: 600; font-size: 22px; letter-spacing: -0.01em;">Azure Brand Identity</div>
+            <div class="mono" style="font-size: 11px; color: var(--text-3); letter-spacing: .1em; margin-top: 2px;">v1.0 · MAY 2026 · INTERNAL · LIVING DOCUMENT</div>
+          </div>
+        </div>
+        <div style="font-family: var(--font-display); font-style: italic; font-size: 18px; color: var(--text-2); max-width: 480px; line-height: 1.4;">
+          When in doubt, choose the quieter answer. Azure is a server — let the library make the noise.
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // generate waveform pattern
+  (function(){
+    var g = document.getElementById('wavepat');
+    if (!g) return;
+    var html = '';
+    var x = 0;
+    for (var i = 0; i < 160; i++) {
+      var h = 30 + Math.sin(i * 0.3) * 25 + Math.sin(i * 0.7 + 1) * 18 + Math.random() * 14;
+      var y1 = 110 - h;
+      var y2 = 110 + h;
+      html += '<line x1="' + x + '" y1="' + y1 + '" x2="' + x + '" y2="' + y2 + '" />';
+      x += 5;
+    }
+    g.innerHTML = html;
+  })();
+</script>
+</body>
+</html>

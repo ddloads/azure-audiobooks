@@ -13,6 +13,7 @@ import {
   Trash2,
   Save,
   Sparkles,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { io } from "socket.io-client";
@@ -26,6 +27,7 @@ import BookMetadataModal from "../components/BookMetadataModal";
 import UploadModal from "../components/UploadModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
+import SearchBox from "../components/SearchBox";
 import QuickMatchModal from "../features/quick-match/QuickMatchModal";
 import {
   defaultQuickMatchFields,
@@ -1110,6 +1112,56 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   return (
     <>
     <div className="container library-page">
+      {/* Mobile-only search/filter/sort toolbar — TopBar is hidden on mobile */}
+      <div className="library-mobile-toolbar">
+        <SearchBox
+          value={search}
+          onChange={(value) => {
+            const next = new URLSearchParams(searchParams);
+            if (value) next.set("search", value);
+            else next.delete("search");
+            setSearchParams(next, { replace: true });
+          }}
+        />
+        <button
+          type="button"
+          className={`btn btn-secondary filter-toggle-btn${isFilterPanelOpen || activeFilterCount > 0 ? " active" : ""}`}
+          onClick={() => {
+            const next = new URLSearchParams(searchParams);
+            if (isFilterPanelOpen) next.delete("filterPanel");
+            else next.set("filterPanel", "open");
+            setSearchParams(next, { replace: true });
+          }}
+          title="Filters"
+        >
+          <SlidersHorizontal size={15} />
+          {activeFilterCount > 0 && <span className="filter-count-badge">{activeFilterCount}</span>}
+        </button>
+        <div className="select-wrap">
+          <select
+            className="form-control"
+            value={sortBy}
+            onChange={(e) => {
+              const next = new URLSearchParams(searchParams);
+              next.set("sortBy", e.target.value);
+              setSearchParams(next);
+            }}
+            aria-label="Sort order"
+          >
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="title_asc">A–Z</option>
+            <option value="title_desc">Z–A</option>
+            <option value="author_asc">Author A–Z</option>
+            <option value="author_desc">Author Z–A</option>
+            <option value="duration_asc">Shortest</option>
+            <option value="duration_desc">Longest</option>
+            <option value="year_desc">Year ↓</option>
+            <option value="year_asc">Year ↑</option>
+          </select>
+        </div>
+      </div>
+
       <div className={`library-filter-panel-wrapper${isFilterPanelOpen ? " open" : ""}`}>
         <section className="library-filter-panel">
           <div className="library-filter-panel-head">
