@@ -117,6 +117,7 @@ export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps)
             <a
               className={`btn btn-primary connect-mobile-download-btn${mobileRelease ? "" : " disabled"}`}
               href={mobileRelease?.downloadUrl ?? undefined}
+              download={mobileRelease?.fileName ?? undefined}
               aria-disabled={!mobileRelease}
               onClick={(event) => {
                 if (!mobileRelease) event.preventDefault();

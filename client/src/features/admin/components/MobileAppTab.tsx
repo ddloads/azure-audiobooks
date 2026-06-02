@@ -112,6 +112,7 @@ export default function MobileAppTab() {
             <a
               className="btn btn-secondary"
               href={release.downloadUrl}
+              download={release.fileName}
               style={{ marginTop: "1rem" }}
             >
               <Download size={14} />
