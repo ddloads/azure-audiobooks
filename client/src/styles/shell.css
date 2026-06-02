@@ -509,7 +509,7 @@
   }
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1023px) {
   .topbar-scan-progress {
     width: clamp(220px, 38vw, 360px);
   }

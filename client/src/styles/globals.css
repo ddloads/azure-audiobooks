@@ -3,6 +3,28 @@
 @import "./mobile.css";
 @import "./shell.css";
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Responsive breakpoints
+ *
+ * The codebase standardises on these tiers. When adding a new @media rule,
+ * pick the closest tier rather than introducing a one-off breakpoint.
+ *
+ *   Tier     min-width  max-width form  Typical device
+ *   ──────── ────────── ─────────────── ───────────────────────────────────
+ *   phone    ≥ 480px    max-width: 479  small phones (handled per-page)
+ *   mobile   ≥ 720px    max-width: 719  phones and small tablets portrait
+ *   tablet   ≥ 1024px   max-width: 1023 tablet portrait / mobile cutoff
+ *   desktop  ≥ 1280px   max-width: 1279 standard laptop and up
+ *
+ * `max-width: 1023px` is the single source of truth for "this is a mobile
+ * device" in shell.css — that's where the sidebar/topbar/player tray flip
+ * to the mobile bottom-nav shell. Stay below 1024 for mobile-only rules.
+ *
+ * Legacy breakpoints still in the codebase (420, 480, 560, 768, 820, 1180)
+ * are intentional design points for specific components; migrate them to
+ * the standard tiers when touching the surrounding code.
+ * ───────────────────────────────────────────────────────────────────────── */
+
 @theme {
   /* Map the project colour palette into Tailwind utility names */
   --color-background: #03111e;
@@ -598,7 +620,7 @@ select.form-control {
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-width: 320px;
+  min-width: 0;
 }
 
 .search-box {
@@ -5989,7 +6011,7 @@ input[type='range']::-moz-range-thumb {
   box-shadow: 0 0 16px var(--primary-glow);
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1023px) {
   .admin-settings-layout {
     grid-template-columns: 1fr;
   }
@@ -8174,7 +8196,7 @@ body {
   color: var(--primary-light);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1023px) {
   .library-header {
     flex-direction: column;
   }
@@ -8190,7 +8212,7 @@ body {
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 720px) {
   .home-page,
   .library-page {
     padding: 18px 14px 34px;
@@ -9439,7 +9461,7 @@ body {
   line-height: 1.4;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1023px) {
   .tray-static {
     grid-template-columns: 56px minmax(140px, 0.8fr) minmax(240px, 1fr) minmax(180px, auto);
     gap: 10px 12px;
@@ -10142,6 +10164,11 @@ body {
   gap: 0.5rem;
 }
 
+@media (max-width: 720px) {
+  .history-page { padding: 1rem 0.875rem; max-width: none; }
+  .history-item { padding: 0.625rem 0.75rem; }
+}
+
 .history-item-skeleton {
   display: flex;
   align-items: center;
@@ -10369,7 +10396,8 @@ body {
   margin-bottom: 2rem;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 720px) {
+  .stats-page { padding: 1rem 0.875rem; max-width: none; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
