@@ -6,6 +6,7 @@ type RunMessage = {
   jobId: string;
   libraryId?: string;
   folderPath?: string;
+  trigger: string;
 };
 
 type CancelMessage = {
@@ -67,11 +68,13 @@ port.on("message", async (message: WorkerMessage) => {
       await syncLibraryFolder(message.libraryId, message.folderPath, {
         emitProgress: (data) => emitProgress(message.jobId, data),
         shouldStop: () => currentJob?.cancelled ?? false,
+        trigger: message.trigger,
       });
     } else {
       await scanLibrary(message.libraryId, {
         emitProgress: (data) => emitProgress(message.jobId, data),
         shouldStop: () => currentJob?.cancelled ?? false,
+        trigger: message.trigger,
       });
     }
     if (currentJob.cancelled) {

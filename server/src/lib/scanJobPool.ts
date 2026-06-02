@@ -19,7 +19,7 @@ type EnqueueOptions = {
 };
 
 type WorkerCommand =
-  | { type: "run"; jobId: string; libraryId?: string; folderPath?: string }
+  | { type: "run"; jobId: string; libraryId?: string; folderPath?: string; trigger: string }
   | { type: "cancel"; jobId?: string };
 
 type WorkerResponse =
@@ -296,6 +296,7 @@ class ScanJobPool {
         jobId: job.id,
         libraryId: job.libraryId,
         folderPath: job.folderPath,
+        trigger: job.trigger,
       } satisfies WorkerCommand);
       dispatched = true;
     }

@@ -45,11 +45,17 @@ export type ScanProgressPayload = {
 type ScanRunContext = {
   emitProgress?: (data: ScanProgressPayload) => void;
   shouldStop?: () => boolean;
+  trigger?: string;
 };
 
 const canonicalizeFolderPath = (input: string) => {
   const normalized = normalizeSourcePath(input);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+};
+
+const sameOrderedFilenames = (left: string[], right: string[]) => {
+  if (left.length !== right.length) return false;
+  return left.every((filename, index) => filename.toLowerCase() === right[index].toLowerCase());
 };
 
 const isProtectedDirectory = (dirPath: string) => {
@@ -363,7 +369,7 @@ const upsertBookFolder = async (
     return;
   }
 
-  const existingBook = await prisma.book.findFirst({
+  let existingBook = await prisma.book.findFirst({
     where: {
       libraryId,
       folderPath: {
@@ -380,6 +386,7 @@ const upsertBookFolder = async (
       },
       audioFiles: {
         select: {
+          id: true,
           filename: true,
           title: true,
           path: true,
@@ -394,6 +401,63 @@ const upsertBookFolder = async (
     },
   });
 
+  if (!existingBook) {
+    const candidates = await prisma.book.findMany({
+      where: {
+        libraryId,
+        audioFiles: {
+          some: {
+            filename: {
+              equals: audioFiles[0],
+              mode: "insensitive",
+            },
+          },
+        },
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        audioFiles: {
+          select: {
+            id: true,
+            filename: true,
+            title: true,
+            path: true,
+            duration: true,
+            index: true,
+          },
+          orderBy: {
+            index: "asc",
+          },
+        },
+        _count: { select: { audioFiles: true, chapters: true } },
+      },
+    });
+
+    const renamedCandidates = candidates.filter((candidate) => {
+      if (canonicalizeFolderPath(candidate.folderPath) === canonicalizeFolderPath(folderPath)) {
+        return false;
+      }
+      if (fs.existsSync(candidate.folderPath)) {
+        return false;
+      }
+
+      return sameOrderedFilenames(
+        candidate.audioFiles.map((audioFile) => audioFile.filename).sort(),
+        audioFiles,
+      );
+    });
+
+    if (renamedCandidates.length === 1) {
+      existingBook = renamedCandidates[0];
+      console.info(`[scanner] remapping renamed book folder: ${existingBook.folderPath} -> ${folderPath}`);
+    }
+  }
+
   // Skip metadata extraction only if file count matches AND we already ran the current extractor
   const skipMetadata =
     !forceMetadata &&
@@ -402,8 +466,8 @@ const upsertBookFolder = async (
     existingBook.metadataVersion >= METADATA_VERSION;
   const canReuseAudioIndex =
     skipMetadata &&
-    existingBook.audioFiles.length === audioFiles.length &&
-    existingBook.audioFiles.every((audioFile, index) => audioFile.filename === audioFiles[index]);
+    (existingBook?.audioFiles.length ?? 0) === audioFiles.length &&
+    (existingBook?.audioFiles.every((audioFile, index) => audioFile.filename === audioFiles[index]) ?? false);
 
   const firstAudioPath = path.join(folderPath, audioFiles[0]);
 
@@ -656,7 +720,21 @@ const upsertBookFolder = async (
     });
   }
 
-  if (canReuseAudioIndex) {
+  if (canReuseAudioIndex && existingBook) {
+    await Promise.all(
+      existingBook.audioFiles.map((audioFile) => {
+        const nextPath = path.join(folderPath, audioFile.filename);
+        if (audioFile.path === nextPath) {
+          return Promise.resolve();
+        }
+
+        return prisma.audioFile.update({
+          where: { id: audioFile.id },
+          data: { path: nextPath },
+        });
+      }),
+    );
+
     if (existingBook._count.chapters === 0 && existingBook.audioFiles.length > 0) {
       const generatedChapters = await generateSmartChapters(
         existingBook.audioFiles,
@@ -794,6 +872,7 @@ export const syncLibraryFolder = async (
 ) => {
   const emitProgress = context.emitProgress ?? (() => {});
   const shouldStop = context.shouldStop ?? (() => false);
+  const isWatchFolderScan = context.trigger === "watch-folder";
   const folderPath = normalizeSourcePath(folderPathInput);
   const folderName = path.basename(folderPath);
 
@@ -809,7 +888,9 @@ export const syncLibraryFolder = async (
   if (shouldStop()) return;
 
   if (!fs.existsSync(folderPath) || !fs.statSync(folderPath).isDirectory()) {
-    await deleteBookFolderIfPresent(libraryId, folderPath);
+    if (!isWatchFolderScan) {
+      await deleteBookFolderIfPresent(libraryId, folderPath);
+    }
     emitProgress({
       libraryId,
       status: "completed",
