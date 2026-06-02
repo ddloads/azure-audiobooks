@@ -301,6 +301,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const [isLoadingMoreBooks, setIsLoadingMoreBooks] = useState(false);
   const [seriesOverview, setSeriesOverview] = useState<SeriesOverviewGroup[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
+  const [filterOptionsLoaded, setFilterOptionsLoaded] = useState(false);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [filters, setFilters] = useState<LibraryFilters>(() => getFiltersFromParams(searchParams));
   const isFilterPanelOpen = searchParams.get("filterPanel") === "open";
@@ -529,6 +530,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     try {
       const filtersRes = await api.get("/library/filters");
       setFilterOptions(filtersRes.data);
+      setFilterOptionsLoaded(true);
     } catch (error) {
       console.error("Failed to fetch libraries", error);
     }
@@ -608,7 +610,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
       if (shouldRefreshLibrary) {
         if (viewMode === "series" && !filterSeriesId) void fetchSeriesOverview();
         else void fetchBooks();
-        void fetchLibraries();
+        if (filterOptionsLoaded) void fetchLibraries();
       }
       setTimeout(() => setScanProgress(null), 5000);
     }
@@ -661,8 +663,10 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   }, []);
 
   useEffect(() => {
-    void fetchLibraries();
-  }, []);
+    if (isFilterPanelOpen && !filterOptionsLoaded) {
+      void fetchLibraries();
+    }
+  }, [filterOptionsLoaded, isFilterPanelOpen]);
 
   useEffect(() => {
     const socket = io(getSocketBaseUrl(), {

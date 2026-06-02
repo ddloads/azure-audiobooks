@@ -4,6 +4,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import crypto from "crypto";
 import sharp from "sharp";
+import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder, findCoverInFolderAsync } from "../utils/covers";
@@ -117,7 +118,7 @@ const hasTag = (value: string | null | undefined, tagName: string) =>
 
 const isReviewBook = (value: string | null | undefined) => hasTag(value, "review");
 
-const FILTER_OPTIONS_CACHE_TTL_MS = 30_000;
+const FILTER_OPTIONS_CACHE_TTL_MS = 10 * 60_000;
 let filterOptionsCache:
   | {
       createdAt: number;
@@ -390,7 +391,26 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
       return;
     }
 
-    const [libraries, authors, series, narratorRows, metadataRows, audioFileRows] = await Promise.all([
+    const visibleBookWhere: Prisma.BookWhereInput = appearanceSettings.showReviewBooks
+      ? {}
+      : {
+          OR: [
+            { tags: null },
+            { NOT: { tags: { contains: "review", mode: "insensitive" } } },
+          ],
+        };
+
+    const [
+      libraries,
+      authors,
+      series,
+      narratorRows,
+      publisherRows,
+      languageRows,
+      yearRows,
+      metadataRows,
+      audioFileRows,
+    ] = await Promise.all([
       prisma.library.findMany({
         where: { isActive: true },
         select: { id: true, name: true, description: true, _count: { select: { books: true, sources: true } } },
@@ -405,16 +425,32 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
         orderBy: { name: "asc" },
       }),
       prisma.book.findMany({
-        where: { narrator: { not: null } },
+        where: { ...visibleBookWhere, narrator: { not: null } },
         select: { narrator: true },
         distinct: ["narrator"],
         orderBy: { narrator: "asc" },
       }),
       prisma.book.findMany({
+        where: { ...visibleBookWhere, publisher: { not: null } },
+        select: { publisher: true },
+        distinct: ["publisher"],
+        orderBy: { publisher: "asc" },
+      }),
+      prisma.book.findMany({
+        where: { ...visibleBookWhere, language: { not: null } },
+        select: { language: true },
+        distinct: ["language"],
+        orderBy: { language: "asc" },
+      }),
+      prisma.book.findMany({
+        where: { ...visibleBookWhere, year: { not: null } },
+        select: { year: true },
+        distinct: ["year"],
+        orderBy: { year: "asc" },
+      }),
+      prisma.book.findMany({
+        where: visibleBookWhere,
         select: {
-          publisher: true,
-          language: true,
-          year: true,
           genres: true,
           tags: true,
         },
@@ -432,26 +468,16 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
       ),
     ).sort();
 
-    const visibleMetadataRows = appearanceSettings.showReviewBooks
-      ? metadataRows
-      : metadataRows.filter((row) => !isReviewBook(row.tags));
-
     const response = {
       libraries,
       authors,
       series,
       narrators: narratorRows.map((row) => row.narrator).filter((value): value is string => Boolean(value)),
-      publishers: Array.from(
-        new Set(visibleMetadataRows.map((row) => row.publisher).filter((value): value is string => Boolean(value))),
-      ).sort(),
-      languages: Array.from(
-        new Set(visibleMetadataRows.map((row) => row.language).filter((value): value is string => Boolean(value))),
-      ).sort(),
-      years: Array.from(
-        new Set(visibleMetadataRows.map((row) => row.year).filter((value): value is string => Boolean(value))),
-      ).sort(),
-      genres: splitFacetValues(visibleMetadataRows.map((row) => row.genres)),
-      tags: splitFacetValues(visibleMetadataRows.map((row) => row.tags)),
+      publishers: publisherRows.map((row) => row.publisher).filter((value): value is string => Boolean(value)),
+      languages: languageRows.map((row) => row.language).filter((value): value is string => Boolean(value)),
+      years: yearRows.map((row) => row.year).filter((value): value is string => Boolean(value)),
+      genres: splitFacetValues(metadataRows.map((row) => row.genres)),
+      tags: splitFacetValues(metadataRows.map((row) => row.tags)),
       fileTypes,
     };
 
