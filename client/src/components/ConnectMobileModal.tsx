@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { RefreshCw, Smartphone, X } from "lucide-react";
+import { Download, RefreshCw, Smartphone, X } from "lucide-react";
 import api from "../api/axios";
 
 const STORAGE_KEY = "azure_mobile_server_url";
@@ -9,6 +9,15 @@ const DEFAULT_URL = "https://azure.ddsplayground.com";
 interface ConnectMobileModalProps {
   onClose: () => void;
 }
+
+type MobileAppRelease = {
+  appName: string;
+  version: string;
+  fileName: string;
+  size: number;
+  updatedAt: string;
+  downloadUrl: string;
+};
 
 export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps) {
   const [serverUrl, setServerUrl] = useState(() => {
@@ -19,6 +28,8 @@ export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps)
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mobileRelease, setMobileRelease] = useState<MobileAppRelease | null>(null);
+  const [releaseError, setReleaseError] = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -38,6 +49,16 @@ export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps)
 
   useEffect(() => {
     fetchCode();
+    api
+      .get<MobileAppRelease>("/mobile-app/latest")
+      .then((res) => {
+        setMobileRelease(res.data);
+        setReleaseError(null);
+      })
+      .catch(() => {
+        setMobileRelease(null);
+        setReleaseError("No APK has been published yet.");
+      });
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
@@ -76,6 +97,8 @@ export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps)
   const formatCountdown = (s: number) =>
     `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
+  const formatSize = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card connect-mobile-modal" onClick={(e) => e.stopPropagation()}>
@@ -90,6 +113,25 @@ export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps)
         </div>
 
         <div className="connect-mobile-body">
+          <div className="connect-mobile-download">
+            <a
+              className={`btn btn-primary connect-mobile-download-btn${mobileRelease ? "" : " disabled"}`}
+              href={mobileRelease?.downloadUrl ?? undefined}
+              aria-disabled={!mobileRelease}
+              onClick={(event) => {
+                if (!mobileRelease) event.preventDefault();
+              }}
+            >
+              <Download size={16} />
+              Download Azure Player APK
+            </a>
+            <p className="connect-mobile-download-meta">
+              {mobileRelease
+                ? `Version ${mobileRelease.version} - ${formatSize(mobileRelease.size)}`
+                : releaseError ?? "Checking latest APK..."}
+            </p>
+          </div>
+
           <div className="connect-mobile-url-section">
             <label className="connect-mobile-label">Remote Server URL</label>
             <input

@@ -1,6 +1,6 @@
 # Azure Audiobooks Status
 
-Last updated: 2026-05-23
+Last updated: 2026-06-02
 
 ## Project State
 
@@ -36,6 +36,10 @@ The frontend uses a feature-module structure. Admin UI lives under `client/src/f
   - Audible + Google combined search
 
 ## Latest Changes
+
+### 2026-06-02
+- Added Azure Player APK publishing support for the Connect Mobile App modal. Run `npm run publish:azure-player-apk` from `E:\Software Dev\Azure` after building a release APK in `E:\Software Dev\AzurePlayer`; the script copies the newest release APK from `android/app/build/outputs/apk/release` into `server/data/mobile` as the latest downloadable app package and writes a JSON manifest.
+- Added public APK metadata/download endpoints at `/api/mobile-app/latest` and `/api/mobile-app/latest.apk`; the Connect Mobile App modal now shows a Download Azure Player APK button when a published APK exists.
 
 ### 2026-05-23
 - Fixed player tray secondary buttons (speed, sleep, volume, close) rendering outside the panel border. Shell.css set `height: 68px` on `.player-tray` but `globals.css` applied `overflow: visible` without overriding the height; the `.tray-static` child's `min-height: 104px` caused the buttons to overflow beyond the panel background. Fixed by adding `height: auto` to `.player-tray` in `globals.css` and overriding `.shell-main.has-player` bottom padding to `120px` to account for the taller tray.

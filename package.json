@@ -7,7 +7,8 @@
     "start:client": "cd client && npm run dev",
     "start:client:host": "cd client && npm run dev -- --host 0.0.0.0",
     "dev": "node scripts/dev-runner.mjs",
-    "dev:host": "node scripts/dev-runner.mjs --host"
+    "dev:host": "node scripts/dev-runner.mjs --host",
+    "publish:azure-player-apk": "node scripts/publish-azure-player-apk.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

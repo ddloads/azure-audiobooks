@@ -12,6 +12,7 @@ import recommendationRoutes from "./routes/recommendationRoutes";
 import authorRoutes from "./routes/authorRoutes";
 import sessionRoutes from "./routes/sessionRoutes";
 import bookmarkRoutes from "./routes/bookmarkRoutes";
+import mobileAppRoutes from "./routes/mobileAppRoutes";
 import {
   errorLoggingMiddleware,
   requestLoggingMiddleware,
@@ -59,6 +60,7 @@ app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/authors", authorRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/bookmarks", bookmarkRoutes);
+app.use("/api/mobile-app", mobileAppRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
