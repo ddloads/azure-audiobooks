@@ -10,6 +10,7 @@
     "dev:host": "node scripts/dev-runner.mjs --host"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "lighthouse": "^13.3.0"
   }
 }
