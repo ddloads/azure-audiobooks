@@ -67,7 +67,6 @@ COPY --from=builder /app/server/node_modules ./node_modules
 COPY --from=builder /app/server/package.json ./package.json
 COPY --from=builder /app/server/prisma ./prisma
 COPY --from=builder /app/server/scripts ./scripts
-COPY --from=builder /app/server/public ./public
 
 # Environment variable for tone path (Linux location)
 ENV TONE_PATH=/usr/local/bin/tone

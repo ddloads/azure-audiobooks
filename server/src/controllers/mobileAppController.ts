@@ -2,10 +2,7 @@ import { Request, Response } from "express";
 import path from "path";
 import fsp from "fs/promises";
 
-const MOBILE_APP_DIRS = [
-  path.join(process.cwd(), "data", "mobile"),
-  path.join(process.cwd(), "public", "mobile"),
-];
+const MOBILE_APP_DIR = path.join(process.cwd(), "data", "mobile");
 const APK_FILENAME = "azure-player-latest.apk";
 const MANIFEST_FILENAME = "azure-player-latest.json";
 
@@ -18,30 +15,22 @@ type MobileAppManifest = {
 };
 
 const readManifest = async (): Promise<MobileAppManifest | null> => {
-  for (const dir of MOBILE_APP_DIRS) {
-    try {
-      const raw = await fsp.readFile(path.join(dir, MANIFEST_FILENAME), "utf8");
-      return JSON.parse(raw) as MobileAppManifest;
-    } catch {
-      // Try the next configured publish location.
-    }
+  try {
+    const raw = await fsp.readFile(path.join(MOBILE_APP_DIR, MANIFEST_FILENAME), "utf8");
+    return JSON.parse(raw) as MobileAppManifest;
+  } catch {
+    return null;
   }
-
-  return null;
 };
 
 const findPublishedApkPath = async () => {
-  for (const dir of MOBILE_APP_DIRS) {
-    const apkPath = path.join(dir, APK_FILENAME);
-    try {
-      await fsp.access(apkPath);
-      return apkPath;
-    } catch {
-      // Try the next configured publish location.
-    }
+  const apkPath = path.join(MOBILE_APP_DIR, APK_FILENAME);
+  try {
+    await fsp.access(apkPath);
+    return apkPath;
+  } catch {
+    return null;
   }
-
-  return null;
 };
 
 export const getLatestMobileApp = async (_req: Request, res: Response) => {

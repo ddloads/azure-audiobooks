@@ -38,7 +38,7 @@ The frontend uses a feature-module structure. Admin UI lives under `client/src/f
 ## Latest Changes
 
 ### 2026-06-02
-- Added Azure Player APK publishing support for the Connect Mobile App modal. Run `npm run publish:azure-player-apk` from `E:\Software Dev\Azure` after building a release APK in `E:\Software Dev\AzurePlayer`; the script copies the newest release APK from `android/app/build/outputs/apk/release` into `server/data/mobile` as the latest downloadable app package and writes a JSON manifest.
+- Added Azure Player APK publishing support for the Connect Mobile App modal. Run `npm run publish:azure-player-apk` from `E:\Software Dev\Azure` after building a release APK in `E:\Software Dev\AzurePlayer`; the script copies the newest release APK from `android/app/build/outputs/apk/release` into `server/data/mobile` as the latest downloadable app package and writes a JSON manifest. On the Docker host, run `npm run publish:azure-player-apk:container` to copy the APK and manifest directly into `azure-server:/app/data/mobile`.
 - Added public APK metadata/download endpoints at `/api/mobile-app/latest` and `/api/mobile-app/latest.apk`; the Connect Mobile App modal now shows a Download Azure Player APK button when a published APK exists.
 
 ### 2026-05-23
