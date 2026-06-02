@@ -1,4 +1,4 @@
-export type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "reports" | "logs" | "sessions";
+export type TabKey = "overview" | "users" | "library" | "appearance" | "scripts" | "system" | "mobile" | "reports" | "logs" | "sessions";
 
 export type OverviewSectionKey = "libraries" | "recentBooks" | "recentUsers" | "storage" | "tasks" | "listening";
 

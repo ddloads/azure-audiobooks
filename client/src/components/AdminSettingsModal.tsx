@@ -12,6 +12,7 @@ import {
   Palette,
   RefreshCw,
   Shield,
+  Smartphone,
   Terminal,
   Upload,
   Users,
@@ -60,6 +61,7 @@ import SystemTab from "../features/admin/components/SystemTab";
 import ReportsTab from "../features/admin/components/ReportsTab";
 import LogsTab from "../features/admin/components/LogsTab";
 import SessionsTab from "../features/admin/components/SessionsTab";
+import MobileAppTab from "../features/admin/components/MobileAppTab";
 
 interface AdminSettingsModalProps {
   onLibraryChanged: () => Promise<void> | void;
@@ -102,6 +104,12 @@ const tabs: Array<{ key: TabKey; label: string; icon: typeof Shield; description
     label: "System",
     icon: Database,
     description: "Backups, storage paths, and maintenance controls.",
+  },
+  {
+    key: "mobile",
+    label: "Mobile App",
+    icon: Smartphone,
+    description: "Publish the Azure Player APK served by the Connect Mobile App modal.",
   },
   {
     key: "reports",
@@ -501,6 +509,7 @@ const AdminSettingsModal = ({
                 {activeTab === "appearance" && <AppearanceTab />}
                 {activeTab === "scripts" && <ScriptsTab />}
                 {activeTab === "system" && <SystemTab onLibraryChanged={onLibraryChanged} />}
+                {activeTab === "mobile" && <MobileAppTab />}
                 {activeTab === "reports" && <ReportsTab />}
                 {activeTab === "logs" && <LogsTab />}
                 {activeTab === "sessions" && <SessionsTab users={users} />}
