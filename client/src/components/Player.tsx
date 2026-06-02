@@ -5,6 +5,7 @@ import {
   Volume2, VolumeX, X, Moon, Undo2, Redo2, List,
 } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
+import { coverUrl } from "../utils/covers";
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 const SLEEP_OPTIONS = [15, 30, 45, 60];
@@ -126,7 +127,7 @@ const Player = () => {
             aria-label={`View details for ${currentBook.title}`}
           >
             {currentBook.coverPath ? (
-              <img src={currentBook.coverPath} alt={currentBook.title} />
+              <img src={coverUrl(currentBook.coverPath, 220)} alt={currentBook.title} decoding="async" />
             ) : (
               <div className="player-cover-placeholder">
                 <img src="/azure-logo-192.png" alt="" className="player-cover-logo" />

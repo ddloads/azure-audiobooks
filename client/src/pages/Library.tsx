@@ -28,6 +28,7 @@ import UploadModal from "../components/UploadModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
 import SearchBox from "../components/SearchBox";
+import { coverUrl } from "../utils/covers";
 import QuickMatchModal from "../features/quick-match/QuickMatchModal";
 import {
   defaultQuickMatchFields,
@@ -1631,7 +1632,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
                       onClick={() => openSeries(series)}
                     >
                       <div className="series-list-cover">
-                        {firstCover ? <img src={firstCover} alt="" loading="lazy" decoding="async" /> : <BookOpen size={20} />}
+                        {firstCover ? <img src={coverUrl(firstCover, 120)} alt="" loading="lazy" decoding="async" /> : <BookOpen size={20} />}
                       </div>
                       <div className="series-list-info">
                         <div className="series-list-title">{series.name}</div>
@@ -1662,7 +1663,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
                     <div className={`series-view-covers series-view-covers--${Math.min(series.books.length, 4)}`}>
                       {series.books.slice(0, 4).map((book) => (
                         <div key={book.id} className="series-view-cover">
-                          {book.coverPath ? <img src={book.coverPath} alt="" loading="lazy" decoding="async" /> : <BookOpen size={22} />}
+                          {book.coverPath ? <img src={coverUrl(book.coverPath, 180)} alt="" loading="lazy" decoding="async" /> : <BookOpen size={22} />}
                         </div>
                       ))}
                     </div>
@@ -1712,7 +1713,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
                       </div>
                     )}
                     <div className="library-list-cover">
-                      {book.coverPath ? <img src={book.coverPath} alt="" loading="lazy" /> : <BookOpen size={24} />}
+                      {book.coverPath ? <img src={coverUrl(book.coverPath, 120)} alt="" loading="lazy" decoding="async" /> : <BookOpen size={24} />}
                     </div>
                     <div className="library-list-main">
                       <div className="library-list-title">{book.title}</div>

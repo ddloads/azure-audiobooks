@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
+import { coverUrl } from "../utils/covers";
 
 interface Bookmark {
   id: string;
@@ -200,7 +201,7 @@ export default function PlayerTray() {
           aria-label={`View ${currentBook.title}`}
         >
           {currentBook.coverPath ? (
-            <img src={currentBook.coverPath} alt={currentBook.title} />
+            <img src={coverUrl(currentBook.coverPath, 160)} alt={currentBook.title} decoding="async" />
           ) : (
             <div className="tray-cover-placeholder">
               <BookOpen size={26} />

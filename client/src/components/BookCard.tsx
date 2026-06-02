@@ -21,6 +21,7 @@ import {
 import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
+import { coverUrl } from "../utils/covers";
 
 interface Book {
   id: string;
@@ -213,7 +214,7 @@ const BookCard: React.FC<{
 
         <div className="book-card-art-frame">
           {book.coverPath ? (
-            <img className="book-cover-img" src={book.coverPath} alt={book.title} loading="lazy" />
+            <img className="book-cover-img" src={coverUrl(book.coverPath, 320)} alt={book.title} loading="lazy" decoding="async" />
           ) : (
             <div className="book-cover-placeholder">
               <BookOpen size={28} />

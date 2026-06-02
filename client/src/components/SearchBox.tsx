@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BookOpen, Mic, Search, User, X } from "lucide-react";
 import api from "../api/axios";
+import { coverUrl } from "../utils/covers";
 
 interface SuggestionBook {
   id: string;
@@ -216,7 +217,7 @@ const SearchBox = ({
                   >
                     <div className="search-suggestion-cover">
                       {book.coverPath ? (
-                        <img src={book.coverPath} alt="" />
+                        <img src={coverUrl(book.coverPath, 80)} alt="" loading="lazy" decoding="async" />
                       ) : (
                         <BookOpen size={13} />
                       )}

@@ -7,6 +7,7 @@ import { getSocketBaseUrl } from "../api/backend";
 import { getCandidateSourceLabel, metadataProviderOptions } from "../features/metadata/providers";
 import type { MatchCandidate, MetadataBook, MetadataProvider } from "../features/metadata/types";
 import { useBreakpoint } from "../hooks/useBreakpoint";
+import { coverUrl } from "../utils/covers";
 
 interface BookMetadataModalProps {
   book: MetadataBook;
@@ -1225,7 +1226,7 @@ const BookMetadataModal = ({
               <div className="metadata-current-cover-row">
                 <div className="metadata-path-label">Cover Art</div>
                 <div className="metadata-current-cover">
-                  <img src={currentBook.coverPath} alt={`${currentBook.title} cover`} />
+                  <img src={coverUrl(currentBook.coverPath, 320)} alt={`${currentBook.title} cover`} decoding="async" />
                 </div>
               </div>
             )}

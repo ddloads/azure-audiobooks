@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BookOpen, CheckCircle2, Play } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
+import { coverUrl } from "../utils/covers";
 
 interface FinishedRecord {
   bookId: string;
@@ -94,7 +95,7 @@ export default function HistoryPage() {
             >
               <div className="history-item-cover">
                 {record.book.coverPath ? (
-                  <img src={record.book.coverPath} alt={record.book.title} />
+                  <img src={coverUrl(record.book.coverPath, 160)} alt={record.book.title} loading="lazy" decoding="async" />
                 ) : (
                   <div className="history-item-cover-placeholder">
                     <BookOpen size={20} />

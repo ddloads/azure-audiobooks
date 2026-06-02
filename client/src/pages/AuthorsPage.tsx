@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, User, X } from "lucide-react";
 import api from "../api/axios";
+import { coverUrl } from "../utils/covers";
 
 interface Author {
   id: string;
@@ -83,7 +84,7 @@ export default function AuthorsPage() {
             >
               <div className="author-avatar">
                 {author.coverPath ? (
-                  <img src={author.coverPath} alt={author.name} loading="lazy" />
+                  <img src={coverUrl(author.coverPath, 180)} alt={author.name} loading="lazy" decoding="async" />
                 ) : (
                   <div className="author-avatar-placeholder">
                     <User size={28} />

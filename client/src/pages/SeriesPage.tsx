@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, BookOpen, CheckCircle2, Play } from "lucide-react";
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
+import { coverUrl } from "../utils/covers";
 
 interface SeriesBook {
   id: string;
@@ -114,7 +115,7 @@ export default function SeriesPage() {
                 )}
                 <div className="series-book-cover">
                   {book.coverPath ? (
-                    <img src={book.coverPath} alt={book.title} />
+                    <img src={coverUrl(book.coverPath, 180)} alt={book.title} loading="lazy" decoding="async" />
                   ) : (
                     <div className="series-book-cover-placeholder">
                       <BookOpen size={18} />

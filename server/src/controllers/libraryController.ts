@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import fsp from "fs/promises";
+import crypto from "crypto";
 import sharp from "sharp";
 import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
@@ -25,6 +26,7 @@ const TRANSPARENT_PNG_1X1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
   "base64",
 );
+const COVER_THUMB_CACHE_DIR = path.join(process.cwd(), "data", "cache", "covers");
 
 const normalizeBookCover = <T extends { coverPath?: string | null }>(book: T) => ({
   ...book,
@@ -686,11 +688,31 @@ export const getCover = async (req: Request, res: Response) => {
 
   if (requestedWidth) {
     try {
+      const stat = await fsp.stat(filePath);
+      const cacheKey = crypto
+        .createHash("sha1")
+        .update(`${bookId}:${requestedWidth}:${filePath}:${stat.size}:${stat.mtimeMs}`)
+        .digest("hex");
+      const cachedThumbPath = path.join(COVER_THUMB_CACHE_DIR, `${cacheKey}.jpg`);
+
+      try {
+        await fsp.access(cachedThumbPath);
+        res.setHeader("Cache-Control", "public, max-age=604800, immutable");
+        res.setHeader("Content-Type", "image/jpeg");
+        res.sendFile(cachedThumbPath);
+        return;
+      } catch {
+        // Generate and cache below.
+      }
+
       const buffer = await sharp(filePath)
         .rotate()
         .resize({ width: requestedWidth, withoutEnlargement: true, fit: "inside" })
         .jpeg({ quality: 82, mozjpeg: true })
         .toBuffer();
+      await fsp.mkdir(COVER_THUMB_CACHE_DIR, { recursive: true });
+      await fsp.writeFile(cachedThumbPath, buffer).catch(() => {});
+      res.setHeader("Cache-Control", "public, max-age=604800, immutable");
       res.setHeader("Content-Type", "image/jpeg");
       res.end(buffer);
       return;

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import api from '../api/axios';
 import { usePlayer } from '../context/PlayerContext';
+import { coverUrl } from '../utils/covers';
 
 interface Props {
   onClose: () => void;
@@ -153,7 +154,7 @@ const MobilePlayer = ({ onClose }: Props) => {
 
       <div className="mobile-player-art-container">
         {currentBook.coverPath ? (
-          <img src={currentBook.coverPath} alt={currentBook.title} className="mobile-player-art" />
+          <img src={coverUrl(currentBook.coverPath, 420)} alt={currentBook.title} className="mobile-player-art" decoding="async" />
         ) : (
           <div className="mobile-player-art-placeholder">
             <BookOpen size={64} color="var(--text-subtle)" />

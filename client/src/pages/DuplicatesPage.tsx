@@ -24,6 +24,7 @@ import {
 import api from "../api/axios";
 import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
+import { coverUrl } from "../utils/covers";
 
 interface AudioFile {
   id: string;
@@ -468,7 +469,7 @@ const DuplicatesPage = () => {
                     onClick={() => setSelectedGroupIndex(index)}
                   >
                     <div className="duplicates-group-cover">
-                      {first?.coverPath ? <img src={first.coverPath} alt="" /> : <Copy size={18} />}
+                      {first?.coverPath ? <img src={coverUrl(first.coverPath, 120)} alt="" loading="lazy" decoding="async" /> : <Copy size={18} />}
                     </div>
                     <div>
                       <strong>{first?.title ?? "Untitled"}</strong>
@@ -518,7 +519,7 @@ const DuplicatesPage = () => {
                     >
                       <div className="duplicates-version-top">
                         <div className="duplicates-version-cover">
-                          {book.coverPath ? <img src={book.coverPath} alt={book.title} /> : <Copy size={24} />}
+                          {book.coverPath ? <img src={coverUrl(book.coverPath, 220)} alt={book.title} loading="lazy" decoding="async" /> : <Copy size={24} />}
                         </div>
                         <div>
                           <span className="duplicates-version-label">Version {label}</span>

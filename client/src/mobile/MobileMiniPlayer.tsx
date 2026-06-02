@@ -1,5 +1,6 @@
 import { BookOpen, Pause, Play, Redo2, Undo2 } from 'lucide-react';
 import { usePlayer } from '../context/PlayerContext';
+import { coverUrl } from '../utils/covers';
 
 interface Props {
   onExpand: () => void;
@@ -15,7 +16,7 @@ const MobileMiniPlayer = ({ onExpand }: Props) => {
   return (
     <div className="mobile-mini-player" onClick={onExpand}>
       {currentBook.coverPath ? (
-        <img src={currentBook.coverPath} alt="" className="mobile-mini-player-art" />
+        <img src={coverUrl(currentBook.coverPath, 120)} alt="" className="mobile-mini-player-art" decoding="async" />
       ) : (
         <div className="mobile-mini-player-art">
           <BookOpen size={20} color="var(--text-subtle)" />

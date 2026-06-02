@@ -31,6 +31,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
+import { coverUrl } from "../utils/covers";
 /* ─── types matching backend responses ─── */
 interface ApiSession {
   id: string;
@@ -309,7 +310,7 @@ function Cover({
       }}
     >
       {book.coverPath ? (
-        <img src={book.coverPath} alt={book.title} loading="lazy" />
+        <img src={coverUrl(book.coverPath, size * 2)} alt={book.title} loading="lazy" decoding="async" />
       ) : (
         showOverlayTitle && (
           <div className="pf-cover-art">

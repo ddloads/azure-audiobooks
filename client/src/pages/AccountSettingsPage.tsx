@@ -9,6 +9,7 @@ import { useToast } from "../context/ToastContext";
 import { useShelfPrefs } from "../hooks/useShelfPrefs";
 import type { UserListeningSession } from "../features/admin/types";
 import { formatListenTime, formatDate } from "../features/admin/helpers";
+import { coverUrl } from "../utils/covers";
 
 type TabKey = "profile" | "security" | "appearance" | "sessions" | "history" | "report";
 
@@ -417,7 +418,7 @@ export default function AccountSettingsPage() {
                       >
                         <div className="account-history-cover">
                           {record.book.coverPath ? (
-                            <img src={record.book.coverPath} alt={record.book.title} />
+                            <img src={coverUrl(record.book.coverPath, 160)} alt={record.book.title} loading="lazy" decoding="async" />
                           ) : (
                             <div className="account-history-cover-placeholder">
                               <BookOpen size={16} />

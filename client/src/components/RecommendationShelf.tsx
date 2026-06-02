@@ -1,5 +1,6 @@
 import { BookOpen } from "lucide-react";
 import ScrollableShelf from "./ScrollableShelf";
+import { coverUrl } from "../utils/covers";
 
 export interface RecommendBook {
   id: string;
@@ -44,7 +45,7 @@ export default function RecommendationShelf({
             <div className="continue-card-cover">
               <div className="continue-card-art-frame">
                 {book.coverPath ? (
-                  <img src={book.coverPath} alt={book.title} />
+                  <img src={coverUrl(book.coverPath, 240)} alt={book.title} loading="lazy" decoding="async" />
                 ) : (
                   <div className="continue-card-cover-placeholder">
                     <BookOpen size={24} />

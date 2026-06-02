@@ -20,6 +20,7 @@ import { usePlayer } from "../context/PlayerContext";
 import { useToast } from "../context/ToastContext";
 import RecommendationShelf, { type RecommendBook } from "../components/RecommendationShelf";
 import ScrollableShelf from "../components/ScrollableShelf";
+import { coverUrl } from "../utils/covers";
 import type { AppearanceSettings } from "../features/admin/types";
 import { applyShelfPrefs } from "../hooks/useShelfPrefs";
 import { useScanProgress } from "../context/ScanProgressContext";
@@ -285,7 +286,7 @@ export default function Home() {
 
                     <div className="continue-card-art-frame">
                       {record.book.coverPath ? (
-                        <img src={record.book.coverPath} alt={record.book.title} />
+                        <img src={coverUrl(record.book.coverPath, 160)} alt={record.book.title} loading="lazy" decoding="async" />
                       ) : (
                         <div className="continue-card-cover-placeholder">
                           <BookOpen size={24} />

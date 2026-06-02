@@ -38,6 +38,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import BugReportModal from "../components/BugReportModal";
 import { getApiBaseUrl, getSocketBaseUrl } from "../api/backend";
 import { formatBookDescription } from "../utils/formatDescription";
+import { coverUrl } from "../utils/covers";
 
 interface AudioFile {
   id: string;
@@ -566,7 +567,7 @@ const BookDetailsPage: React.FC = () => {
         <div className="book-details-header">
           <div className="book-details-cover-wrapper">
             {book.coverPath ? (
-              <img src={book.coverPath} alt={book.title} className="book-details-cover-img" />
+              <img src={coverUrl(book.coverPath, 720)} alt={book.title} className="book-details-cover-img" decoding="async" />
             ) : (
               <div className="book-cover-placeholder-large">
                 <BookOpen size={48} />
