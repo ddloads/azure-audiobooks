@@ -236,42 +236,78 @@ export default function AccountSettingsPage() {
             </div>
 
             {activeTab === "profile" && (
-              <form onSubmit={(e) => void handleSaveProfile(e)} className="account-form">
-                <div className="account-profile-card">
-                  <div className="account-profile-avatar">
-                    {avatarUrl.trim() ? (
-                      <img src={avatarUrl.trim()} alt={`${username || user?.username || "User"} avatar`} />
-                    ) : (
-                      <span>{(username || user?.username || "?").charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
-                  <div className="account-profile-summary">
-                    <strong>{username || user?.username}</strong>
-                    <span>{email || user?.email || "No email set"}</span>
+              <form onSubmit={(e) => void handleSaveProfile(e)} className="account-profile-page">
+                <div className="account-profile-hero">
+                  <div className="account-profile-hero-copy">
+                    <span className="account-profile-kicker">Azure Profile</span>
+                    <h3>{username || user?.username}</h3>
+                    <p>{email || user?.email || "No email address set"}</p>
                     <div className="account-profile-meta">
                       <span>{user?.role?.toLowerCase()}</span>
-                      <span>ID {user?.id}</span>
+                      <span>Account ID {user?.id}</span>
+                    </div>
+                  </div>
+                  <div className="account-profile-avatar-frame">
+                    <div className="account-profile-avatar">
+                      {avatarUrl.trim() ? (
+                        <img src={avatarUrl.trim()} alt={`${username || user?.username || "User"} avatar`} />
+                      ) : (
+                        <span>{(username || user?.username || "?").charAt(0).toUpperCase()}</span>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div className="account-field">
-                  <label className="account-field-label" htmlFor="acc-username">Username</label>
-                  <input id="acc-username" className="form-control" type="text" value={username}
-                    onChange={(e) => setUsername(e.target.value)} minLength={2} maxLength={32} autoComplete="username" />
+
+                <div className="account-profile-grid">
+                  <section className="account-profile-panel account-profile-photo-panel">
+                    <div>
+                      <span className="account-profile-panel-label">Profile Photo</span>
+                      <h4>Avatar image</h4>
+                    </div>
+                    <div className="account-field">
+                      <label className="account-field-label" htmlFor="acc-avatar">Image URL</label>
+                      <div className="account-avatar-input">
+                        <Image size={16} />
+                        <input id="acc-avatar" className="form-control" type="url" value={avatarUrl}
+                          onChange={(e) => setAvatarUrl(e.target.value)} autoComplete="url" placeholder="https://example.com/avatar.jpg" />
+                      </div>
+                    </div>
+                    <p className="account-profile-help">Use a direct http or https image URL. Clear this field to return to the initial badge.</p>
+                  </section>
+
+                  <section className="account-profile-panel">
+                    <div>
+                      <span className="account-profile-panel-label">Account Details</span>
+                      <h4>Identity</h4>
+                    </div>
+                    <div className="account-field">
+                      <label className="account-field-label" htmlFor="acc-username">Username</label>
+                      <input id="acc-username" className="form-control" type="text" value={username}
+                        onChange={(e) => setUsername(e.target.value)} minLength={2} maxLength={32} autoComplete="username" />
+                    </div>
+                    <div className="account-field">
+                      <label className="account-field-label" htmlFor="acc-email">Email</label>
+                      <input id="acc-email" className="form-control" type="email" value={email}
+                        onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
+                    </div>
+                  </section>
                 </div>
-                <div className="account-field">
-                  <label className="account-field-label" htmlFor="acc-email">Email</label>
-                  <input id="acc-email" className="form-control" type="email" value={email}
-                    onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
-                </div>
-                <div className="account-field">
-                  <label className="account-field-label" htmlFor="acc-avatar">Avatar image URL</label>
-                  <div className="account-avatar-input">
-                    <Image size={16} />
-                    <input id="acc-avatar" className="form-control" type="url" value={avatarUrl}
-                      onChange={(e) => setAvatarUrl(e.target.value)} autoComplete="url" placeholder="https://example.com/avatar.jpg" />
+
+                <div className="account-profile-stat-grid">
+                  <div className="account-profile-stat">
+                    <span>Role</span>
+                    <strong>{user?.role?.toLowerCase()}</strong>
+                  </div>
+                  <div className="account-profile-stat">
+                    <span>Email</span>
+                    <strong>{email || "Not set"}</strong>
+                  </div>
+                  <div className="account-profile-stat">
+                    <span>Avatar</span>
+                    <strong>{avatarUrl.trim() ? "Custom image" : "Initial badge"}</strong>
                   </div>
                 </div>
+
                 <div className="account-form-actions">
                   <button type="submit" className="btn btn-primary" disabled={profileLoading}>
                     {profileLoading && <Loader2 size={14} className="animate-spin" />}
