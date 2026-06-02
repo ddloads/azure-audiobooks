@@ -716,6 +716,76 @@ export const getNewBookCount = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getSeriesOverview = async (req: AuthRequest, res: Response) => {
+  try {
+    const libraryId = getQueryString(req.query.libraryId);
+    const search = getQueryString(req.query.search);
+    const appearanceSettings = await getAppearanceSettings();
+
+    const bookWhere: any = { AND: [] };
+    if (libraryId) bookWhere.libraryId = libraryId;
+    if (!appearanceSettings.showReviewBooks) {
+      bookWhere.AND.push({
+        OR: [
+          { tags: null },
+          { NOT: { tags: { contains: "review", mode: "insensitive" } } },
+        ],
+      });
+    }
+    if (search) {
+      const tokens = search
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter((t) => t.length >= 2);
+      for (const token of tokens) {
+        bookWhere.AND.push({
+          OR: [
+            { title: { contains: token, mode: "insensitive" } },
+            { subtitle: { contains: token, mode: "insensitive" } },
+            { author: { name: { contains: token, mode: "insensitive" } } },
+            { series: { name: { contains: token, mode: "insensitive" } } },
+          ],
+        });
+      }
+    }
+    if (bookWhere.AND.length === 0) delete bookWhere.AND;
+
+    const series = await prisma.series.findMany({
+      where: { books: { some: bookWhere } },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { books: { where: bookWhere } } },
+        books: {
+          where: bookWhere,
+          select: {
+            id: true,
+            title: true,
+            coverPath: true,
+            sequence: true,
+          },
+          orderBy: [{ sequence: "asc" }, { title: "asc" }],
+          take: 4,
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    res.json(series.map((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      bookCount: entry._count.books,
+      previewBooks: entry.books.map((book) => ({
+        ...book,
+        coverPath: normalizeCoverPath(book.coverPath),
+      })),
+    })));
+  } catch (error) {
+    console.error("Series overview error:", error);
+    res.status(500).json({ error: "Failed to load series overview" });
+  }
+};
+
 export const getSeriesDetail = async (req: AuthRequest, res: Response) => {
   const seriesId = req.params["seriesId"] as string;
   const userId = req.user?.userId;

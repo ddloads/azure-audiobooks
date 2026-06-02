@@ -129,7 +129,7 @@ const Player = () => {
               <img src={currentBook.coverPath} alt={currentBook.title} />
             ) : (
               <div className="player-cover-placeholder">
-                <img src="/azure-logo.png" alt="" className="player-cover-logo" />
+                <img src="/azure-logo-192.png" alt="" className="player-cover-logo" />
               </div>
             )}
           </button>

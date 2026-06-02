@@ -52,6 +52,20 @@ interface LibraryBook extends MetadataBook {
   _count?: { audioFiles?: number };
 }
 
+interface SeriesOverviewBook {
+  id: string;
+  title: string;
+  coverPath?: string | null;
+  sequence?: number | null;
+}
+
+interface SeriesOverviewGroup {
+  id: string;
+  name: string;
+  bookCount: number;
+  previewBooks: SeriesOverviewBook[];
+}
+
 type DesktopViewMode = "books" | "list" | "series";
 
 const formatTimeLeft = (seconds: number) => {
@@ -249,6 +263,8 @@ const INITIAL_BOOK_RENDER_COUNT = 120;
 const BOOK_FETCH_PAGE_SIZE = 100;
 const BOOK_FETCH_CONCURRENCY = 6;
 const BOOK_RENDER_CHUNK_SIZE = 80;
+const INITIAL_SERIES_RENDER_COUNT = 48;
+const SERIES_RENDER_CHUNK_SIZE = 32;
 
 const SkeletonCard = () => (
   <div className="skeleton-card">
@@ -280,6 +296,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const filterSeriesName = searchParams.get("seriesName") ?? undefined;
 
   const [books, setBooks] = useState<LibraryBook[]>([]);
+  const [seriesOverview, setSeriesOverview] = useState<SeriesOverviewGroup[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
   const [filters, setFilters] = useState<LibraryFilters>(() => getFiltersFromParams(searchParams));
@@ -373,7 +390,9 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const [quickMatchBusy, setQuickMatchBusy] = useState<QuickMatchBusyState>(null);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [visibleBookCount, setVisibleBookCount] = useState(INITIAL_BOOK_RENDER_COUNT);
+  const [visibleSeriesCount, setVisibleSeriesCount] = useState(INITIAL_SERIES_RENDER_COUNT);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreSeriesRef = useRef<HTMLDivElement | null>(null);
   const writeTagsJobsRef = useRef<Map<string, WriteTagsJob>>(new Map());
   const writeTagsResolversRef = useRef<Map<string, (job: WriteTagsJob) => void>>(new Map());
   const activeBatchWriteRef = useRef<{
@@ -500,6 +519,21 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     }
   };
 
+  const fetchSeriesOverview = async (isCancelled: () => boolean = () => false) => {
+    try {
+      const res = await api.get<SeriesOverviewGroup[]>("/library/series", {
+        params: {
+          libraryId: filters.libraryId !== "all" ? filters.libraryId : undefined,
+          search: search.trim() || undefined,
+        },
+      });
+      if (!isCancelled()) setSeriesOverview(res.data);
+    } catch (error) {
+      console.error("Failed to fetch series", error);
+      if (!isCancelled()) setSeriesOverview([]);
+    }
+  };
+
   const fetchLibraries = async () => {
     try {
       const filtersRes = await api.get("/library/filters");
@@ -581,7 +615,8 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
       const shouldRefreshLibrary = !data.libraryId || !visibleLibraryId || data.libraryId === visibleLibraryId;
 
       if (shouldRefreshLibrary) {
-        void fetchBooks();
+        if (viewMode === "series" && !filterSeriesId) void fetchSeriesOverview();
+        else void fetchBooks();
         void fetchLibraries();
       }
       setTimeout(() => setScanProgress(null), 5000);
@@ -658,6 +693,10 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     setLoading(true);
     const timeout = setTimeout(async () => {
       try {
+        if (viewMode === "series" && !filterSeriesId) {
+          await fetchSeriesOverview(() => cancelled);
+          return;
+        }
         const all = await fetchAllBooksPaginated(
           () => cancelled,
           (first) => {
@@ -679,7 +718,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [filters, search, sortBy]);
+  }, [filters, search, sortBy, viewMode, filterSeriesId]);
 
   const handleRescan = async () => {
     if (!actionBook) return;
@@ -835,12 +874,24 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     [displayBooks, visibleBookCount],
   );
   const seriesGroups = useMemo(() => {
-    const groups = new Map<string, { id?: string; name: string; books: LibraryBook[] }>();
+    if (viewMode === "series" && !filterSeriesId) {
+      return seriesOverview.map((series) => ({
+        id: series.id,
+        name: series.name,
+        bookCount: series.bookCount,
+        books: series.previewBooks
+          .slice()
+          .sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER) || a.title.localeCompare(b.title)),
+      }));
+    }
+
+    const groups = new Map<string, { id?: string; name: string; books: LibraryBook[]; bookCount: number }>();
     books.forEach((book) => {
       if (!book.series?.name) return;
       const key = book.series.id ?? book.series.name;
-      const current = groups.get(key) ?? { id: book.series.id, name: book.series.name, books: [] };
+      const current = groups.get(key) ?? { id: book.series.id, name: book.series.name, books: [], bookCount: 0 };
       current.books.push(book);
+      current.bookCount += 1;
       groups.set(key, current);
     });
 
@@ -852,7 +903,11 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
           .sort((a, b) => (a.sequence ?? Number.MAX_SAFE_INTEGER) - (b.sequence ?? Number.MAX_SAFE_INTEGER) || a.title.localeCompare(b.title)),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [books]);
+  }, [books, filterSeriesId, seriesOverview, viewMode]);
+  const visibleSeriesGroups = useMemo(
+    () => seriesGroups.slice(0, visibleSeriesCount),
+    [seriesGroups, visibleSeriesCount],
+  );
 
   const openSeries = (series: { id?: string; name: string }) => {
     if (!series.id) return;
@@ -866,6 +921,10 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   useEffect(() => {
     setVisibleBookCount(INITIAL_BOOK_RENDER_COUNT);
   }, [books]);
+
+  useEffect(() => {
+    setVisibleSeriesCount(INITIAL_SERIES_RENDER_COUNT);
+  }, [seriesGroups.length]);
 
   useEffect(() => {
     if (visibleBookCount >= books.length) return;
@@ -883,6 +942,24 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     observer.observe(node);
     return () => observer.disconnect();
   }, [books.length, visibleBookCount]);
+
+  useEffect(() => {
+    if (viewMode !== "series") return;
+    if (visibleSeriesCount >= seriesGroups.length) return;
+    const node = loadMoreSeriesRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return;
+        setVisibleSeriesCount((current) => Math.min(current + SERIES_RENDER_CHUNK_SIZE, seriesGroups.length));
+      },
+      { rootMargin: "400px 0px" },
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [seriesGroups.length, viewMode, visibleSeriesCount]);
 
   const updateBookSelection = (bookId: string, selected: boolean, shiftKey: boolean) => {
     setSelectedBookIds((current) => {
@@ -1544,7 +1621,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
           {viewMode === "series" ? (
             seriesLayout === "list" ? (
               <div className="series-list-view">
-                {seriesGroups.map((series) => {
+                {visibleSeriesGroups.map((series) => {
                   const firstCover = series.books.find((b) => b.coverPath)?.coverPath;
                   return (
                     <button
@@ -1554,12 +1631,12 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
                       onClick={() => openSeries(series)}
                     >
                       <div className="series-list-cover">
-                        {firstCover ? <img src={firstCover} alt="" /> : <BookOpen size={20} />}
+                        {firstCover ? <img src={firstCover} alt="" loading="lazy" decoding="async" /> : <BookOpen size={20} />}
                       </div>
                       <div className="series-list-info">
                         <div className="series-list-title">{series.name}</div>
                         <div className="series-list-meta">
-                          {series.books.length} {series.books.length === 1 ? "book" : "books"}
+                          {series.bookCount} {series.bookCount === 1 ? "book" : "books"}
                           <span className="series-list-meta-sep"> · </span>
                           <span className="series-list-preview">
                             {series.books.slice(0, 3).map((book) => book.title).join(" / ")}
@@ -1569,10 +1646,13 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
                     </button>
                   );
                 })}
+                {visibleSeriesCount < seriesGroups.length && (
+                  <div ref={loadMoreSeriesRef} className="library-load-more-sentinel" aria-hidden="true" />
+                )}
               </div>
             ) : (
               <div className="series-view-grid">
-                {seriesGroups.map((series) => (
+                {visibleSeriesGroups.map((series) => (
                   <button
                     key={series.id ?? series.name}
                     className="series-view-card"
@@ -1582,19 +1662,22 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
                     <div className={`series-view-covers series-view-covers--${Math.min(series.books.length, 4)}`}>
                       {series.books.slice(0, 4).map((book) => (
                         <div key={book.id} className="series-view-cover">
-                          {book.coverPath ? <img src={book.coverPath} alt="" /> : <BookOpen size={22} />}
+                          {book.coverPath ? <img src={book.coverPath} alt="" loading="lazy" decoding="async" /> : <BookOpen size={22} />}
                         </div>
                       ))}
                     </div>
                     <div className="series-view-info">
                       <div className="series-view-title">{series.name}</div>
-                      <div className="series-view-count">{series.books.length} {series.books.length === 1 ? "book" : "books"}</div>
+                      <div className="series-view-count">{series.bookCount} {series.bookCount === 1 ? "book" : "books"}</div>
                       <div className="series-view-preview">
                         {series.books.slice(0, 3).map((book) => book.title).join(" / ")}
                       </div>
                     </div>
                   </button>
                 ))}
+                {visibleSeriesCount < seriesGroups.length && (
+                  <div ref={loadMoreSeriesRef} className="library-load-more-sentinel" aria-hidden="true" />
+                )}
               </div>
             )
           ) : viewMode === "list" ? (
