@@ -7,6 +7,7 @@ import {
   getMe,
   updateMyEmail,
   updateMyUsername,
+  updateMyAvatar,
   updateMyPassword,
   createPairingCode,
   redeemPairingCode,
@@ -37,6 +38,7 @@ router.post("/logout", logout);
 router.get("/me", authenticate, getMe);
 router.patch("/me/email",    authenticate, updateMyEmail);
 router.patch("/me/username", authenticate, updateMyUsername);
+router.patch("/me/avatar",   authenticate, updateMyAvatar);
 router.patch("/me/password", authenticate, updateMyPassword);
 router.post("/pair", authenticate, createPairingCode);
 router.post("/pair/redeem", redeemPairingCode);

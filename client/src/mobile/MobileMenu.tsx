@@ -39,7 +39,11 @@ const MobileMenu = () => {
 
       <div className="mobile-menu-user">
         <div className="mobile-menu-avatar">
-          {user?.username?.charAt(0).toUpperCase() ?? '?'}
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt="" />
+          ) : (
+            user?.username?.charAt(0).toUpperCase() ?? '?'
+          )}
         </div>
         <div>
           <div className="mobile-menu-username">{user?.username}</div>

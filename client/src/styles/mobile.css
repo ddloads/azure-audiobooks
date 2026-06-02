@@ -1945,6 +1945,7 @@
   font-size: 1.1rem;
   font-weight: 700;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .mobile-menu-username {

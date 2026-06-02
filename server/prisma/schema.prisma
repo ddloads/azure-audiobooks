@@ -12,6 +12,7 @@ model User {
   id        String     @id @default(uuid())
   username  String     @unique
   email     String?    @unique
+  avatarUrl String?
   password  String
   role      String     @default("USER") // ADMIN or USER
   progress  Progress[]

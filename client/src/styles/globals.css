@@ -3705,6 +3705,92 @@ input[type='range']::-moz-range-thumb {
   flex-direction: column;
   gap: 14px;
   margin-top: 12px;
+  max-width: 680px;
+}
+
+.account-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.account-profile-avatar {
+  width: 86px;
+  height: 86px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--glow) 0%, var(--bright) 50%, var(--az-400) 100%);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 800;
+  box-shadow: 0 0 0 1px rgba(56,189,248,0.24), 0 8px 30px rgba(56,189,248,0.18);
+}
+
+.account-profile-avatar img,
+.topbar-avatar img,
+.mobile-menu-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.account-profile-summary {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.account-profile-summary strong {
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.account-profile-summary span,
+.account-profile-meta {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.account-profile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.account-profile-meta span {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.account-avatar-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-avatar-input svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.account-avatar-input .form-control {
+  min-width: 0;
 }
 
 .account-field {
@@ -6231,6 +6317,20 @@ input[type='range']::-moz-range-thumb {
 
   .admin-settings-content {
     padding: 1rem;
+  }
+
+  .account-form {
+    max-width: none;
+  }
+
+  .account-profile-card {
+    align-items: flex-start;
+  }
+
+  .account-profile-avatar {
+    width: 68px;
+    height: 68px;
+    font-size: 1.55rem;
   }
 
   .admin-settings-header-left {

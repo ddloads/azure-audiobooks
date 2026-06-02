@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, BookOpen, Bug, Eye, EyeOff, Headphones, History, KeyRound, Loader2, Monitor, Palette, Play, User } from "lucide-react";
+import { ArrowLeft, BookOpen, Bug, Eye, EyeOff, Headphones, History, Image, KeyRound, Loader2, Monitor, Palette, Play, User } from "lucide-react";
 import { isAxiosError } from "axios";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -33,6 +33,7 @@ interface ApiUser {
   id: string;
   username: string;
   email?: string | null;
+  avatarUrl?: string | null;
   role: string;
 }
 
@@ -54,7 +55,7 @@ const SHELF_LABELS: Record<string, { label: string; description: string }> = {
 };
 
 const tabs: Array<{ key: TabKey; label: string; icon: typeof User; description: string }> = [
-  { key: "profile",    label: "Profile",    icon: User,       description: "Update your display name and email address." },
+  { key: "profile",    label: "Profile",    icon: User,       description: "Update your profile photo and account details." },
   { key: "security",   label: "Security",   icon: KeyRound,   description: "Change your password." },
   { key: "appearance", label: "Appearance", icon: Palette,    description: "Choose which shelves appear on your home screen." },
   { key: "sessions",   label: "Sessions",   icon: Headphones, description: "Your recent listening sessions." },
@@ -79,6 +80,7 @@ export default function AccountSettingsPage() {
   // Profile
   const [username, setUsername] = useState(user?.username ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
   const [profileLoading, setProfileLoading] = useState(false);
 
   // Security
@@ -121,6 +123,12 @@ export default function AccountSettingsPage() {
   const [reportComment, setReportComment] = useState("");
   const [reportLoading, setReportLoading] = useState(false);
 
+  useEffect(() => {
+    setUsername(user?.username ?? "");
+    setEmail(user?.email ?? "");
+    setAvatarUrl(user?.avatarUrl ?? "");
+  }, [user?.username, user?.email, user?.avatarUrl]);
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -131,12 +139,15 @@ export default function AccountSettingsPage() {
         updates.push(api.patch<ApiUser>("/auth/me/username", { username: username.trim() }));
       if (email.trim() !== (user.email ?? ""))
         updates.push(api.patch<ApiUser>("/auth/me/email", { email: email.trim() }));
+      if (avatarUrl.trim() !== (user.avatarUrl ?? ""))
+        updates.push(api.patch<ApiUser>("/auth/me/avatar", { avatarUrl: avatarUrl.trim() }));
       if (updates.length === 0) { showToast({ title: "No changes to save", tone: "info" }); return; }
-      const results = await Promise.all(updates);
-      const latest = results[results.length - 1].data;
+      await Promise.all(updates);
+      const latest = (await api.get<ApiUser>("/auth/me")).data;
       updateUser(latest);
       setUsername(latest.username);
       setEmail(latest.email ?? "");
+      setAvatarUrl(latest.avatarUrl ?? "");
       showToast({ title: "Profile updated", tone: "success" });
     } catch (err) {
       const msg = isAxiosError<{ error?: string }>(err) ? err.response?.data?.error : undefined;
@@ -226,6 +237,23 @@ export default function AccountSettingsPage() {
 
             {activeTab === "profile" && (
               <form onSubmit={(e) => void handleSaveProfile(e)} className="account-form">
+                <div className="account-profile-card">
+                  <div className="account-profile-avatar">
+                    {avatarUrl.trim() ? (
+                      <img src={avatarUrl.trim()} alt={`${username || user?.username || "User"} avatar`} />
+                    ) : (
+                      <span>{(username || user?.username || "?").charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div className="account-profile-summary">
+                    <strong>{username || user?.username}</strong>
+                    <span>{email || user?.email || "No email set"}</span>
+                    <div className="account-profile-meta">
+                      <span>{user?.role?.toLowerCase()}</span>
+                      <span>ID {user?.id}</span>
+                    </div>
+                  </div>
+                </div>
                 <div className="account-field">
                   <label className="account-field-label" htmlFor="acc-username">Username</label>
                   <input id="acc-username" className="form-control" type="text" value={username}
@@ -235,6 +263,14 @@ export default function AccountSettingsPage() {
                   <label className="account-field-label" htmlFor="acc-email">Email</label>
                   <input id="acc-email" className="form-control" type="email" value={email}
                     onChange={(e) => setEmail(e.target.value)} autoComplete="email" placeholder="you@example.com" />
+                </div>
+                <div className="account-field">
+                  <label className="account-field-label" htmlFor="acc-avatar">Avatar image URL</label>
+                  <div className="account-avatar-input">
+                    <Image size={16} />
+                    <input id="acc-avatar" className="form-control" type="url" value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)} autoComplete="url" placeholder="https://example.com/avatar.jpg" />
+                  </div>
                 </div>
                 <div className="account-form-actions">
                   <button type="submit" className="btn btn-primary" disabled={profileLoading}>

@@ -427,6 +427,7 @@
   letter-spacing: 0.02em;
   flex-shrink: 0;
   box-shadow: 0 2px 14px rgba(56,189,248,0.5), 0 0 0 2px rgba(56,189,248,0.15);
+  overflow: hidden;
 }
 
 .topbar-username {

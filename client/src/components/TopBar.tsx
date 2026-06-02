@@ -285,7 +285,11 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
               aria-label="User menu"
             >
               <span className="topbar-avatar">
-                {user.username.charAt(0).toUpperCase()}
+                {user.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="" />
+                ) : (
+                  user.username.charAt(0).toUpperCase()
+                )}
               </span>
               <span className="topbar-username">{user.username}</span>
             </button>

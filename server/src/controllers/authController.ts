@@ -47,6 +47,23 @@ const setAuthCookie = (res: Response, token: string) => {
   res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions);
 };
 
+const userSelect = { id: true, username: true, email: true, avatarUrl: true, role: true } as const;
+
+const sanitizeAvatarUrl = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 2048) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (!["http:", "https:"].includes(parsed.protocol)) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+};
+
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const username = sanitizeUsername(req.body?.username);
@@ -97,6 +114,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         id: user.id,
         username: user.username,
         email: user.email,
+        avatarUrl: user.avatarUrl,
         role: user.role,
       },
       token,
@@ -137,6 +155,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         id: user.id,
         username: user.username,
         email: user.email,
+        avatarUrl: user.avatarUrl,
         role: user.role,
       },
       token,
@@ -156,7 +175,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, username: true, email: true, role: true },
+      select: userSelect,
     });
 
     if (!user) {
@@ -197,7 +216,7 @@ export const updateMyEmail = async (req: AuthRequest, res: Response): Promise<vo
     const user = await prisma.user.update({
       where: { id: req.user.userId },
       data: { email },
-      select: { id: true, username: true, email: true, role: true },
+      select: userSelect,
     });
 
     res.json(user);
@@ -233,13 +252,40 @@ export const updateMyUsername = async (req: AuthRequest, res: Response): Promise
     const user = await prisma.user.update({
       where: { id: req.user.userId },
       data: { username },
-      select: { id: true, username: true, email: true, role: true },
+      select: userSelect,
     });
 
     res.json(user);
   } catch (error) {
     console.error("Update username error:", error);
     res.status(500).json({ error: "Failed to update username" });
+  }
+};
+
+export const updateMyAvatar = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user?.userId) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const raw = req.body?.avatarUrl;
+    const avatarUrl = raw === "" || raw === null || raw === undefined ? null : sanitizeAvatarUrl(raw);
+    if (raw && !avatarUrl) {
+      res.status(400).json({ error: "Avatar must be a valid http or https image URL" });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user.userId },
+      data: { avatarUrl },
+      select: userSelect,
+    });
+
+    res.json(user);
+  } catch (error) {
+    console.error("Update avatar error:", error);
+    res.status(500).json({ error: "Failed to update avatar" });
   }
 };
 
@@ -343,7 +389,7 @@ export const redeemPairingCode = async (req: Request, res: Response): Promise<vo
 
     const user = await prisma.user.findUnique({
       where: { id: entry.userId },
-      select: { id: true, username: true, email: true, role: true },
+      select: userSelect,
     });
 
     if (!user) {
@@ -352,7 +398,7 @@ export const redeemPairingCode = async (req: Request, res: Response): Promise<vo
     }
 
     const token = issueAuthToken(user.id, user.role);
-    res.json({ token, user: { id: user.id, username: user.username, email: user.email, role: user.role } });
+    res.json({ token, user });
   } catch (error) {
     res.status(500).json({ error: "Failed to redeem pairing code" });
   }
