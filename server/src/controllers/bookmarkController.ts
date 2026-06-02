@@ -17,6 +17,26 @@ export const getBookmarks = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const listUserBookmarks = async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) { res.status(401).json({ error: "Unauthorized" }); return; }
+  try {
+    const bookmarks = await prisma.bookmark.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      include: {
+        book: {
+          select: { id: true, title: true, author: { select: { name: true } } },
+        },
+      },
+    });
+    res.json(bookmarks);
+  } catch {
+    res.status(500).json({ error: "Failed to fetch bookmarks" });
+  }
+};
+
 export const createBookmark = async (req: AuthRequest, res: Response) => {
   const userId = req.user?.userId;
   const { bookId, position, label } = req.body as { bookId?: string; position?: number; label?: string };

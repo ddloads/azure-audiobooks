@@ -20,6 +20,7 @@ import AccountSettingsPage from "./pages/AccountSettingsPage";
 import HistoryPage from "./pages/HistoryPage";
 import StatsPage from "./pages/StatsPage";
 import SeriesPage from "./pages/SeriesPage";
+import ProfilePage from "./pages/ProfilePage";
 import "./styles/globals.css";
 
 function PlaybackGuard() {
@@ -62,6 +63,7 @@ function AppRoutes() {
         <Route path="/stats"               element={<PrivateRoute><StatsPage /></PrivateRoute>} />
         <Route path="/history"             element={<PrivateRoute><HistoryPage /></PrivateRoute>} />
         <Route path="/account"             element={<PrivateRoute><AccountSettingsPage /></PrivateRoute>} />
+        <Route path="/profile"             element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/menu"                element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
         <Route path="/settings"            element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
         <Route path="/files"               element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />

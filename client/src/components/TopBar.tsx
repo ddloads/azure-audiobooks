@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { Bug, CheckCircle2, Loader2, LogOut, Menu, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
+import { Bug, CheckCircle2, IdCard, Loader2, LogOut, Menu, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
 import AppLogo from "./AppLogo";
@@ -309,6 +309,13 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
                     <Settings size={14} /> Settings
                   </button>
                 )}
+
+                <button
+                  className="topbar-dropdown-item"
+                  onClick={() => { navigate("/profile"); setDropOpen(false); }}
+                >
+                  <IdCard size={14} /> Profile
+                </button>
 
                 <button
                   className="topbar-dropdown-item"
