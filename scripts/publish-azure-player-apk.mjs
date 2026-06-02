@@ -4,9 +4,10 @@ import path from "path";
 const repoRoot = process.cwd();
 const playerRoot = process.env.AZURE_PLAYER_ROOT || "E:\\Software Dev\\AzurePlayer";
 const releaseDir = path.join(playerRoot, "android", "app", "build", "outputs", "apk", "release");
-const targetDir = path.join(repoRoot, "server", "data", "mobile");
-const targetApk = path.join(targetDir, "azure-player-latest.apk");
-const targetManifest = path.join(targetDir, "azure-player-latest.json");
+const targetDirs = [
+  path.join(repoRoot, "server", "data", "mobile"),
+  path.join(repoRoot, "server", "public", "mobile"),
+];
 
 const findLatestApk = async () => {
   const entries = await fs.readdir(releaseDir, { withFileTypes: true });
@@ -40,8 +41,6 @@ if (!latest) {
 }
 
 const version = await readVersion();
-await fs.mkdir(targetDir, { recursive: true });
-await fs.copyFile(latest.fullPath, targetApk);
 
 const manifest = {
   appName: "Azure Player",
@@ -49,12 +48,19 @@ const manifest = {
   fileName: latest.name,
   size: latest.stat.size,
   updatedAt: new Date().toISOString(),
-  sourcePath: latest.fullPath,
 };
 
-await fs.writeFile(targetManifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+for (const targetDir of targetDirs) {
+  const targetApk = path.join(targetDir, "azure-player-latest.apk");
+  const targetManifest = path.join(targetDir, "azure-player-latest.json");
+  await fs.mkdir(targetDir, { recursive: true });
+  await fs.copyFile(latest.fullPath, targetApk);
+  await fs.writeFile(targetManifest, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+}
 
 console.log(`Published ${latest.name}`);
 console.log(`Version: ${version}`);
 console.log(`Size: ${(latest.stat.size / 1024 / 1024).toFixed(1)} MB`);
-console.log(`Target: ${targetApk}`);
+for (const targetDir of targetDirs) {
+  console.log(`Target: ${path.join(targetDir, "azure-player-latest.apk")}`);
+}
