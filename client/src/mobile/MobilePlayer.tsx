@@ -12,8 +12,6 @@ import {
   SkipForward,
   Trash2,
   Undo2,
-  Volume2,
-  VolumeX,
   X,
 } from 'lucide-react';
 import api from '../api/axios';
@@ -53,7 +51,6 @@ const MobilePlayer = ({ onClose }: Props) => {
     isPlaying,
     currentTime,
     duration,
-    volume,
     playbackRate,
     sleepRemaining,
     togglePlay,
@@ -62,14 +59,13 @@ const MobilePlayer = ({ onClose }: Props) => {
     skipBackward,
     nextTrack,
     prevTrack,
-    setVolume,
     setPlaybackRate,
     startSleepTimer,
     stopPlayer,
   } = usePlayer();
 
   const [showSleepMenu, setShowSleepMenu] = useState(false);
-  const [activePanel, setActivePanel] = useState<null | 'chapters' | 'bookmarks' | 'speed' | 'volume'>(null);
+  const [activePanel, setActivePanel] = useState<null | 'chapters' | 'bookmarks' | 'speed'>(null);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
 
@@ -150,7 +146,9 @@ const MobilePlayer = ({ onClose }: Props) => {
           <ChevronDown size={26} />
         </button>
         <span className="mobile-player-header-label">Now Playing</span>
-        <div style={{ width: 36 }} />
+        <button className="mobile-player-stop-btn" onClick={handleStop} aria-label="Stop and close player">
+          <X size={20} />
+        </button>
       </div>
 
       <div className="mobile-player-art-container">
@@ -273,22 +271,6 @@ const MobilePlayer = ({ onClose }: Props) => {
           )}
         </div>
 
-        <button
-          className={`mobile-player-extra-btn ${activePanel === 'volume' || volume === 0 ? 'active' : ''}`}
-          onClick={() => {
-            setShowSleepMenu(false);
-            setActivePanel(activePanel === 'volume' ? null : 'volume');
-          }}
-          aria-label="Volume"
-        >
-          {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          <span>{volume === 0 ? 'Muted' : 'Volume'}</span>
-        </button>
-
-        <button className="mobile-player-extra-btn danger" onClick={handleStop} aria-label="Stop and close player">
-          <X size={20} />
-          <span>Stop</span>
-        </button>
       </div>
 
       {activePanel && (
@@ -298,7 +280,6 @@ const MobilePlayer = ({ onClose }: Props) => {
               {activePanel === 'chapters' && 'Chapters'}
               {activePanel === 'bookmarks' && 'Bookmarks'}
               {activePanel === 'speed' && 'Playback Speed'}
-              {activePanel === 'volume' && 'Volume'}
             </span>
             <button className="mobile-player-panel-close" onClick={closePanels} aria-label="Close panel">
               <X size={18} />
@@ -378,27 +359,6 @@ const MobilePlayer = ({ onClose }: Props) => {
             </div>
           )}
 
-          {activePanel === 'volume' && (
-            <div className="mobile-player-volume-panel">
-              <button
-                className="mobile-player-volume-toggle"
-                onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
-              >
-                {volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
-                {volume === 0 ? 'Unmute' : 'Mute'}
-              </button>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.02}
-                value={volume}
-                onChange={(event) => setVolume(Number(event.target.value))}
-                className="mobile-player-volume-slider"
-                aria-label="Volume"
-              />
-            </div>
-          )}
         </div>
       )}
     </div>

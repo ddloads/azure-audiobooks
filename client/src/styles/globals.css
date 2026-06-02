@@ -9245,6 +9245,12 @@ body {
   padding: 6px 18px 10px;
 }
 
+.mobile-player-stop-btn {
+  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+
 .mobile-player-art-container {
   flex: 0 1 auto;
   padding: 18px 44px 8px;
@@ -9291,6 +9297,10 @@ body {
   border-radius: 8px;
   background: rgba(255,255,255,0.055);
   border: 1px solid rgba(186, 201, 216, 0.1);
+}
+
+.mobile-player-ctrl-label {
+  bottom: 2px;
 }
 
 .mobile-player-play-btn {
