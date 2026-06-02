@@ -262,7 +262,6 @@ const hasTag = (value: string | null | undefined, tag: string) =>
 
 const INITIAL_BOOK_RENDER_COUNT = 120;
 const BOOK_FETCH_PAGE_SIZE = 100;
-const BOOK_FETCH_CONCURRENCY = 6;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 const INITIAL_SERIES_RENDER_COUNT = 48;
 const SERIES_RENDER_CHUNK_SIZE = 32;
@@ -297,6 +296,9 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const filterSeriesName = searchParams.get("seriesName") ?? undefined;
 
   const [books, setBooks] = useState<LibraryBook[]>([]);
+  const [totalBookCount, setTotalBookCount] = useState(0);
+  const [nextBookPage, setNextBookPage] = useState(0);
+  const [isLoadingMoreBooks, setIsLoadingMoreBooks] = useState(false);
   const [seriesOverview, setSeriesOverview] = useState<SeriesOverviewGroup[]>([]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions>(emptyFilterOptions);
   const [progressMap, setProgressMap] = useState<Map<string, number>>(new Map());
@@ -457,66 +459,54 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     setSearchParams({});
   };
 
-  // Books endpoint is paginated server-side — large unpaginated responses
-  // get truncated mid-stream by the proxy (~80KB limit). Fetch page 0 first
-  // to show content immediately, then fetch remaining pages in parallel.
-  const fetchAllBooksPaginated = async (
-    isCancelled: () => boolean,
-    onPartialUpdate?: (books: LibraryBook[]) => void,
-  ): Promise<LibraryBook[]> => {
+  // Fetch the first page for fast initial paint; load later pages on demand.
+  const fetchBookPage = async (page: number) => {
     const params = buildBookParams();
-
-    // Fetch first page immediately so the UI shows content fast
-    const firstRes = await api.get("/library", {
-      params: { ...params, limit: BOOK_FETCH_PAGE_SIZE, page: 0 },
+    const res = await api.get("/library", {
+      params: { ...params, limit: BOOK_FETCH_PAGE_SIZE, page },
     });
-    if (isCancelled()) return [];
-
-    const firstData = firstRes.data;
-    const firstResults: LibraryBook[] = Array.isArray(firstData) ? firstData : firstData.results;
-    const total: number = Array.isArray(firstData) ? firstData.length : firstData.total;
-
-    if (onPartialUpdate) onPartialUpdate(firstResults);
-    if (firstResults.length >= total) return firstResults;
-
-    // Compute remaining page indices
-    const totalPages = Math.ceil(total / BOOK_FETCH_PAGE_SIZE);
-    const remainingPages = Array.from({ length: totalPages - 1 }, (_, i) => i + 1);
-
-    // Allocate slots so results can be merged in order regardless of arrival
-    const pageSlots: LibraryBook[][] = new Array(totalPages - 1).fill(null);
-
-    const fetchPage = async (page: number, slotIndex: number) => {
-      if (isCancelled()) return;
-      const res = await api.get("/library", {
-        params: { ...params, limit: BOOK_FETCH_PAGE_SIZE, page },
-      });
-      pageSlots[slotIndex] = Array.isArray(res.data) ? res.data : res.data.results;
-    };
-
-    // Process in parallel batches
-    for (let i = 0; i < remainingPages.length; i += BOOK_FETCH_CONCURRENCY) {
-      if (isCancelled()) return [];
-      const batch = remainingPages.slice(i, i + BOOK_FETCH_CONCURRENCY);
-      await Promise.all(batch.map((page, j) => fetchPage(page, i + j)));
-      if (!isCancelled() && onPartialUpdate) {
-        const soFar = [firstResults, ...pageSlots.filter(Boolean)].flat();
-        onPartialUpdate(soFar);
-      }
-    }
-
-    if (isCancelled()) return [];
-    return [firstResults, ...pageSlots].flat();
+    const data = res.data;
+    const results: LibraryBook[] = Array.isArray(data) ? data : data.results;
+    const total: number = Array.isArray(data) ? results.length : data.total;
+    return { results, total, page };
   };
 
-  const fetchBooks = async () => {
+  const fetchBooks = async (isCancelled: () => boolean = () => false) => {
     try {
-      const all = await fetchAllBooksPaginated(() => false, (first) => setBooks(first));
-      setBooks(all);
+      const firstPage = await fetchBookPage(0);
+      if (isCancelled()) return;
+      setBooks(firstPage.results);
+      setTotalBookCount(firstPage.total);
+      setNextBookPage(firstPage.results.length < firstPage.total ? 1 : 0);
     } catch (error) {
+      if (isCancelled()) return;
       console.error("Failed to fetch books", error);
+      setBooks([]);
+      setTotalBookCount(0);
+      setNextBookPage(0);
     } finally {
-      setLoading(false);
+      if (!isCancelled()) setLoading(false);
+    }
+  };
+
+  const fetchNextBookPage = async () => {
+    if (isLoadingMoreBooks || nextBookPage === 0 || books.length >= totalBookCount) return;
+    setIsLoadingMoreBooks(true);
+    try {
+      const page = nextBookPage;
+      const nextPage = await fetchBookPage(page);
+      setBooks((current) => {
+        const seen = new Set(current.map((book) => book.id));
+        const merged = [...current, ...nextPage.results.filter((book) => !seen.has(book.id))];
+        setNextBookPage(merged.length < nextPage.total ? page + 1 : 0);
+        setVisibleBookCount((visible) => Math.min(visible + BOOK_RENDER_CHUNK_SIZE, merged.length));
+        return merged;
+      });
+      setTotalBookCount(nextPage.total);
+    } catch (error) {
+      console.error("Failed to fetch more books", error);
+    } finally {
+      setIsLoadingMoreBooks(false);
     }
   };
 
@@ -692,20 +682,17 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setBooks([]);
+    setTotalBookCount(0);
+    setNextBookPage(0);
+    setVisibleBookCount(INITIAL_BOOK_RENDER_COUNT);
     const timeout = setTimeout(async () => {
       try {
         if (viewMode === "series" && !filterSeriesId) {
           await fetchSeriesOverview(() => cancelled);
           return;
         }
-        const all = await fetchAllBooksPaginated(
-          () => cancelled,
-          (first) => {
-            if (!cancelled) setBooks(first);
-          },
-        );
-        if (cancelled) return;
-        setBooks(all);
+        await fetchBooks(() => cancelled);
       } catch (error) {
         console.error("Failed to fetch books", error);
       } finally {
@@ -874,6 +861,8 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     () => displayBooks.slice(0, visibleBookCount),
     [displayBooks, visibleBookCount],
   );
+  const hasMoreBookPages = nextBookPage !== 0 && books.length < totalBookCount;
+  const canShowMoreLoadedBooks = visibleBookCount < books.length;
   const seriesGroups = useMemo(() => {
     if (viewMode === "series" && !filterSeriesId) {
       return seriesOverview.map((series) => ({
@@ -920,29 +909,29 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   };
 
   useEffect(() => {
-    setVisibleBookCount(INITIAL_BOOK_RENDER_COUNT);
-  }, [books]);
-
-  useEffect(() => {
     setVisibleSeriesCount(INITIAL_SERIES_RENDER_COUNT);
   }, [seriesGroups.length]);
 
   useEffect(() => {
-    if (visibleBookCount >= books.length) return;
+    if (!canShowMoreLoadedBooks && !hasMoreBookPages) return;
     const node = loadMoreRef.current;
     if (!node) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (!entries[0]?.isIntersecting) return;
-        setVisibleBookCount((current) => Math.min(current + BOOK_RENDER_CHUNK_SIZE, books.length));
+        if (canShowMoreLoadedBooks) {
+          setVisibleBookCount((current) => Math.min(current + BOOK_RENDER_CHUNK_SIZE, books.length));
+        } else {
+          void fetchNextBookPage();
+        }
       },
       { rootMargin: "400px 0px" },
     );
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [books.length, visibleBookCount]);
+  }, [books.length, canShowMoreLoadedBooks, hasMoreBookPages, visibleBookCount]);
 
   useEffect(() => {
     if (viewMode !== "series") return;
@@ -1555,7 +1544,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : books.length === 0 ? (
+      ) : (viewMode === "series" ? seriesGroups.length === 0 : books.length === 0) ? (
         <div className="library-empty">
           <div className="library-empty-icon">
             <BookOpen size={28} />
@@ -1590,7 +1579,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
             <span className="library-grid-count">
               {viewMode === "series"
                 ? `${seriesGroups.length} ${seriesGroups.length === 1 ? "series" : "series"}`
-                : `${books.length} ${books.length === 1 ? "audiobook" : "audiobooks"}`}
+                : `${totalBookCount} ${totalBookCount === 1 ? "audiobook" : "audiobooks"}`}
               {search && <span className="library-grid-filter-note"> matching "{search}"</span>}
             </span>
             <div className="library-view-actions">
@@ -1786,18 +1775,23 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
               ))}
             </div>
           )}
-          {viewMode !== "series" && visibleBookCount < books.length && (
+          {viewMode !== "series" && (canShowMoreLoadedBooks || hasMoreBookPages) && (
             <div className="library-load-more-wrap" ref={loadMoreRef}>
               <button
                 className="btn btn-secondary"
-                onClick={() =>
-                  setVisibleBookCount((current) => Math.min(current + BOOK_RENDER_CHUNK_SIZE, books.length))
-                }
+                disabled={isLoadingMoreBooks}
+                onClick={() => {
+                  if (canShowMoreLoadedBooks) {
+                    setVisibleBookCount((current) => Math.min(current + BOOK_RENDER_CHUNK_SIZE, books.length));
+                  } else {
+                    void fetchNextBookPage();
+                  }
+                }}
               >
-                Show more
+                {isLoadingMoreBooks ? "Loading..." : "Show more"}
               </button>
               <span className="library-load-more-meta">
-                Showing {visibleBooks.length} of {books.length}
+                Showing {visibleBooks.length} of {totalBookCount}
               </span>
             </div>
           )}
