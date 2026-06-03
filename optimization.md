@@ -76,27 +76,29 @@ Impact: removes a library-entry API call and avoids building a full progress map
 
 Impact: improves common title and duration sorts while documenting the existing index coverage.
 
+### Library Virtualization
+
+- Added dependency-free window virtualization for loaded Library books in grid and list modes.
+- Kept existing server pagination and `Show more` behavior while only mounting visible book rows/cards plus overscan.
+- Added fixed virtual row/card sizing rules for stable scroll math and clamped grid-card metadata to avoid row-height drift.
+
+Impact: reduces mounted React elements during large loaded library sessions and should improve scroll smoothness and memory use.
+
 ## Remaining High-Impact Work
 
-### 1. Library Virtualization
-
-The Library page now fetches incrementally, but rendered book cards are still normal React elements. Add list/grid virtualization so only visible items render.
-
-Expected impact: smoother scrolling and lower memory use for large loaded result sets.
-
-### 2. Normalize Multi-Value Facets
+### 1. Normalize Multi-Value Facets
 
 `genres` and `tags` are stored as comma-delimited strings, so accurate facet queries require string splitting. A normalized table for tags/genres would let the database build facets and filters without loading those fields into Node.
 
 Expected impact: faster filter option generation and cleaner filtering semantics.
 
-### 3. Recommendation Caching
+### 2. Recommendation Caching
 
 Cache `/api/recommendations` per user for a short TTL and invalidate on progress/library changes.
 
 Expected impact: faster Home page loads.
 
-### 4. Runtime Caching Headers
+### 3. Runtime Caching Headers
 
 Review proxy/server cache headers for:
 
@@ -107,7 +109,7 @@ Review proxy/server cache headers for:
 
 Expected impact: fewer repeat downloads and faster repeat visits.
 
-### 5. Compression
+### 4. Compression
 
 Confirm gzip or Brotli is enabled at the deployed proxy for JSON, JS, CSS, and manifest responses.
 
@@ -122,7 +124,6 @@ Expected impact: smaller network transfer for API responses and app assets.
 
 ## Suggested Next Order
 
-1. Add library grid/list virtualization.
-2. Normalize tags/genres if filter generation remains expensive at scale.
-3. Add recommendation caching.
-4. Review runtime cache headers and deployed compression.
+1. Normalize tags/genres if filter generation remains expensive at scale.
+2. Add recommendation caching.
+3. Review runtime cache headers and deployed compression.

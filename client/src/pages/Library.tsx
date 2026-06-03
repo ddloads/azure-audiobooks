@@ -271,6 +271,10 @@ const BOOK_FETCH_PAGE_SIZE = 100;
 const BOOK_RENDER_CHUNK_SIZE = 80;
 const INITIAL_SERIES_RENDER_COUNT = 48;
 const SERIES_RENDER_CHUNK_SIZE = 32;
+const VIRTUAL_GRID_MIN_COLUMN_WIDTH = 172;
+const VIRTUAL_GRID_METADATA_HEIGHT = 122;
+const VIRTUAL_LIST_ROW_HEIGHT = 78;
+const VIRTUAL_OVERSCAN_ROWS = 3;
 
 const SkeletonCard = () => (
   <div className="skeleton-card">
@@ -282,6 +286,99 @@ const SkeletonCard = () => (
     </div>
   </div>
 );
+
+const useWindowVirtualLayout = (
+  itemCount: number,
+  mode: "grid" | "list",
+) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [layout, setLayout] = useState({
+    startIndex: 0,
+    endIndex: 0,
+    totalHeight: 0,
+    columns: 1,
+    itemWidth: 0,
+    rowHeight: mode === "grid" ? VIRTUAL_GRID_MIN_COLUMN_WIDTH + VIRTUAL_GRID_METADATA_HEIGHT : VIRTUAL_LIST_ROW_HEIGHT,
+    rowGap: mode === "grid" ? 20 : 9,
+    columnGap: 20,
+  });
+
+  useEffect(() => {
+    const updateLayout = () => {
+      const node = containerRef.current;
+      if (!node) return;
+
+      const computed = window.getComputedStyle(node);
+      const rowGap = Number.parseFloat(computed.rowGap) || (mode === "grid" ? 20 : 9);
+      const columnGap = Number.parseFloat(computed.columnGap) || rowGap;
+      const width = node.clientWidth || node.getBoundingClientRect().width;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const containerTop = node.getBoundingClientRect().top + scrollY;
+
+      let columns = 1;
+      let itemWidth = width;
+      let rowHeight = VIRTUAL_LIST_ROW_HEIGHT;
+
+      if (mode === "grid") {
+        columns = Math.max(1, Math.floor((width + columnGap) / (VIRTUAL_GRID_MIN_COLUMN_WIDTH + columnGap)));
+        itemWidth = columns > 0 ? (width - columnGap * (columns - 1)) / columns : width;
+        rowHeight = Math.max(VIRTUAL_GRID_MIN_COLUMN_WIDTH, itemWidth) + VIRTUAL_GRID_METADATA_HEIGHT;
+      }
+
+      const rowStride = rowHeight + rowGap;
+      const rowCount = Math.ceil(itemCount / columns);
+      const visibleTop = Math.max(0, scrollY - containerTop);
+      const visibleBottom = Math.max(visibleTop, scrollY + viewportHeight - containerTop);
+      const startRow = Math.max(0, Math.floor(visibleTop / rowStride) - VIRTUAL_OVERSCAN_ROWS);
+      const endRow = Math.min(
+        rowCount,
+        Math.ceil(visibleBottom / rowStride) + VIRTUAL_OVERSCAN_ROWS,
+      );
+
+      setLayout({
+        startIndex: Math.min(itemCount, startRow * columns),
+        endIndex: Math.min(itemCount, Math.max(startRow + 1, endRow) * columns),
+        totalHeight: rowCount > 0 ? rowCount * rowHeight + Math.max(0, rowCount - 1) * rowGap : 0,
+        columns,
+        itemWidth,
+        rowHeight,
+        rowGap,
+        columnGap,
+      });
+    };
+
+    updateLayout();
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && containerRef.current
+        ? new ResizeObserver(updateLayout)
+        : null;
+
+    if (resizeObserver && containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    window.addEventListener("scroll", updateLayout, { passive: true });
+    window.addEventListener("resize", updateLayout);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("scroll", updateLayout);
+      window.removeEventListener("resize", updateLayout);
+    };
+  }, [itemCount, mode]);
+
+  useEffect(() => {
+    setLayout((current) => ({
+      ...current,
+      startIndex: Math.min(current.startIndex, itemCount),
+      endIndex: Math.min(Math.max(current.endIndex, current.startIndex), itemCount),
+    }));
+  }, [itemCount]);
+
+  return { containerRef, layout };
+};
 
 interface LibraryProps {
   defaultViewMode?: DesktopViewMode;
@@ -875,6 +972,13 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
   const visibleBooks = useMemo(
     () => displayBooks.slice(0, visibleBookCount),
     [displayBooks, visibleBookCount],
+  );
+  const bookLayoutMode: "grid" | "list" = viewMode === "list" ? "list" : "grid";
+  const { containerRef: virtualBookContainerRef, layout: virtualBookLayout } =
+    useWindowVirtualLayout(viewMode === "series" ? 0 : visibleBooks.length, bookLayoutMode);
+  const virtualBooks = useMemo(
+    () => visibleBooks.slice(virtualBookLayout.startIndex, virtualBookLayout.endIndex),
+    [visibleBooks, virtualBookLayout.endIndex, virtualBookLayout.startIndex],
   );
   const hasMoreBookPages = nextBookPage !== 0 && books.length < totalBookCount;
   const canShowMoreLoadedBooks = visibleBookCount < books.length;
@@ -1686,108 +1790,134 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
               </div>
             )
           ) : viewMode === "list" ? (
-            <div className="library-list-view">
-              {visibleBooks.map((book) => {
+            <div
+              className="library-list-view library-list-view--virtual"
+              ref={virtualBookContainerRef}
+              style={{ height: virtualBookLayout.totalHeight }}
+            >
+              {virtualBooks.map((book, virtualOffset) => {
+                const itemIndex = virtualBookLayout.startIndex + virtualOffset;
+                const top = itemIndex * (virtualBookLayout.rowHeight + virtualBookLayout.rowGap);
                 const progress = progressMap.get(book.id);
                 const pct = progress && book.duration > 0
                   ? Math.min(100, Math.round((progress / book.duration) * 100))
                   : 0;
                 return (
-                  <div
-                    key={book.id}
-                    className={`library-list-row${user?.role === "ADMIN" ? " library-list-row--admin" : ""}`}
-                    onClick={() => {
-                      if (filters.duplicates === "true") {
-                        navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
-                      } else {
-                        navigate(`/book/${book.id}`, { state: { from: returnTo } });
-                      }
-                    }}
-                  >
-                    {user?.role === "ADMIN" && (
-                      <div className="library-list-select" onClick={(event) => event.stopPropagation()}>
-                        <label className="library-list-checkbox-label">
-                          <input
-                            type="checkbox"
-                            checked={selectedBookIds.has(book.id)}
-                            onChange={(event) => updateBookSelection(book.id, event.target.checked, false)}
-                            aria-label={`Select ${book.title}`}
-                          />
-                        </label>
+                  <div className="virtual-list-row" key={book.id} style={{ top, height: virtualBookLayout.rowHeight }}>
+                    <div
+                      className={`library-list-row${user?.role === "ADMIN" ? " library-list-row--admin" : ""}`}
+                      onClick={() => {
+                        if (filters.duplicates === "true") {
+                          navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
+                        } else {
+                          navigate(`/book/${book.id}`, { state: { from: returnTo } });
+                        }
+                      }}
+                    >
+                      {user?.role === "ADMIN" && (
+                        <div className="library-list-select" onClick={(event) => event.stopPropagation()}>
+                          <label className="library-list-checkbox-label">
+                            <input
+                              type="checkbox"
+                              checked={selectedBookIds.has(book.id)}
+                              onChange={(event) => updateBookSelection(book.id, event.target.checked, false)}
+                              aria-label={`Select ${book.title}`}
+                            />
+                          </label>
+                        </div>
+                      )}
+                      <div className="library-list-cover">
+                        {book.coverPath ? <img src={coverUrl(book.coverPath, 120)} alt="" loading="lazy" decoding="async" /> : <BookOpen size={24} />}
                       </div>
-                    )}
-                    <div className="library-list-cover">
-                      {book.coverPath ? <img src={coverUrl(book.coverPath, 120)} alt="" loading="lazy" decoding="async" /> : <BookOpen size={24} />}
-                    </div>
-                    <div className="library-list-main">
-                      <div className="library-list-title">{book.title}</div>
-                      {book.subtitle && <div className="library-list-subtitle">{book.subtitle}</div>}
-                      <div className="library-list-meta">
-                        <span>{book.author.name}</span>
-                        {book.series?.name && <span>{book.series.name}{book.sequence != null ? ` #${book.sequence}` : ""}</span>}
-                        <span>{formatTimeLeft(book.duration).replace(" left", "")}</span>
+                      <div className="library-list-main">
+                        <div className="library-list-title">{book.title}</div>
+                        {book.subtitle && <div className="library-list-subtitle">{book.subtitle}</div>}
+                        <div className="library-list-meta">
+                          <span>{book.author.name}</span>
+                          {book.series?.name && <span>{book.series.name}{book.sequence != null ? ` #${book.sequence}` : ""}</span>}
+                          <span>{formatTimeLeft(book.duration).replace(" left", "")}</span>
+                        </div>
+                        {pct > 0 && (
+                          <div className="library-list-progress">
+                            <div className="library-list-progress-fill" style={{ width: `${pct}%` }} />
+                          </div>
+                        )}
                       </div>
-                      {pct > 0 && (
-                        <div className="library-list-progress">
-                          <div className="library-list-progress-fill" style={{ width: `${pct}%` }} />
+                      {user?.role === "ADMIN" && (
+                        <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Match metadata" onClick={() => setMatchBook(book)}><Sparkles size={14} /></button>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Re-scan folder" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}><RefreshCw size={14} /></button>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Auto chapterize" onClick={() => void handleAutoChapterize(book)}><ListPlus size={14} /></button>
+                          <button className="btn btn-secondary library-list-icon-btn" title="Find duplicates" onClick={() => handleFindDuplicates(book)}><FileSearch size={14} /></button>
+                          <button className="btn btn-danger library-list-icon-btn" title="Delete" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}><Trash2 size={14} /></button>
                         </div>
                       )}
                     </div>
-                    {user?.role === "ADMIN" && (
-                      <div className="library-list-actions" onClick={(event) => event.stopPropagation()}>
-                        <button className="btn btn-secondary library-list-icon-btn" title="Match metadata" onClick={() => setMatchBook(book)}><Sparkles size={14} /></button>
-                        <button className="btn btn-secondary library-list-icon-btn" title="Re-scan folder" onClick={() => { setActionBook(book); setConfirmAction("rescan"); }}><RefreshCw size={14} /></button>
-                        <button className="btn btn-secondary library-list-icon-btn" title="Auto chapterize" onClick={() => void handleAutoChapterize(book)}><ListPlus size={14} /></button>
-                        <button className="btn btn-secondary library-list-icon-btn" title="Find duplicates" onClick={() => handleFindDuplicates(book)}><FileSearch size={14} /></button>
-                        <button className="btn btn-danger library-list-icon-btn" title="Delete" onClick={() => { setActionBook(book); setDeleteFiles(false); setConfirmAction("delete"); }}><Trash2 size={14} /></button>
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="library-grid">
-              {visibleBooks.map((book) => (
-                <BookCard
-                  key={book.id}
-                  book={book}
-                  progressSeconds={progressMap.get(book.id)}
-                  isAdmin={user?.role === "ADMIN"}
-                  isSelectable={user?.role === "ADMIN"}
-                  isSelected={selectedBookIds.has(book.id)}
-                  selectionControlsActive={selectedBookIds.size > 0}
-                  onSelect={(selected, shiftKey) => updateBookSelection(book.id, selected, shiftKey)}
-                  onMatch={() => setMatchBook(book)}
-                  onRescan={() => {
-                    setActionBook(book);
-                    setConfirmAction("rescan");
-                  }}
-                  onAutoChapterize={() => void handleAutoChapterize(book)}
-                  onFindDuplicates={() => handleFindDuplicates(book)}
-                  onDelete={() => {
-                    setActionBook(book);
-                    setDeleteFiles(false);
-                    setConfirmAction("delete");
-                  }}
-                  onMarkFinished={() =>
-                    void handleMarkBookFinished({
-                      id: book.id,
-                      title: book.title,
-                      duration: book.duration,
-                    })
-                  }
-                  onRemoveFromContinueListening={() =>
-                    void handleRemoveBookFromContinueListening({
-                      id: book.id,
-                      title: book.title,
-                    })
-                  }
-                  onClickOverride={filters.duplicates === "true" ? () => {
-                    navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
-                  } : undefined}
-                />
-              ))}
+            <div
+              className="library-grid library-grid--virtual"
+              ref={virtualBookContainerRef}
+              style={{ height: virtualBookLayout.totalHeight }}
+            >
+              {virtualBooks.map((book, virtualOffset) => {
+                const itemIndex = virtualBookLayout.startIndex + virtualOffset;
+                const row = Math.floor(itemIndex / virtualBookLayout.columns);
+                const column = itemIndex % virtualBookLayout.columns;
+                return (
+                  <div
+                    className="virtual-grid-cell"
+                    key={book.id}
+                    style={{
+                      top: row * (virtualBookLayout.rowHeight + virtualBookLayout.rowGap),
+                      left: column * (virtualBookLayout.itemWidth + virtualBookLayout.columnGap),
+                      width: virtualBookLayout.itemWidth,
+                      height: virtualBookLayout.rowHeight,
+                    }}
+                  >
+                    <BookCard
+                      book={book}
+                      progressSeconds={progressMap.get(book.id)}
+                      isAdmin={user?.role === "ADMIN"}
+                      isSelectable={user?.role === "ADMIN"}
+                      isSelected={selectedBookIds.has(book.id)}
+                      selectionControlsActive={selectedBookIds.size > 0}
+                      onSelect={(selected, shiftKey) => updateBookSelection(book.id, selected, shiftKey)}
+                      onMatch={() => setMatchBook(book)}
+                      onRescan={() => {
+                        setActionBook(book);
+                        setConfirmAction("rescan");
+                      }}
+                      onAutoChapterize={() => void handleAutoChapterize(book)}
+                      onFindDuplicates={() => handleFindDuplicates(book)}
+                      onDelete={() => {
+                        setActionBook(book);
+                        setDeleteFiles(false);
+                        setConfirmAction("delete");
+                      }}
+                      onMarkFinished={() =>
+                        void handleMarkBookFinished({
+                          id: book.id,
+                          title: book.title,
+                          duration: book.duration,
+                        })
+                      }
+                      onRemoveFromContinueListening={() =>
+                        void handleRemoveBookFromContinueListening({
+                          id: book.id,
+                          title: book.title,
+                        })
+                      }
+                      onClickOverride={filters.duplicates === "true" ? () => {
+                        navigate("/duplicates", { state: { initialBookId: book.id, from: returnTo } });
+                      } : undefined}
+                    />
+                  </div>
+                );
+              })}
             </div>
           )}
           {viewMode !== "series" && (canShowMoreLoadedBooks || hasMoreBookPages) && (
