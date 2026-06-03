@@ -17,25 +17,16 @@ import {
   errorLoggingMiddleware,
   requestLoggingMiddleware,
 } from "./middleware/loggingMiddleware";
+import { getAllowedOrigins, isOriginAllowed } from "./utils/securityConfig";
 
 const app = express();
 app.set("trust proxy", 1);
-const allowedOrigins = new Set(
-  (process.env.CLIENT_ORIGIN || "http://localhost:5173")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-);
-
-const isAllowedDevOrigin = (origin: string) =>
-  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/i.test(
-    origin,
-  );
+const allowedOrigins = getAllowedOrigins();
 
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin) || isAllowedDevOrigin(origin)) {
+      if (isOriginAllowed(origin, allowedOrigins)) {
         callback(null, true);
         return;
       }

@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { enrichRequestLogContext } from "./loggingMiddleware";
+import { getJwtSecret } from "../utils/securityConfig";
 
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-me";
+const JWT_SECRET = getJwtSecret();
 const AUTH_COOKIE_NAME = "auth_token";
 
 export interface AuthRequest extends Request {

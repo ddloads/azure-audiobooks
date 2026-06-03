@@ -11,6 +11,7 @@ import {
   sanitizeEmail,
   sanitizeUsername,
 } from "../utils/usernames";
+import { getJwtSecret } from "../utils/securityConfig";
 
 // In-memory pairing codes for mobile QR connect. Single-use, 5-minute TTL.
 const pairingCodes = new Map<string, { userId: string; role: string; expiresAt: number }>();
@@ -31,7 +32,7 @@ function generatePairingCode(): string {
   return code;
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-me";
+const JWT_SECRET = getJwtSecret();
 const authCookieOptions: CookieOptions = {
   httpOnly: true,
   sameSite: "lax",

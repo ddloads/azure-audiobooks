@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 import type { SilenceCheckProgressPayload } from "../workers/silenceCheckWorker";
+import { getAllowedOrigins, isOriginAllowed } from "../utils/securityConfig";
 
 let io: Server;
 export type WriteTagsProgressPayload = {
@@ -40,9 +41,16 @@ const activeMergeTasks = new Map<
 const activeWriteTagsTasks = new Map<string, WriteTagsProgressPayload>();
 
 export const initSocket = (server: HttpServer) => {
+  const allowedOrigins = getAllowedOrigins();
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+      origin(origin, callback) {
+        if (isOriginAllowed(origin, allowedOrigins)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error(`Socket.IO CORS blocked for origin: ${origin}`));
+      },
       credentials: true,
     },
   });
