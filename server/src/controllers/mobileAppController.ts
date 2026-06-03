@@ -47,6 +47,8 @@ export const getLatestMobileApp = async (_req: Request, res: Response) => {
     return;
   }
 
+  // The latest manifest is mutable because publishing a new APK updates this URL.
+  res.setHeader("Cache-Control", "no-cache, must-revalidate");
   res.json({
     ...manifest,
     downloadUrl: "/api/mobile-app/latest.apk",
@@ -66,6 +68,8 @@ export const downloadLatestMobileApp = async (_req: Request, res: Response) => {
     return;
   }
 
+  // Keep repeat downloads reasonably cacheable without making the stable latest.apk URL sticky for long.
+  res.setHeader("Cache-Control", "public, max-age=3600");
   res.download(apkPath, manifest.fileName || "AzurePlayer-latest.apk");
 };
 

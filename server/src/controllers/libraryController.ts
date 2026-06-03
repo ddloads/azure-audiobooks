@@ -8,6 +8,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder, findCoverInFolderAsync } from "../utils/covers";
+import { scheduleCoverThumbnailCacheCleanup } from "../utils/coverThumbnailCache";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { setLogTitle } from "../middleware/loggingMiddleware";
 import {
@@ -119,15 +120,33 @@ const matchesNormalizedSearch = (value: string | null | undefined, query: string
   return queryTokens.length > 0 && queryTokens.every((token) => normalizedValue.includes(token));
 };
 
-const splitFacetValues = (values: Array<string | null>) =>
-  Array.from(
-    new Set(
-      values
-        .flatMap((value) => value?.split(",") ?? [])
-        .map((value) => value.trim())
-        .filter(Boolean),
-    ),
-  ).sort((a, b) => a.localeCompare(b));
+type FacetValueRow = { value: string | null };
+
+type MultiValueFacetColumn = "genres" | "tags";
+
+const getSplitFacetValues = async (
+  column: MultiValueFacetColumn,
+  includeReviewBooks: boolean,
+): Promise<string[]> => {
+  const columnSql = Prisma.raw(`b."${column}"`);
+  const reviewFilter = includeReviewBooks
+    ? Prisma.empty
+    : Prisma.sql`AND (b."tags" IS NULL OR b."tags" NOT ILIKE ${"%review%"})`;
+
+  const rows = await prisma.$queryRaw<FacetValueRow[]>(Prisma.sql`
+    SELECT value
+    FROM (
+      SELECT DISTINCT btrim(facet.value) AS value
+      FROM "Book" AS b
+      CROSS JOIN LATERAL regexp_split_to_table(COALESCE(${columnSql}, ''), ',') AS facet(value)
+      WHERE btrim(facet.value) <> ''
+      ${reviewFilter}
+    ) AS split_values
+    ORDER BY lower(value), value
+  `);
+
+  return rows.map((row) => row.value).filter((value): value is string => Boolean(value));
+};
 
 const hasTag = (value: string | null | undefined, tagName: string) =>
   (value ?? "")
@@ -439,7 +458,8 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
       publisherRows,
       languageRows,
       yearRows,
-      metadataRows,
+      genreValues,
+      tagValues,
       audioFileRows,
     ] = await Promise.all([
       prisma.library.findMany({
@@ -479,13 +499,8 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
         distinct: ["year"],
         orderBy: { year: "asc" },
       }),
-      prisma.book.findMany({
-        where: visibleBookWhere,
-        select: {
-          genres: true,
-          tags: true,
-        },
-      }),
+      getSplitFacetValues("genres", appearanceSettings.showReviewBooks),
+      getSplitFacetValues("tags", appearanceSettings.showReviewBooks),
       prisma.audioFile.findMany({
         select: { filename: true },
       }),
@@ -507,8 +522,8 @@ export const getFilterOptions = async (_req: AuthRequest, res: Response) => {
       publishers: publisherRows.map((row) => row.publisher).filter((value): value is string => Boolean(value)),
       languages: languageRows.map((row) => row.language).filter((value): value is string => Boolean(value)),
       years: yearRows.map((row) => row.year).filter((value): value is string => Boolean(value)),
-      genres: splitFacetValues(metadataRows.map((row) => row.genres)),
-      tags: splitFacetValues(metadataRows.map((row) => row.tags)),
+      genres: genreValues,
+      tags: tagValues,
       fileTypes,
     };
 
@@ -768,6 +783,7 @@ export const getCover = async (req: Request, res: Response) => {
         .jpeg({ quality: 82, mozjpeg: true })
         .toBuffer();
       await fsp.mkdir(COVER_THUMB_CACHE_DIR, { recursive: true });
+      scheduleCoverThumbnailCacheCleanup(COVER_THUMB_CACHE_DIR);
       await fsp.writeFile(cachedThumbPath, buffer).catch(() => {});
       res.setHeader("Cache-Control", "public, max-age=604800, immutable");
       res.setHeader("Content-Type", "image/jpeg");

@@ -35,13 +35,14 @@ const ScanProgressContext = createContext<ScanProgressContextValue | undefined>(
 
 export const ScanProgressProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
   const [silenceCheckProgress, setSilenceCheckProgress] = useState<SilenceCheckProgress | null>(null);
   const clearScanTimerRef = useRef<number | null>(null);
   const clearSilenceTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!isAdmin) {
       setScanProgress(null);
       setSilenceCheckProgress(null);
       return;
@@ -100,7 +101,7 @@ export const ScanProgressProvider = ({ children }: { children: React.ReactNode }
       socket.off("silenceCheckProgress", handleSilenceCheckProgress);
       socket.disconnect();
     };
-  }, [user]);
+  }, [isAdmin]);
 
   const value = useMemo<ScanProgressContextValue>(
     () => ({ scanProgress, silenceCheckProgress }),

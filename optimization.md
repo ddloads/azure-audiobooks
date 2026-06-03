@@ -1,6 +1,6 @@
 # Azure Audiobooks Optimization Notes
 
-Last updated: 2026-06-02
+Last updated: 2026-06-03
 
 ## Audit Coverage
 
@@ -31,9 +31,10 @@ Impact: the Series view no longer needs the full library payload just to show se
 - Added `coverUrl()` on the client to request sized cover images with `?w=`.
 - Updated the main cover surfaces to request width-appropriate thumbnails.
 - Added server-side thumbnail caching in `server/data/cache/covers`.
+- Added opportunistic cleanup for old cached cover thumbnails, keeping the cache bounded by age and file count.
 - Optimized primary logo assets used by favicon/manifest/player fallback.
 
-Impact: reduces image transfer, image decode cost, and repeated resize work.
+Impact: reduces image transfer, image decode cost, repeated resize work, and unbounded thumbnail cache growth.
 
 ### Mobile App Distribution
 
@@ -48,7 +49,7 @@ Impact: users can get the native Android client directly from the server without
 - Deferred `/api/library/filters` until the filter panel is opened.
 - Increased filter option cache lifetime from 30 seconds to 10 minutes.
 - Moved publisher, language, year, and narrator facets to DB-level distinct queries.
-- Kept genre/tag splitting in Node because those values are comma-delimited strings in the current schema.
+- Moved comma-delimited genre/tag facet expansion into Postgres with `regexp_split_to_table`, so the server no longer loads every visible book's `genres` and `tags` strings just to build filter options.
 
 Impact: removes one normal library-startup API call and reduces backend memory work when filters are requested.
 
@@ -92,39 +93,45 @@ Impact: improves common title and duration sorts while documenting the existing 
 
 Impact: reduces mounted React elements during large loaded library sessions and should improve scroll smoothness and memory use.
 
+### Runtime Caching Headers
+
+- Added long-lived immutable cache headers for hashed Vite assets under `/assets/`.
+- Kept app shell HTML revalidated with `no-cache, must-revalidate` so deployments are picked up promptly.
+- Kept service worker files uncached with `no-cache, no-store, must-revalidate`.
+- Set the web app manifest to revalidate instead of being stored indefinitely.
+- Set `/api/mobile-app/latest` to revalidate and `/api/mobile-app/latest.apk` to a short one-hour public cache.
+
+Impact: fewer repeat static downloads while avoiding stale app shells, PWA service workers, and APK manifests.
+
+### Compression
+
+- Enabled gzip at the Nginx client/proxy layer for static text assets and proxied JSON/API responses.
+- Covered JS, CSS, JSON, web manifest, WASM, SVG, XML, fonts, and plain text responses.
+
+Impact: smaller network transfer for API responses and app assets when served through the deployed client container.
+
+### Realtime Admin Progress
+
+- Restricted the global scan/silence progress Socket.IO connection to admin users only.
+- Non-admin sessions now keep the provider mounted for shared layout compatibility but do not open the scan progress socket.
+- Admin-only settings still opens its runtime task socket when admins enter that screen.
+
+Impact: reduces idle realtime connections and scan-progress fanout for normal listener sessions.
+
 ## Remaining High-Impact Work
 
 ### 1. Normalize Multi-Value Facets
 
-`genres` and `tags` are stored as comma-delimited strings, so accurate facet queries require string splitting. A normalized table for tags/genres would let the database build facets and filters without loading those fields into Node.
+`genres` and `tags` are still stored as comma-delimited strings. Filter option generation now splits them inside Postgres instead of Node, which removes the full metadata-row transfer. A future normalized table for tags/genres would still improve exact-match filtering semantics and indexing for filtered library queries.
 
-Expected impact: faster filter option generation and cleaner filtering semantics.
-
-### 2. Runtime Caching Headers
-
-Review proxy/server cache headers for:
-
-- cover thumbnails
-- static frontend assets
-- APK downloads
-- service worker update behavior
-
-Expected impact: fewer repeat downloads and faster repeat visits.
-
-### 3. Compression
-
-Confirm gzip or Brotli is enabled at the deployed proxy for JSON, JS, CSS, and manifest responses.
-
-Expected impact: smaller network transfer for API responses and app assets.
+Expected impact: cleaner filtering semantics and better index support for genre/tag filters at very large scale.
 
 ## Lower-Priority Follow-Ups
 
-- Add cleanup for old cached cover thumbnails.
-- Avoid opening scan/write-tag sockets for non-admin users when possible.
 - Keep duplicate detection strictly on demand.
 - Split the large `Library.tsx` and `BookMetadataModal.tsx` components to reduce maintenance risk before deeper performance work.
 
 ## Suggested Next Order
 
-1. Normalize tags/genres if filter generation remains expensive at scale.
-2. Review runtime cache headers and deployed compression.
+1. Normalize tags/genres into dedicated tables if exact genre/tag filter semantics or indexed filtering become necessary at very large scale.
+2. Keep duplicate detection strictly on demand.
