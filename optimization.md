@@ -68,6 +68,14 @@ Impact: reduces the initial JavaScript bundle and defers parsing/compilation for
 
 Impact: removes a library-entry API call and avoids building a full progress map for books that are not loaded on the current page.
 
+### Recommendation Caching
+
+- Added a short per-user in-memory cache for `/api/recommendations`.
+- Invalidated the current user's cache after progress updates/deletes.
+- Invalidated all recommendation caches after library scan completion and admin book mutations that can change recommendation candidates or scoring.
+
+Impact: repeat Home page visits avoid recomputing recommendation lanes while still refreshing after progress and library changes.
+
 ### Database Index Review
 
 - Confirmed existing indexes for `Book.createdAt`, `Book.authorId`, `Book.seriesId`, `Book.libraryId`, `Book.year`, and `Progress` user/book lookups.
@@ -92,13 +100,7 @@ Impact: reduces mounted React elements during large loaded library sessions and 
 
 Expected impact: faster filter option generation and cleaner filtering semantics.
 
-### 2. Recommendation Caching
-
-Cache `/api/recommendations` per user for a short TTL and invalidate on progress/library changes.
-
-Expected impact: faster Home page loads.
-
-### 3. Runtime Caching Headers
+### 2. Runtime Caching Headers
 
 Review proxy/server cache headers for:
 
@@ -109,7 +111,7 @@ Review proxy/server cache headers for:
 
 Expected impact: fewer repeat downloads and faster repeat visits.
 
-### 4. Compression
+### 3. Compression
 
 Confirm gzip or Brotli is enabled at the deployed proxy for JSON, JS, CSS, and manifest responses.
 
@@ -125,5 +127,4 @@ Expected impact: smaller network transfer for API responses and app assets.
 ## Suggested Next Order
 
 1. Normalize tags/genres if filter generation remains expensive at scale.
-2. Add recommendation caching.
-3. Review runtime cache headers and deployed compression.
+2. Review runtime cache headers and deployed compression.

@@ -3,6 +3,7 @@ import prisma from "../lib/prisma";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { normalizeCoverPath } from "../utils/covers";
 import { getAppearanceSettings } from "../utils/appSettings";
+import { invalidateRecommendationCache } from "../lib/recommendationCache";
 
 const getSingleParam = (value: string | string[] | undefined): string | null =>
   typeof value === "string" ? value : null;
@@ -108,6 +109,7 @@ export const deleteProgress = async (req: AuthRequest, res: Response) => {
       return;
     }
     await prisma.progress.deleteMany({ where: { userId, bookId } });
+    invalidateRecommendationCache(userId);
     res.status(204).send();
   } catch {
     res.status(500).json({ error: "Failed to delete progress" });
@@ -144,6 +146,7 @@ export const updateProgress = async (req: AuthRequest, res: Response) => {
       },
     });
 
+    invalidateRecommendationCache(userId);
     res.json(progress);
   } catch (error) {
     res.status(500).json({ error: "Failed to update progress" });

@@ -15,6 +15,7 @@ import { GoodreadsSearchError, searchGoodreads } from "../../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl, normalizeCoverPath } from "../../utils/covers";
 import { autoChapterizeBook, rescanBook } from "../../utils/scanner";
 import { invalidateFilterOptionsCache } from "../libraryController";
+import { invalidateRecommendationCache } from "../../lib/recommendationCache";
 import { setLogTitle } from "../../middleware/loggingMiddleware";
 import {
   booksArePotentialDuplicates,
@@ -276,6 +277,8 @@ export const deleteBook = async (req: AuthRequest, res: Response): Promise<void>
       deleteFiles: !!deleteFiles,
     });
 
+    invalidateFilterOptionsCache();
+    invalidateRecommendationCache();
     res.status(204).send();
   } catch (error) {
     console.error("Delete book error:", error);
@@ -292,6 +295,8 @@ export const rescanSingleBookHandler = async (req: AuthRequest, res: Response): 
     }
 
     await rescanBook(bookId);
+    invalidateFilterOptionsCache();
+    invalidateRecommendationCache();
     res.json({ message: "Book rescanned successfully" });
   } catch (error) {
     console.error("Rescan book error:", error);
@@ -921,6 +926,7 @@ export const quickMatchBooks = async (req: AuthRequest, res: Response): Promise<
 
     if (mode === "apply" && result.applied.length > 0) {
       invalidateFilterOptionsCache();
+      invalidateRecommendationCache();
     }
 
     res.json(result);
@@ -1062,6 +1068,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       });
 
       invalidateFilterOptionsCache();
+      invalidateRecommendationCache();
       res.json(updatedBook);
     } catch (error: any) {
       if (
@@ -1086,6 +1093,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
         });
 
         invalidateFilterOptionsCache();
+        invalidateRecommendationCache();
         res.json(updatedBook);
         return;
       }
@@ -1197,6 +1205,7 @@ export const updateBookMetadata = async (req: AuthRequest, res: Response): Promi
       });
 
       invalidateFilterOptionsCache();
+      invalidateRecommendationCache();
       res.json(updatedBook);
     } catch (error: any) {
       if (
@@ -1221,6 +1230,7 @@ export const updateBookMetadata = async (req: AuthRequest, res: Response): Promi
         });
 
         invalidateFilterOptionsCache();
+        invalidateRecommendationCache();
         res.json(updatedBook);
         return;
       }
@@ -1537,6 +1547,7 @@ export const resolveDuplicatesHandler = async (req: AuthRequest, res: Response):
     });
 
     invalidateFilterOptionsCache();
+    invalidateRecommendationCache();
     res.json({ message: "Duplicates resolved successfully" });
   } catch (error: any) {
     console.error("Resolve duplicates error:", error);
@@ -1787,6 +1798,7 @@ export const mergeBooksHandler = async (req: AuthRequest, res: Response): Promis
     });
 
     invalidateFilterOptionsCache();
+    invalidateRecommendationCache();
     res.json({ message: "Books merged successfully" });
   } catch (error) {
     console.error("Merge books error:", error);

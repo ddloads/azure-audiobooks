@@ -4,6 +4,7 @@ import { Worker } from "worker_threads";
 import { emitScanProgress } from "./socket";
 import prisma from "./prisma";
 import type { ScanProgressPayload } from "../utils/scanner";
+import { invalidateRecommendationCache } from "./recommendationCache";
 
 type ScanJobRequest = {
   id: string;
@@ -230,6 +231,7 @@ class ScanJobPool {
     }
 
     if (message.type === "completed") {
+      invalidateRecommendationCache();
       void this.updateJob(message.jobId, {
         status: "completed",
         finishedAt: new Date(),

@@ -2,6 +2,7 @@ import { Response } from "express";
 import prisma from "../lib/prisma";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { normalizeCoverPath } from "../utils/covers";
+import { getCachedRecommendationPayload, setCachedRecommendationPayload } from "../lib/recommendationCache";
 
 const BOOK_SELECT = {
   id: true,
@@ -16,11 +17,39 @@ const BOOK_SELECT = {
   series: { select: { id: true, name: true } },
 } as const;
 
+type RecommendationBook = {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  duration: number;
+  coverPath: string | null;
+  sequence: number | null;
+  narrator: string | null;
+  genres: string | null;
+  author: { id: string; name: string };
+  series: { id: string; name: string } | null;
+};
+
+type RecommendationPayload = {
+  nextInSeries: RecommendationBook[];
+  youMightLike: RecommendationBook[];
+  recentlyAdded: RecommendationBook[];
+};
+
+const RECOMMENDATION_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export const getRecommendations = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    const now = Date.now();
+    const cached = getCachedRecommendationPayload<RecommendationPayload>(userId, now);
+    if (cached) {
+      res.json(cached);
       return;
     }
 
@@ -34,8 +63,8 @@ export const getRecommendations = async (req: AuthRequest, res: Response) => {
       allProgress.filter((p) => p.isFinished || p.currentTime > 30).map((p) => p.bookId),
     );
 
-    const nextInSeries: any[] = [];
-    let youMightLike: any[] = [];
+    const nextInSeries: RecommendationBook[] = [];
+    let youMightLike: RecommendationBook[] = [];
 
     if (finishedBookIds.length > 0) {
       // Lane 1: Up Next in Series
@@ -128,11 +157,15 @@ export const getRecommendations = async (req: AuthRequest, res: Response) => {
       coverPath: normalizeCoverPath(b.coverPath),
     });
 
-    res.json({
+    const payload: RecommendationPayload = {
       nextInSeries:   nextInSeries.map(normalize),
       youMightLike:   youMightLike.map(normalize),
       recentlyAdded:  recentlyAdded.map(normalize),
-    });
+    };
+
+    setCachedRecommendationPayload(userId, payload, RECOMMENDATION_CACHE_TTL_MS, now);
+
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch recommendations" });
   }
