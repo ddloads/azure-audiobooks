@@ -109,6 +109,8 @@ model Book {
   @@index([authorId])
   @@index([seriesId])
   @@index([createdAt])
+  @@index([title])
+  @@index([duration])
   @@index([year])
   @@index([narrator])
   @@index([publisher])

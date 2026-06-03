@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import {
@@ -23,13 +23,10 @@ import { useToast } from "../context/ToastContext";
 import api from "../api/axios";
 import { getSocketBaseUrl } from "../api/backend";
 import BookCard from "../components/BookCard";
-import BookMetadataModal from "../components/BookMetadataModal";
-import UploadModal from "../components/UploadModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import type { MetadataBook, MetadataProvider } from "../features/metadata/types";
 import SearchBox from "../components/SearchBox";
 import { coverUrl } from "../utils/covers";
-import QuickMatchModal from "../features/quick-match/QuickMatchModal";
 import {
   defaultQuickMatchFields,
   type QuickMatchBusyState,
@@ -37,6 +34,10 @@ import {
   type QuickMatchMode,
   type QuickMatchResult,
 } from "../features/quick-match/types";
+
+const BookMetadataModal = lazy(() => import("../components/BookMetadataModal"));
+const UploadModal = lazy(() => import("../components/UploadModal"));
+const QuickMatchModal = lazy(() => import("../features/quick-match/QuickMatchModal"));
 
 interface LibraryBook extends MetadataBook {
   id: string;
@@ -51,6 +52,11 @@ interface LibraryBook extends MetadataBook {
   series?: { id?: string; name: string } | null;
   sequence?: number | null;
   _count?: { audioFiles?: number };
+  progress?: {
+    currentTime: number;
+    isFinished: boolean;
+    lastUpdate?: string;
+  } | null;
 }
 
 interface SeriesOverviewBook {
@@ -472,17 +478,34 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
     return { results, total, page };
   };
 
+  const syncProgressFromBooks = (nextBooks: LibraryBook[]) => {
+    setProgressMap((current) => {
+      const next = new Map(current);
+      nextBooks.forEach((book) => {
+        const progress = book.progress;
+        if (progress && progress.currentTime > 30 && !progress.isFinished) {
+          next.set(book.id, progress.currentTime);
+        } else {
+          next.delete(book.id);
+        }
+      });
+      return next;
+    });
+  };
+
   const fetchBooks = async (isCancelled: () => boolean = () => false) => {
     try {
       const firstPage = await fetchBookPage(0);
       if (isCancelled()) return;
       setBooks(firstPage.results);
+      syncProgressFromBooks(firstPage.results);
       setTotalBookCount(firstPage.total);
       setNextBookPage(firstPage.results.length < firstPage.total ? 1 : 0);
     } catch (error) {
       if (isCancelled()) return;
       console.error("Failed to fetch books", error);
       setBooks([]);
+      setProgressMap(new Map());
       setTotalBookCount(0);
       setNextBookPage(0);
     } finally {
@@ -503,6 +526,7 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
         setVisibleBookCount((visible) => Math.min(visible + BOOK_RENDER_CHUNK_SIZE, merged.length));
         return merged;
       });
+      syncProgressFromBooks(nextPage.results);
       setTotalBookCount(nextPage.total);
     } catch (error) {
       console.error("Failed to fetch more books", error);
@@ -538,15 +562,6 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
 
   const refreshLibraryData = async () => {
     await Promise.all([fetchBooks(), fetchLibraries()]);
-  };
-
-  const fetchProgress = async () => {
-    try {
-      const res = await api.get("/progress");
-      setProgressMap(new Map((res.data as Array<{ bookId: string; currentTime: number }>).map((r) => [r.bookId, r.currentTime])));
-    } catch (error) {
-      console.error("Failed to fetch progress", error);
-    }
   };
 
   const removeBookFromInProgressState = (bookId: string) => {
@@ -657,10 +672,6 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
       writeTagsResolversRef.current.set(jobId, resolve);
     });
   };
-
-  useEffect(() => {
-    void fetchProgress();
-  }, []);
 
   useEffect(() => {
     if (isFilterPanelOpen && !filterOptionsLoaded) {
@@ -1802,50 +1813,52 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
         </>
       )}
 
-      {isUploadModalOpen && (
-        <UploadModal
-          onClose={() => setIsUploadModalOpen(false)}
-          onUploadComplete={async () => {
-            await fetchLibraries();
-            await fetchBooks();
-          }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {isUploadModalOpen && (
+          <UploadModal
+            onClose={() => setIsUploadModalOpen(false)}
+            onUploadComplete={async () => {
+              await fetchLibraries();
+              await fetchBooks();
+            }}
+          />
+        )}
 
-      {matchBook && (
-        <BookMetadataModal
-          key={matchBook.id}
-          book={matchBook}
-          onClose={closeMetadataQueue}
-          onApplied={matchQueue.length > 0 ? advanceMetadataQueue : refreshLibraryData}
-          initialTab="fetch"
-          closeAfterSave={matchQueue.length === 0}
-          queuePosition={
-            matchQueue.length > 0
-              ? { current: matchQueueIndex + 1, total: matchQueue.length }
-              : undefined
-          }
-          onQueuePrevious={() => goToMetadataQueueIndex(matchQueueIndex - 1)}
-          onQueueNext={() => goToMetadataQueueIndex(matchQueueIndex + 1)}
-        />
-      )}
+        {matchBook && (
+          <BookMetadataModal
+            key={matchBook.id}
+            book={matchBook}
+            onClose={closeMetadataQueue}
+            onApplied={matchQueue.length > 0 ? advanceMetadataQueue : refreshLibraryData}
+            initialTab="fetch"
+            closeAfterSave={matchQueue.length === 0}
+            queuePosition={
+              matchQueue.length > 0
+                ? { current: matchQueueIndex + 1, total: matchQueue.length }
+                : undefined
+            }
+            onQueuePrevious={() => goToMetadataQueueIndex(matchQueueIndex - 1)}
+            onQueueNext={() => goToMetadataQueueIndex(matchQueueIndex + 1)}
+          />
+        )}
 
-      {isQuickMatchOpen && (
-        <QuickMatchModal
-          selectedCount={selectedBooks.length}
-          eligibleCount={quickMatchEligibleBooks.length}
-          provider={quickMatchProvider}
-          minConfidence={quickMatchMinConfidence}
-          fields={quickMatchFields}
-          result={quickMatchResult}
-          busy={quickMatchBusy}
-          onClose={() => setIsQuickMatchOpen(false)}
-          onProviderChange={setQuickMatchProvider}
-          onMinConfidenceChange={setQuickMatchMinConfidence}
-          onFieldsChange={setQuickMatchFields}
-          onRun={(mode) => void runQuickMatch(mode)}
-        />
-      )}
+        {isQuickMatchOpen && (
+          <QuickMatchModal
+            selectedCount={selectedBooks.length}
+            eligibleCount={quickMatchEligibleBooks.length}
+            provider={quickMatchProvider}
+            minConfidence={quickMatchMinConfidence}
+            fields={quickMatchFields}
+            result={quickMatchResult}
+            busy={quickMatchBusy}
+            onClose={() => setIsQuickMatchOpen(false)}
+            onProviderChange={setQuickMatchProvider}
+            onMinConfidenceChange={setQuickMatchMinConfidence}
+            onFieldsChange={setQuickMatchFields}
+            onRun={(mode) => void runQuickMatch(mode)}
+          />
+        )}
+      </Suspense>
 
       {/* Book Management Modals */}
       <ConfirmDialog

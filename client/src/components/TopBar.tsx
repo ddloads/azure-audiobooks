@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Bug, CheckCircle2, IdCard, Loader2, LogOut, Menu, Plus, ScanLine, Settings, SlidersHorizontal, Smartphone, User, Volume2, XCircle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useScanProgress } from "../context/ScanProgressContext";
 import AppLogo from "./AppLogo";
 import SearchBox from "./SearchBox";
-import BugReportModal from "./BugReportModal";
-import ConnectMobileModal from "./ConnectMobileModal";
+
+const BugReportModal = lazy(() => import("./BugReportModal"));
+const ConnectMobileModal = lazy(() => import("./ConnectMobileModal"));
 
 // Keys that live in the library URL but aren't filters proper. Used to count
 // the active filter badge in the top bar without coupling to Library's full
@@ -351,12 +352,14 @@ export default function TopBar({ onMenuToggle }: TopBarProps) {
         )}
       </div>
     </header>
-    {isConnectMobileOpen && (
-      <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
-    )}
-    {isBugReportOpen && (
-      <BugReportModal onClose={() => setIsBugReportOpen(false)} />
-    )}
+    <Suspense fallback={null}>
+      {isConnectMobileOpen && (
+        <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
+      )}
+      {isBugReportOpen && (
+        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
+      )}
+    </Suspense>
     </>
   );
 }

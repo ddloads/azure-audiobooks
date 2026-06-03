@@ -52,64 +52,51 @@ Impact: users can get the native Android client directly from the server without
 
 Impact: removes one normal library-startup API call and reduces backend memory work when filters are requested.
 
+### Frontend Code Splitting
+
+- Lazy-loaded top-level route pages through `React.lazy` and `Suspense`.
+- Split admin-only routes, duplicate management, and mobile menu into separate chunks.
+- Lazy-loaded heavy modal flows including metadata editing, quick match, upload, bug reporting, connect mobile, and admin settings.
+
+Impact: reduces the initial JavaScript bundle and defers parsing/compilation for admin and modal workflows until users actually open them.
+
+### Progress Data Scope
+
+- Added current-user progress to `/api/library` book responses.
+- Changed the Library page to hydrate card progress from paged library results.
+- Removed the Library page's startup fetch of the full `/api/progress` response.
+
+Impact: removes a library-entry API call and avoids building a full progress map for books that are not loaded on the current page.
+
+### Database Index Review
+
+- Confirmed existing indexes for `Book.createdAt`, `Book.authorId`, `Book.seriesId`, `Book.libraryId`, `Book.year`, and `Progress` user/book lookups.
+- Added Prisma migration indexes for `Book.title` and `Book.duration`.
+- Confirmed the compound `Progress.userId, Progress.bookId` lookup is covered by the existing unique constraint.
+
+Impact: improves common title and duration sorts while documenting the existing index coverage.
+
 ## Remaining High-Impact Work
 
-### 1. Frontend Code Splitting
-
-The initial JavaScript bundle remains large. Lazy-load heavy flows:
-
-- `BookMetadataModal`
-- `QuickMatchModal`
-- `UploadModal`
-- `BugReportModal`
-- admin settings/pages
-- duplicate management
-
-Expected impact: faster first load and less JS parse/compile time, especially on mobile.
-
-### 2. Library Virtualization
+### 1. Library Virtualization
 
 The Library page now fetches incrementally, but rendered book cards are still normal React elements. Add list/grid virtualization so only visible items render.
 
 Expected impact: smoother scrolling and lower memory use for large loaded result sets.
 
-### 3. Progress Data Scope
-
-The client still fetches full `/api/progress` for library card progress. Add current-user progress to paged `/api/library` responses or expose a paged progress lookup.
-
-Expected impact: fewer requests and less client-side map construction on library entry.
-
-### 4. Database Index Review
-
-Add or confirm indexes for common filters/sorts:
-
-- `Book.createdAt`
-- `Book.title`
-- `Book.authorId`
-- `Book.seriesId`
-- `Book.libraryId`
-- `Book.duration`
-- `Book.year`
-- `Progress.userId`
-- compound `Progress.userId, Progress.bookId`
-
-For PostgreSQL search at larger scale, consider trigram or full-text indexes for title/author/series/narrator search.
-
-Expected impact: faster filtered and sorted library queries.
-
-### 5. Normalize Multi-Value Facets
+### 2. Normalize Multi-Value Facets
 
 `genres` and `tags` are stored as comma-delimited strings, so accurate facet queries require string splitting. A normalized table for tags/genres would let the database build facets and filters without loading those fields into Node.
 
 Expected impact: faster filter option generation and cleaner filtering semantics.
 
-### 6. Recommendation Caching
+### 3. Recommendation Caching
 
 Cache `/api/recommendations` per user for a short TTL and invalidate on progress/library changes.
 
 Expected impact: faster Home page loads.
 
-### 7. Runtime Caching Headers
+### 4. Runtime Caching Headers
 
 Review proxy/server cache headers for:
 
@@ -120,7 +107,7 @@ Review proxy/server cache headers for:
 
 Expected impact: fewer repeat downloads and faster repeat visits.
 
-### 8. Compression
+### 5. Compression
 
 Confirm gzip or Brotli is enabled at the deployed proxy for JSON, JS, CSS, and manifest responses.
 
@@ -135,8 +122,7 @@ Expected impact: smaller network transfer for API responses and app assets.
 
 ## Suggested Next Order
 
-1. Lazy-load heavy modals and admin-only UI.
-2. Include paged user progress in `/api/library`.
-3. Add database indexes through Prisma migration.
-4. Add library grid/list virtualization.
-5. Normalize tags/genres if filter generation remains expensive at scale.
+1. Add library grid/list virtualization.
+2. Normalize tags/genres if filter generation remains expensive at scale.
+3. Add recommendation caching.
+4. Review runtime cache headers and deployed compression.

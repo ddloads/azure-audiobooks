@@ -45,6 +45,25 @@ const normalizeLibraryBook = <
   title: cleanupBookTitle(book.title, { folderNameOrPath: book.folderPath ?? undefined }),
 });
 
+const normalizeLibraryBookWithUserProgress = <
+  T extends {
+    title: string;
+    folderPath?: string | null;
+    coverPath?: string | null;
+    progress?: Array<{
+      currentTime: number;
+      isFinished: boolean;
+      lastUpdate: Date;
+    }>;
+  },
+>(book: T) => {
+  const normalized = normalizeLibraryBook(book);
+  return {
+    ...normalized,
+    progress: Array.isArray(book.progress) ? book.progress[0] ?? null : null,
+  };
+};
+
 const getQueryString = (value: unknown) =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
 
@@ -337,7 +356,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
       : undefined;
     const safePage = isPaginated ? Math.max(Math.floor(page ?? 0), 0) : 0;
 
-    const selectShape = {
+    const selectShape: Prisma.BookSelect = {
       id: true,
       title: true,
       subtitle: true,
@@ -353,7 +372,19 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
       tags: true,
       library: { select: { id: true, name: true } },
       author: { select: { name: true } },
-    } as const;
+    };
+
+    if (userId) {
+      selectShape.progress = {
+        where: { userId },
+        select: {
+          currentTime: true,
+          isFinished: true,
+          lastUpdate: true,
+        },
+        take: 1,
+      };
+    }
 
     if (isPaginated) {
       const [books, total] = await Promise.all([
@@ -367,7 +398,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
         prisma.book.count({ where }),
       ]);
       res.json({
-        results: books.map(normalizeLibraryBook),
+        results: books.map(normalizeLibraryBookWithUserProgress),
         total,
         page: safePage,
         limit: safeLimit,
@@ -376,7 +407,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
     }
 
     const books = await prisma.book.findMany({ where, select: selectShape, orderBy });
-    res.json(books.map(normalizeLibraryBook));
+    res.json(books.map(normalizeLibraryBookWithUserProgress));
   } catch (error) {
     res.status(500).json({ error: "Failed to fetch books" });
   }

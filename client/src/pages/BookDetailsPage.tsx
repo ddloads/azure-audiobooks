@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { lazy, Suspense, useEffect, useState, useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { isAxiosError } from "axios";
 import { io } from "socket.io-client";
@@ -33,12 +33,13 @@ import { usePlayer } from "../context/PlayerContext";
 import { useTasks } from "../context/TaskContext";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import BookMetadataModal from "../components/BookMetadataModal";
 import ConfirmDialog from "../components/ConfirmDialog";
-import BugReportModal from "../components/BugReportModal";
 import { getApiBaseUrl, getSocketBaseUrl } from "../api/backend";
 import { formatBookDescription } from "../utils/formatDescription";
 import { coverUrl } from "../utils/covers";
+
+const BookMetadataModal = lazy(() => import("../components/BookMetadataModal"));
+const BugReportModal = lazy(() => import("../components/BugReportModal"));
 
 interface AudioFile {
   id: string;
@@ -988,22 +989,24 @@ const BookDetailsPage: React.FC = () => {
         </div>
       </div>
 
-      {showMetadataModal && book && (
-        <BookMetadataModal
-          book={book}
-          onClose={() => setShowMetadataModal(false)}
-          onApplied={() => fetchBookDetails()}
-          initialTab={metadataInitialTab}
-        />
-      )}
-      {showBugReportModal && book && (
-        <BugReportModal
-          onClose={() => setShowBugReportModal(false)}
-          initialType="metadata"
-          path={`/book/${book.id}`}
-          initialComment={`Title: ${book.title}\nAuthor: ${book.author.name}\n\n`}
-        />
-      )}
+      <Suspense fallback={null}>
+        {showMetadataModal && book && (
+          <BookMetadataModal
+            book={book}
+            onClose={() => setShowMetadataModal(false)}
+            onApplied={() => fetchBookDetails()}
+            initialTab={metadataInitialTab}
+          />
+        )}
+        {showBugReportModal && book && (
+          <BugReportModal
+            onClose={() => setShowBugReportModal(false)}
+            initialType="metadata"
+            path={`/book/${book.id}`}
+            initialComment={`Title: ${book.title}\nAuthor: ${book.author.name}\n\n`}
+          />
+        )}
+      </Suspense>
       <ConfirmDialog
         open={confirmAction === "merge"}
         title={canConvertSingleFileToM4B ? "Convert Audio File" : "Merge Book Files"}

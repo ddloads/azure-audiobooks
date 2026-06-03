@@ -1,13 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 import { Boxes, Bug, FolderOpen, Headphones, IdCard, LogOut, RefreshCw, Settings, Smartphone, Upload, UserCog, Users } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import AppLogo from '../components/AppLogo';
-import UploadModal from '../components/UploadModal';
-import ConnectMobileModal from '../components/ConnectMobileModal';
-import BugReportModal from '../components/BugReportModal';
+
+const UploadModal = lazy(() => import('../components/UploadModal'));
+const ConnectMobileModal = lazy(() => import('../components/ConnectMobileModal'));
+const BugReportModal = lazy(() => import('../components/BugReportModal'));
 
 const MobileMenu = () => {
   const { user, logout } = useAuth();
@@ -122,20 +123,22 @@ const MobileMenu = () => {
         </button>
       </div>
 
-      {isUploadOpen && (
-        <UploadModal
-          onClose={() => setIsUploadOpen(false)}
-          onUploadComplete={() => { setIsUploadOpen(false); navigate('/'); }}
-        />
-      )}
+      <Suspense fallback={null}>
+        {isUploadOpen && (
+          <UploadModal
+            onClose={() => setIsUploadOpen(false)}
+            onUploadComplete={() => { setIsUploadOpen(false); navigate('/'); }}
+          />
+        )}
 
-      {isConnectMobileOpen && (
-        <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
-      )}
+        {isConnectMobileOpen && (
+          <ConnectMobileModal onClose={() => setIsConnectMobileOpen(false)} />
+        )}
 
-      {isBugReportOpen && (
-        <BugReportModal onClose={() => setIsBugReportOpen(false)} />
-      )}
+        {isBugReportOpen && (
+          <BugReportModal onClose={() => setIsBugReportOpen(false)} />
+        )}
+      </Suspense>
     </div>
   );
 };
