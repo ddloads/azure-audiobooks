@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import util from "util";
 import { AsyncLocalStorage } from "async_hooks";
+import pino, { type Logger as PinoLogger } from "pino";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
@@ -58,6 +59,16 @@ interface ListLogsResult {
 
 const LOG_DIR = path.join(process.cwd(), "data", "logs");
 const requestContextStore = new AsyncLocalStorage<RequestLogContext>();
+type LogPayload = Omit<LogEntry, "timestamp" | "level">;
+type DestinationKind = "app" | "error";
+
+type PinoDestinationState = {
+  filePath: string;
+  logger: PinoLogger;
+};
+
+let appDestination: PinoDestinationState | null = null;
+let errorDestination: PinoDestinationState | null = null;
 const originalConsole = {
   debug: console.debug.bind(console),
   info: console.info.bind(console),
@@ -84,10 +95,44 @@ const ensureLogDir = () => {
   }
 };
 
+const ensureLogDirAsync = async () => {
+  await fs.promises.mkdir(LOG_DIR, { recursive: true });
+};
+
 const getLogFilePath = (level: LogLevel) => {
   const dateKey = new Date().toISOString().slice(0, 10);
   const suffix = level === "error" ? "error" : "app";
   return path.join(LOG_DIR, `${suffix}-${dateKey}.log`);
+};
+
+const createDestinationLogger = (filePath: string): PinoLogger => {
+  ensureLogDir();
+  return pino(
+    {
+      base: null,
+      level: "debug",
+      timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+      formatters: {
+        level: (label) => ({ level: label as LogLevel }),
+      },
+    },
+    pino.destination({ dest: filePath, sync: false, mkdir: true }),
+  );
+};
+
+const getDestinationLogger = (kind: DestinationKind): PinoLogger => {
+  const filePath = getLogFilePath(kind === "error" ? "error" : "info");
+  const current = kind === "error" ? errorDestination : appDestination;
+
+  if (current?.filePath === filePath) return current.logger;
+
+  const next = { filePath, logger: createDestinationLogger(filePath) };
+  if (kind === "error") {
+    errorDestination = next;
+  } else {
+    appDestination = next;
+  }
+  return next.logger;
 };
 
 const safeSerialize = (value: unknown, seen = new WeakSet<object>()): unknown => {
@@ -139,11 +184,12 @@ const pickError = (args: unknown[]) => {
 };
 
 const appendEntry = (entry: LogEntry) => {
-  ensureLogDir();
-  const line = `${JSON.stringify(safeSerialize(entry))}\n`;
-  fs.appendFileSync(getLogFilePath("info"), line, "utf8");
-  if (entry.level === "error") {
-    fs.appendFileSync(getLogFilePath("error"), line, "utf8");
+  const { timestamp: _timestamp, level, ...payload } = safeSerialize(entry) as LogEntry;
+  const appLogger = getDestinationLogger("app");
+  appLogger[level](payload as LogPayload);
+
+  if (level === "error") {
+    getDestinationLogger("error").error(payload as LogPayload);
   }
 };
 
@@ -263,10 +309,10 @@ export const installProcessLogger = () => {
   });
 };
 
-const getLogFiles = () => {
-  ensureLogDir();
-  return fs
-    .readdirSync(LOG_DIR)
+const getLogFiles = async () => {
+  await ensureLogDirAsync();
+  const names = await fs.promises.readdir(LOG_DIR);
+  return names
     .filter((name) => name.endsWith(".log"))
     .map((name) => path.join(LOG_DIR, name))
     .sort((a, b) => b.localeCompare(a));
@@ -302,7 +348,7 @@ const isMetadataRelatedLog = (entry: LogEntry) => {
   return metadataPatterns.some((pattern) => pattern.test(text));
 };
 
-export const listLogs = (options: ListLogsOptions = {}): ListLogsResult => {
+export const listLogs = async (options: ListLogsOptions = {}): Promise<ListLogsResult> => {
   const page = Math.max(1, options.page ?? 1);
   const limit = Math.min(200, Math.max(1, options.limit ?? 100));
   const offset = (page - 1) * limit;
@@ -319,9 +365,8 @@ export const listLogs = (options: ListLogsOptions = {}): ListLogsResult => {
   const matchingEntries: LogEntry[] = [];
   let totalMatching = 0;
 
-  for (const filePath of getLogFiles()) {
-    const lines = fs
-      .readFileSync(filePath, "utf8")
+  for (const filePath of await getLogFiles()) {
+    const lines = (await fs.promises.readFile(filePath, "utf8"))
       .split(/\r?\n/)
       .filter(Boolean)
       .reverse();
@@ -361,9 +406,9 @@ export const listLogs = (options: ListLogsOptions = {}): ListLogsResult => {
   };
 };
 
-export const clearLogs = () => {
-  for (const filePath of getLogFiles()) {
-    fs.rmSync(filePath, { force: true });
+export const clearLogs = async () => {
+  for (const filePath of await getLogFiles()) {
+    await fs.promises.rm(filePath, { force: true });
   }
 };
 

@@ -27,7 +27,7 @@ export const listSystemLogs = async (req: AuthRequest, res: Response): Promise<v
   try {
     const scope = req.query.scope === "metadata" ? "metadata" : "all";
 
-    const result = listLogs({
+    const result = await listLogs({
       levels: parseRequestedLevels(req.query.levels ?? req.query.level),
       scope,
       search: typeof req.query.search === "string" ? req.query.search : undefined,
@@ -45,7 +45,7 @@ export const listSystemLogs = async (req: AuthRequest, res: Response): Promise<v
 export const clearSystemLogs = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     res.locals.skipRequestLog = true;
-    clearLogs();
+    await clearLogs();
     res.status(204).send();
   } catch (error) {
     logger.error("Failed to clear logs", error);
