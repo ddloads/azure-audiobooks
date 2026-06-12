@@ -35,6 +35,7 @@ type WorkerSlot = {
   ready: boolean;
   busy: boolean;
   currentJob: ScanJobRequest | null;
+  lastProgressAt: number;
 };
 
 const configuredPoolSize = (() => {
@@ -45,6 +46,16 @@ const configuredPoolSize = (() => {
 
   return 2;
 })();
+
+// A scan worker that makes no progress for this long is treated as hung (e.g.
+// FFprobe stalled on a flaky network file) and recycled so it can't occupy a
+// pool slot forever and starve the queue. The threshold is generous because a
+// single large book folder on a slow NAS can sit between "starting" and
+// "completed" with no intermediate progress event; we only want to catch true
+// stalls, not slow-but-healthy scans.
+const SCAN_JOB_STALL_TIMEOUT_MS =
+  Number.parseInt(process.env.SCAN_JOB_STALL_TIMEOUT_MS || "", 10) || 900000;
+const SCAN_JOB_WATCHDOG_INTERVAL_MS = 30000;
 
 const getWorkerScriptPath = () => {
   const workerPath = path.join(process.cwd(), "dist", "workers", "scanWorker.js");
@@ -65,6 +76,7 @@ const createWorkerSlot = (): WorkerSlot => {
     ready: false,
     busy: false,
     currentJob: null,
+    lastProgressAt: 0,
   };
 };
 
@@ -76,6 +88,36 @@ class ScanJobPool {
   constructor(private readonly size: number) {
     for (let index = 0; index < this.size; index++) {
       this.workers.push(this.attachWorker(createWorkerSlot()));
+    }
+
+    const watchdog = setInterval(() => this.recycleStalledWorkers(), SCAN_JOB_WATCHDOG_INTERVAL_MS);
+    // Don't let the watchdog keep the process alive on its own.
+    watchdog.unref?.();
+  }
+
+  // Terminates any worker that has been busy without emitting progress for
+  // longer than SCAN_JOB_STALL_TIMEOUT_MS. The 'exit' handler fails the job and
+  // resets the slot, and the fresh worker's "ready" message re-dispatches the
+  // queue — so a single stuck scan can no longer permanently block the pool.
+  private recycleStalledWorkers() {
+    const now = Date.now();
+    for (const slot of this.workers) {
+      if (!slot.busy || !slot.currentJob) {
+        continue;
+      }
+
+      const stalledForMs = now - slot.lastProgressAt;
+      if (stalledForMs < SCAN_JOB_STALL_TIMEOUT_MS) {
+        continue;
+      }
+
+      console.error(
+        `Scan job ${slot.currentJob.id} stalled for ${Math.round(stalledForMs / 1000)}s ` +
+        `(folder: ${slot.currentJob.folderPath ?? "<full library>"}); recycling worker`,
+      );
+      // terminate() triggers the slot's 'exit' handler (non-zero code), which
+      // marks the job failed and resets the slot.
+      void slot.worker.terminate();
     }
   }
 
@@ -102,6 +144,7 @@ class ScanJobPool {
       data: {
         libraryId,
         trigger,
+        folderPath: options.folderPath ?? null,
         status: "queued",
       },
       select: { id: true },
@@ -209,6 +252,7 @@ class ScanJobPool {
     }
 
     if (message.type === "progress") {
+      slot.lastProgressAt = Date.now();
       void this.updateJobProgress(message.jobId, message.data);
       emitScanProgress(message.data);
       return;
@@ -289,6 +333,7 @@ class ScanJobPool {
 
       slot.busy = true;
       slot.currentJob = job;
+      slot.lastProgressAt = Date.now();
       void this.updateJob(job.id, {
         status: "running",
         startedAt: new Date(),
@@ -307,7 +352,12 @@ class ScanJobPool {
   }
 
   private async hasActiveLibraryJob(libraryId?: string) {
-    const matchesLibrary = (job: ScanJobRequest) => job.libraryId === libraryId;
+    // Only full-library scans dedupe against each other. A folder-scoped watch
+    // scan (folderPath set) must NOT block a full library rescan — otherwise a
+    // user's manual "rescan to recover a missed book" is silently skipped while
+    // the watcher happens to be processing a folder.
+    const matchesLibrary = (job: ScanJobRequest) =>
+      job.libraryId === libraryId && job.folderPath === undefined;
     const queuedMatch = this.queue.some(matchesLibrary);
     const runningMatch = this.workers.some((slot) => slot.currentJob && matchesLibrary(slot.currentJob));
 
@@ -318,6 +368,7 @@ class ScanJobPool {
     const activeJob = await prisma.libraryScanJob.findFirst({
       where: {
         libraryId: libraryId ?? null,
+        folderPath: null,
         status: { in: ["queued", "running", "cancelling"] },
       },
       select: { id: true },
@@ -340,10 +391,15 @@ class ScanJobPool {
       return true;
     }
 
+    // DB fallback is scoped to the SAME folderPath. This must never match purely
+    // on libraryId/trigger: doing so skips a brand-new folder's scan whenever any
+    // other watch-folder job for the library is queued/running, silently dropping
+    // newly-added books. Orphaned rows from a previous process are reaped on
+    // startup, so this only catches genuine same-folder duplicates.
     const activeJob = await prisma.libraryScanJob.findFirst({
       where: {
         libraryId: libraryId ?? null,
-        trigger: "watch-folder",
+        folderPath,
         status: { in: ["queued", "running", "cancelling"] },
       },
       select: { id: true },
