@@ -141,6 +141,7 @@ model LibraryScanJob {
   libraryId      String?
   status         String             @default("queued")
   trigger        String?
+  folderPath     String?
   totalFolders   Int?
   scannedFolders Int                @default(0)
   totalFiles     Int?
@@ -156,6 +157,7 @@ model LibraryScanJob {
   @@index([libraryId, status])
   @@index([status, createdAt])
   @@index([createdAt])
+  @@index([libraryId, trigger, status])
 }
 
 model IndexedAudioFile {
