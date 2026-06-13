@@ -125,6 +125,9 @@ export const upsertBookFolder = async (
         if (tags.title) title = tags.title;
         if (tags.artist) authorName = tags.artist;
         else if (tags.album_artist) authorName = tags.album_artist;
+      } else if (existingBook.author.name === "Unknown Author") {
+        if (tags.artist) authorName = tags.artist;
+        else if (tags.album_artist) authorName = tags.album_artist;
       }
       narrator = tags.narrator || tags.composer || null;
       subtitle = tags.subtitle || null;
