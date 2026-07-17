@@ -12,7 +12,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (token: string, user: User) => void;
+  login: (user: User) => void;
   updateUser: (user: User) => void;
   logout: () => void;
 }
@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(res.data);
         }
       } catch {
-        localStorage.removeItem("token");
         if (!cancelled) {
           setUser(null);
         }
@@ -51,8 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const login = (token: string, user: User) => {
-    localStorage.setItem("token", token);
+  const login = (user: User) => {
     setUser(user);
   };
 
@@ -62,7 +60,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     void api.post("/auth/logout").catch(() => undefined);
-    localStorage.removeItem("token");
     setUser(null);
   };
 

@@ -18,6 +18,7 @@ import {
   requestLoggingMiddleware,
 } from "./middleware/loggingMiddleware";
 import { getAllowedOrigins, isOriginAllowed } from "./utils/securityConfig";
+import prisma from "./lib/prisma";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -53,8 +54,13 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/bookmarks", bookmarkRoutes);
 app.use("/api/mobile-app", mobileAppRoutes);
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get("/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: "ok" });
+  } catch {
+    res.status(503).json({ status: "unavailable" });
+  }
 });
 
 app.use(errorLoggingMiddleware);

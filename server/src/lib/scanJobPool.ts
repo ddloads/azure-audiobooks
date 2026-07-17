@@ -85,6 +85,8 @@ class ScanJobPool {
 
   private readonly queue: ScanJobRequest[] = [];
 
+  private shuttingDown = false;
+
   constructor(private readonly size: number) {
     for (let index = 0; index < this.size; index++) {
       this.workers.push(this.attachWorker(createWorkerSlot()));
@@ -210,17 +212,25 @@ class ScanJobPool {
     });
   }
 
+  async shutdown() {
+    this.shuttingDown = true;
+    await this.stopAll();
+    await Promise.all(this.workers.map((slot) => slot.worker.terminate()));
+  }
+
   private attachWorker(slot: WorkerSlot): WorkerSlot {
     slot.worker.on("message", (message: WorkerResponse) => {
       this.handleWorkerMessage(slot, message);
     });
 
     slot.worker.on("error", (error) => {
+      if (this.shuttingDown) return;
       this.failCurrentJob(slot, error);
       this.resetSlot(slot);
     });
 
     slot.worker.on("exit", (code) => {
+      if (this.shuttingDown) return;
       if (code !== 0) {
         this.failCurrentJob(slot, new Error(`Scan worker exited with code ${code}`));
       }
@@ -500,3 +510,4 @@ export const reapStaleScanJobs = async () => {
 };
 
 export const stopScanning = () => pool.stopAll();
+export const shutdownScanning = () => pool.shutdown();

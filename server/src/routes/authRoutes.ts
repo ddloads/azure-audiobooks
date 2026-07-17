@@ -30,17 +30,25 @@ const registerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const pairingRedeemLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many pairing attempts, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const router = Router();
 
 router.post("/register", registerLimiter, register);
 router.post("/login", loginLimiter, login);
-router.post("/logout", logout);
+router.post("/logout", authenticate, logout);
 router.get("/me", authenticate, getMe);
 router.patch("/me/email",    authenticate, updateMyEmail);
 router.patch("/me/username", authenticate, updateMyUsername);
 router.patch("/me/avatar",   authenticate, updateMyAvatar);
 router.patch("/me/password", authenticate, updateMyPassword);
 router.post("/pair", authenticate, createPairingCode);
-router.post("/pair/redeem", redeemPairingCode);
+router.post("/pair/redeem", pairingRedeemLimiter, redeemPairingCode);
 
 export default router;

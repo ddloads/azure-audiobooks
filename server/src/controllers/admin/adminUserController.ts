@@ -118,7 +118,7 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       return;
     }
 
-    const data: { role?: string; password?: string } = {};
+    const data: { role?: string; password?: string; tokenVersion?: { increment: number } } = {};
 
     if (role) {
       const normalizedRole = role === "ADMIN" ? "ADMIN" : "USER";
@@ -131,10 +131,14 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
       }
 
       data.role = normalizedRole;
+      if (normalizedRole !== user.role) {
+        data.tokenVersion = { increment: 1 };
+      }
     }
 
     if (password) {
       data.password = await bcrypt.hash(password, 10);
+      data.tokenVersion = { increment: 1 };
     }
 
     const updatedUser = await prisma.user.update({

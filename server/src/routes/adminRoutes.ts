@@ -1,4 +1,5 @@
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import {
   createUser,
   deleteUser,
@@ -85,6 +86,22 @@ import { authenticate, authorizeAdmin } from "../middleware/authMiddleware";
 
 const router = Router();
 
+const metadataSearchLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  message: { error: "Too many metadata searches, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const quickMatchLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 10,
+  message: { error: "Too many quick-match runs, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 router.use(authenticate, authorizeAdmin);
 
 router.get("/dashboard", getAdminDashboard);
@@ -120,8 +137,8 @@ router.patch("/sources/:sourceId", updateLibrarySource);
 router.delete("/sources/:sourceId", deleteLibrarySource);
 
 router.get("/books", listAdminBooks);
-router.post("/books/quick-match", quickMatchBooks);
-router.post("/books/:bookId/match/search", searchBookMatches);
+router.post("/books/quick-match", quickMatchLimiter, quickMatchBooks);
+router.post("/books/:bookId/match/search", metadataSearchLimiter, searchBookMatches);
 router.post("/books/:bookId/match/apply", applyBookMatch);
 router.patch("/books/:bookId/metadata", updateBookMetadata);
 router.post("/books/:bookId/write-tags", writeBookMetadataToFile);

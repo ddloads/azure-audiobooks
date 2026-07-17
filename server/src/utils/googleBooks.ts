@@ -1,4 +1,5 @@
 import { AudibleMatchCandidate } from "./audible";
+import { fetchExternal } from "./externalFetch";
 
 export class GoogleBooksSearchError extends Error {
   constructor(message: string) {
@@ -49,7 +50,7 @@ export const searchGoogleBooks = async (
 
     const url = `https://www.googleapis.com/books/v1/volumes?${params.toString()}`;
     
-    const response = await fetch(url);
+    const response = await fetchExternal(url);
     const data = await response.json();
 
     if (!response.ok) {

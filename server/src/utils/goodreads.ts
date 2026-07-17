@@ -1,4 +1,5 @@
 import { AudibleMatchCandidate } from "./audible";
+import { fetchExternal } from "./externalFetch";
 
 type GoodreadsSearchResult = {
   id: string;
@@ -79,7 +80,7 @@ const similarity = (left: string | null | undefined, right: string | null | unde
 };
 
 const fetchHtml = async (url: string) => {
-  const response = await fetch(url, {
+  const response = await fetchExternal(url, {
     headers: {
       "user-agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",

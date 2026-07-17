@@ -22,7 +22,7 @@ const Register = () => {
     setError("");
     try {
       const res = await api.post("/auth/register", { username, email, password });
-      login(res.data.token, res.data.user);
+      login(res.data.user);
       navigate("/");
     } catch (error) {
       setError(

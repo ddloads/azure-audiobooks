@@ -32,6 +32,7 @@ WORKDIR /app
 # Install production dependencies: FFmpeg, Python (for Audible), and wget to fetch 'tone'
 RUN apt-get update && apt-get install -y \
     ffmpeg \
+    postgresql-client \
     python3 \
     python3-pip \
     wget \
@@ -74,6 +75,8 @@ ENV PORT=4000
 ENV NODE_ENV=production
 
 EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD node -e "fetch('http://127.0.0.1:4000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
 
 # Run migrations and start the server
 CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]

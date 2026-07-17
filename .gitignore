@@ -4,6 +4,7 @@ dist/
 *.db
 *.db-journal
 server/data/
+server/.test-dist/
 server/bin/tone.exe
 client/.tsbuildinfo
 .idea/

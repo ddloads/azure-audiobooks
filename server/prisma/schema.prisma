@@ -15,6 +15,7 @@ model User {
   avatarUrl String?
   password  String
   role      String     @default("USER") // ADMIN or USER
+  tokenVersion Int      @default(0)
   progress  Progress[]
   bugReports       BugReport[]
   listeningSessions ListeningSession[]

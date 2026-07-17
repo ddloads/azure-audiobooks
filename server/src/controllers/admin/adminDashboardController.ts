@@ -189,7 +189,7 @@ export const listBackups = async (_req: AuthRequest, res: Response): Promise<voi
 
 export const createBackup = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const backupPath = backupDatabase();
+    const backupPath = await backupDatabase();
     if (!backupPath) {
       res.status(500).json({ error: "Database backup failed" });
       return;

@@ -3,17 +3,14 @@ import path from "path";
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import prisma from "../../lib/prisma";
-import { searchAudible } from "../../utils/audible";
-import {
-  isAudibleCliAvailable,
-  searchAudibleCli,
-} from "../../utils/audibleCli";
-import { GoogleBooksSearchError, searchGoogleBooks } from "../../utils/googleBooks";
-import { GoodreadsSearchError, searchGoodreads } from "../../utils/goodreads";
+import type { AudibleMatchCandidate } from "../../utils/audible";
+import { GoogleBooksSearchError } from "../../utils/googleBooks";
+import { GoodreadsSearchError } from "../../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl } from "../../utils/covers";
 import { invalidateFilterOptionsCache } from "../libraryController";
 import { invalidateRecommendationCache } from "../../lib/recommendationCache";
 import { setLogTitle } from "../../middleware/loggingMiddleware";
+import { METADATA_VERSION } from "../../utils/scanner/shared";
 import { getSingleParam, getOptionalBodyValue, toNullableString, toNullableNumber } from "./shared";
 import {
   REVIEW_TAG,
@@ -21,13 +18,11 @@ import {
   QUICK_MATCHED_TAG,
   type MetadataProvider,
   parseAsinValue,
-  isAsinLike,
   parseMetadataProvider,
   normalizeTagList,
   serializeTagList,
   mergeManagedTags,
   hasManagedTag,
-  filterCandidatesByLanguage,
   findBookMatchCandidates,
   buildFieldsFromMatchCandidate,
   defaultQuickMatchSelectedFields,
@@ -67,64 +62,14 @@ export const searchBookMatches = async (req: AuthRequest, res: Response): Promis
     const author = getOptionalBodyValue(req.body?.author) || book.author.name;
     const language = getOptionalBodyValue(req.body?.language) || book.language || undefined;
     const provider = parseMetadataProvider(req.body?.provider);
-    const catalogQuery = isAsinLike(query) ? book.title : query;
-
-    const loadAudibleCandidates = async () => {
-      const context = {
-        title: book.title,
-        author: book.author.name,
-        asin: book.asin || parseAsinValue(book.description),
-        duration: book.duration || null,
-      };
-
-      const cliAvailable = await isAudibleCliAvailable();
-      let audibleCandidates: Awaited<ReturnType<typeof searchAudible>> = [];
-      if (cliAvailable) {
-        audibleCandidates = await searchAudibleCli(query, context, author);
-      }
-
-      if (!audibleCandidates.length) {
-        audibleCandidates = await searchAudible(query, context, author);
-      }
-
-      return audibleCandidates;
-    };
-
-    let candidates: Awaited<ReturnType<typeof searchAudible>> = [];
-
-    if (provider === "combined") {
-      const [audibleCandidates, googleCandidates] = await Promise.all([
-        loadAudibleCandidates(),
-        searchGoogleBooks(catalogQuery, author),
-      ]);
-
-      candidates = [...audibleCandidates];
-      for (const google of googleCandidates) {
-        const isDuplicate = candidates.some(
-          (audible) =>
-            audible.metadata.title?.toLowerCase() === google.metadata.title?.toLowerCase() &&
-            audible.metadata.author?.toLowerCase() === google.metadata.author?.toLowerCase(),
-        );
-        if (!isDuplicate) {
-          candidates.push(google);
-        }
-      }
-    } else if (provider === "audible") {
-      candidates = await loadAudibleCandidates();
-    } else if (provider === "google") {
-      candidates = await searchGoogleBooks(catalogQuery, author);
-    } else {
-      candidates = await searchGoodreads(catalogQuery, author);
-    }
-
-    candidates = filterCandidatesByLanguage(candidates, language);
+    const searchResult = await findBookMatchCandidates(book, provider, query, author, language);
 
     res.json({
       provider,
-      query: provider === "audible" ? query : catalogQuery,
+      query: searchResult.query,
       author,
       language,
-      candidates,
+      candidates: searchResult.candidates,
     });
   } catch (error) {
     if (error instanceof GoogleBooksSearchError || error instanceof GoodreadsSearchError) {
@@ -176,7 +121,7 @@ export const quickMatchBooks = async (req: AuthRequest, res: Response): Promise<
       applied: Array<{ bookId: string; title: string; candidateTitle: string | null; confidence: number; reason: string }>;
       ready: Array<{ bookId: string; title: string; candidateTitle: string | null; confidence: number; reason: string }>;
       skippedAlreadyMatched: Array<{ bookId: string; title: string; tags: string | null }>;
-      needsReview: Array<{ bookId: string; title: string; reason: string; candidates: Awaited<ReturnType<typeof searchAudible>> }>;
+      needsReview: Array<{ bookId: string; title: string; reason: string; candidates: AudibleMatchCandidate[] }>;
       noResult: Array<{ bookId: string; title: string; reason: string }>;
       failed: Array<{ bookId: string; title: string; error: string }>;
     } = {
@@ -373,7 +318,7 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
       }
     }
 
-    updateData.metadataVersion = book.metadataVersion;
+    updateData.metadataVersion = METADATA_VERSION;
 
     try {
       const updatedBook = await prisma.book.update({

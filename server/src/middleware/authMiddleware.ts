@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../lib/prisma";
 import { enrichRequestLogContext } from "./loggingMiddleware";
 import { getJwtSecret } from "../utils/securityConfig";
 
@@ -7,10 +8,18 @@ const JWT_SECRET = getJwtSecret();
 const AUTH_COOKIE_NAME = "auth_token";
 
 export interface AuthRequest extends Request {
-  user?: {
-    userId: string;
-    role: string;
-  };
+  user?: AuthUser;
+}
+
+export interface AuthUser {
+  userId: string;
+  role: string;
+  tokenVersion: number;
+}
+
+export interface AuthTokenPayload {
+  userId: string;
+  tokenVersion: number;
 }
 
 const getTokenFromCookies = (cookieHeader?: string): string | null => {
@@ -19,7 +28,11 @@ const getTokenFromCookies = (cookieHeader?: string): string | null => {
   for (const cookie of cookieHeader.split(";")) {
     const [name, ...valueParts] = cookie.trim().split("=");
     if (name === AUTH_COOKIE_NAME) {
-      return decodeURIComponent(valueParts.join("="));
+      try {
+        return decodeURIComponent(valueParts.join("="));
+      } catch {
+        return null;
+      }
     }
   }
 
@@ -27,13 +40,33 @@ const getTokenFromCookies = (cookieHeader?: string): string | null => {
 };
 
 export const extractAuthToken = (req: Request): string | null => {
-  const headerToken = req.headers.authorization?.split(" ")[1];
-  if (headerToken) return headerToken;
-
-  return getTokenFromCookies(req.headers.cookie);
+  return extractTokenFromHeaders(req.headers.authorization, req.headers.cookie);
 };
 
-export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {
+export const extractTokenFromHeaders = (
+  authorization: string | undefined,
+  cookieHeader: string | undefined,
+): string | null => {
+  const [scheme, value] = authorization?.split(" ", 2) ?? [];
+  if (scheme?.toLowerCase() === "bearer" && value) return value;
+
+  return getTokenFromCookies(cookieHeader);
+};
+
+export const verifyAuthToken = (token: string): AuthTokenPayload => {
+  const decoded = jwt.verify(token, JWT_SECRET) as Partial<AuthTokenPayload>;
+  if (
+    typeof decoded.userId !== "string" ||
+    typeof decoded.tokenVersion !== "number" ||
+    !Number.isInteger(decoded.tokenVersion) ||
+    decoded.tokenVersion < 0
+  ) {
+    throw new Error("Invalid auth token payload");
+  }
+  return { userId: decoded.userId, tokenVersion: decoded.tokenVersion };
+};
+
+export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   const token = extractAuthToken(req);
 
   if (!token) {
@@ -41,13 +74,34 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     return;
   }
 
+  let decoded: AuthTokenPayload;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; role: string };
-    req.user = decoded;
+    decoded = verifyAuthToken(token);
+  } catch {
+    res.status(401).json({ error: "Invalid token" });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, role: true, tokenVersion: true },
+    });
+
+    if (!user || user.tokenVersion !== decoded.tokenVersion) {
+      res.status(401).json({ error: "Invalid token" });
+      return;
+    }
+
+    req.user = {
+      userId: user.id,
+      role: user.role,
+      tokenVersion: user.tokenVersion,
+    };
     enrichRequestLogContext(req);
     next();
-  } catch (error) {
-    res.status(401).json({ error: "Invalid token" });
+  } catch {
+    res.status(500).json({ error: "Authentication service unavailable" });
   }
 };
 

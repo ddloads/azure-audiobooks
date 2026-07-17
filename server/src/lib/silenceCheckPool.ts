@@ -49,6 +49,7 @@ const createSlot = (): WorkerSlot => ({
 class SilenceCheckPool {
   private readonly slots: WorkerSlot[] = [];
   private readonly queue: JobRequest[] = [];
+  private shuttingDown = false;
 
   constructor() {
     this.slots.push(this.attachWorker(createSlot()));
@@ -102,13 +103,21 @@ class SilenceCheckPool {
     }
   }
 
+  async shutdown() {
+    this.shuttingDown = true;
+    await this.stopAll();
+    await Promise.all(this.slots.map((slot) => slot.worker.terminate()));
+  }
+
   private attachWorker(slot: WorkerSlot): WorkerSlot {
     slot.worker.on("message", (msg: WorkerResponse) => this.handleMessage(slot, msg));
     slot.worker.on("error", (err) => {
+      if (this.shuttingDown) return;
       this.failCurrentJob(slot, err);
       this.resetSlot(slot);
     });
     slot.worker.on("exit", (code) => {
+      if (this.shuttingDown) return;
       if (code !== 0) this.failCurrentJob(slot, new Error(`Worker exited with code ${code}`));
       this.resetSlot(slot);
     });
@@ -267,6 +276,7 @@ export const requestSilenceCheck = (
 ) => pool.enqueue(libraryId, trigger, recheckAll);
 
 export const stopSilenceCheck = () => pool.stopAll();
+export const shutdownSilenceChecks = () => pool.shutdown();
 
 // Reaps non-terminal SilenceCheckJob rows left over from a previous process. The
 // in-memory queue/slots start empty after a restart, so anything still flagged

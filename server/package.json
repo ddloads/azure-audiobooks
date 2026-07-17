@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
+    "build:test": "tsc --outDir .test-dist --declaration false --sourceMap false",
     "seed": "ts-node --transpile-only prisma/seed.ts",
-    "test": "npm run build && node --test test/*.test.cjs"
+    "test": "npm run build:test && node --test test/*.test.cjs"
   },
   "keywords": [],
   "author": "",
