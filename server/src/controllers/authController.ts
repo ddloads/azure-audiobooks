@@ -51,6 +51,18 @@ const setAuthCookie = (res: Response, token: string) => {
 
 const userSelect = { id: true, username: true, email: true, avatarUrl: true, role: true } as const;
 
+// The web client authenticates purely via the httpOnly cookie set below and
+// never needs the raw JWT in the response body. The Azure Player mobile app
+// has no cookie jar to rely on and stores the token itself for its
+// `Authorization: Bearer` requests, so it still needs the token in the JSON
+// body. Identified by the same "AzurePlayer/x.y.z" User-Agent the mobile
+// client already sends on authenticated requests (see sessionController's
+// detectPlatform for the same pattern).
+const isMobileClient = (req: Request): boolean => {
+  const ua = req.headers["user-agent"];
+  return typeof ua === "string" && ua.toLowerCase().includes("azureplayer");
+};
+
 const sanitizeAvatarUrl = (value: unknown): string | null => {
   if (value === null || value === undefined) return null;
   if (typeof value !== "string") return null;
@@ -159,6 +171,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         avatarUrl: user.avatarUrl,
         role: user.role,
       },
+      ...(isMobileClient(req) ? { token } : {}),
     });
   } catch (error) {
     console.error("Login error:", error);
