@@ -1,3 +1,5 @@
+import { fetchExternal } from "./externalFetch";
+
 type AudibleMetadata = {
   title: string | null;
   subtitle: string | null;
@@ -353,7 +355,7 @@ const buildAudibleUrl = (rawPath: string) =>
   rawPath.startsWith("http") ? rawPath : `${AUDIBLE_BASE_URL}${rawPath}`;
 
 const fetchPage = async (url: string) => {
-  const response = await fetch(url, {
+  const response = await fetchExternal(url, {
     headers: {
       "user-agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",

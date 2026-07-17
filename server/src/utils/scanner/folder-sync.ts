@@ -19,6 +19,7 @@ import {
   looksLikeCoverImage,
 } from "./shared";
 import { parseAsin, parseGenres, parseIsbn, parseYear, pickDescription } from "./folder-metadata";
+import { hasMatchedMetadata } from "./metadataPreservation";
 
 const deleteBookFolderIfPresent = async (libraryId: string, folderPath: string) => {
   const existingBook = await prisma.book.findFirst({
@@ -90,28 +91,32 @@ export const upsertBookFolder = async (
     if (renamed.length === 1) existingBook = renamed[0];
   }
 
-  const skipMetadata = !forceMetadata && !!existingBook && existingBook._count.audioFiles === audioFiles.length && existingBook.metadataVersion >= METADATA_VERSION;
+  const preserveMatchedMetadata = Boolean(existingBook && hasMatchedMetadata(existingBook.tags));
+  const skipMetadata =
+    !forceMetadata &&
+    !!existingBook &&
+    (existingBook._count.audioFiles === audioFiles.length && existingBook.metadataVersion >= METADATA_VERSION);
   const canReuseAudioIndex = !!existingBook && skipMetadata && existingBook.audioFiles.length === audioFiles.length && existingBook.audioFiles.every((a, i) => a.filename === audioFiles[i]);
 
   const firstAudioPath = path.join(folderPath, audioFiles[0]);
-  let title = folderName;
-  let authorName = "Unknown Author";
+  let title = existingBook?.title || folderName;
+  let authorName = existingBook?.author.name || "Unknown Author";
   let firstAudioMetadata: any = null;
-  let narrator: string | null = null;
-  let description: string | null = null;
-  let publisher: string | null = null;
-  let year: string | null = null;
-  let genres: string | null = null;
-  let tagsField: string | null = null;
-  let language: string | null = null;
-  let subtitle: string | null = null;
-  let isbn: string | null = null;
-  let asin: string | null = null;
-  let abridged = false;
-  let seriesName: string | null = null;
-  let seriesSequence: number | null = null;
+  let narrator: string | null = existingBook?.narrator ?? null;
+  let description: string | null = existingBook?.description ?? null;
+  let publisher: string | null = existingBook?.publisher ?? null;
+  let year: string | null = existingBook?.year ?? null;
+  let genres: string | null = existingBook?.genres ?? null;
+  let tagsField: string | null = existingBook?.tags ?? null;
+  let language: string | null = existingBook?.language ?? null;
+  let subtitle: string | null = existingBook?.subtitle ?? null;
+  let isbn: string | null = existingBook?.isbn ?? null;
+  let asin: string | null = existingBook?.asin ?? null;
+  let abridged = existingBook?.abridged ?? false;
+  let seriesName: string | null = existingBook?.series?.name ?? null;
+  let seriesSequence: number | null = existingBook?.sequence ?? null;
 
-  if (folderName.includes(" - ")) {
+  if (!existingBook && folderName.includes(" - ")) {
     const parts = folderName.split(" - ");
     authorName = parts[0].trim();
     title = parts.slice(1).join(" - ").trim();
@@ -125,27 +130,29 @@ export const upsertBookFolder = async (
         if (tags.title) title = tags.title;
         if (tags.artist) authorName = tags.artist;
         else if (tags.album_artist) authorName = tags.album_artist;
+      } else if (!preserveMatchedMetadata && existingBook.author.name === "Unknown Author") {
+        if (tags.artist) authorName = tags.artist;
+        else if (tags.album_artist) authorName = tags.album_artist;
       }
-      narrator = tags.narrator || tags.composer || null;
-      subtitle = tags.subtitle || null;
-      asin = parseAsin(tags.asin, tags.comment, tags.description, tags.longdescription, tags.long_description);
-      isbn = parseIsbn(tags.isbn, tags.comment, tags.description, tags.longdescription, tags.long_description);
-      description = pickDescription(tags.comment, tags.description, tags.longdescription, tags.long_description, tags.lyrics);
-      year = parseYear(tags.date || tags.year || tags.originaldate || "");
-      publisher = tags.publisher || tags.organization || null;
-      genres = parseGenres(tags.genre);
-      tagsField = parseGenres(tags.keywords || tags.category);
-      language = tags.language || null;
-      abridged = String(tags.media_type || tags.comment || "").toLowerCase().includes("abridged");
-      seriesName = tags.grouping || tags.series || tags.show || null;
-      if (tags["series-part"]) seriesSequence = parseFloat(tags["series-part"]) || null;
-      else if (tags.disc) seriesSequence = parseFloat(String(tags.disc).split("/")[0]) || null;
+      if (!preserveMatchedMetadata) {
+        narrator = tags.narrator || tags.composer || narrator;
+        subtitle = tags.subtitle || subtitle;
+        asin = parseAsin(tags.asin, tags.comment, tags.description, tags.longdescription, tags.long_description) || asin;
+        isbn = parseIsbn(tags.isbn, tags.comment, tags.description, tags.longdescription, tags.long_description) || isbn;
+        description = pickDescription(tags.comment, tags.description, tags.longdescription, tags.long_description, tags.lyrics) || description;
+        year = parseYear(tags.date || tags.year || tags.originaldate || "") || year;
+        publisher = tags.publisher || tags.organization || publisher;
+        genres = parseGenres(tags.genre) || genres;
+        tagsField = parseGenres(tags.keywords || tags.category) || tagsField;
+        language = tags.language || language;
+        if (String(tags.media_type || tags.comment || "").toLowerCase().includes("abridged")) abridged = true;
+        seriesName = tags.grouping || tags.series || tags.show || seriesName;
+        if (tags["series-part"]) seriesSequence = parseFloat(tags["series-part"]) || seriesSequence;
+        else if (tags.disc) seriesSequence = parseFloat(String(tags.disc).split("/")[0]) || seriesSequence;
+      }
     } catch (error) {
       console.error(`Error probing ${audioFiles[0]}:`, error);
     }
-  } else if (existingBook) {
-    title = existingBook.title;
-    authorName = existingBook.author.name;
   }
 
   title = cleanupBookTitle(title, { folderNameOrPath: folderName || folderPath });
@@ -183,13 +190,62 @@ export const upsertBookFolder = async (
     }
   }
 
-  const coverPath = hasCover && existingBook ? getCoverUrl(existingBook.id) : (existingBook?.coverPath || "");
+  let seriesId: string | null = existingBook?.seriesId ?? null;
+  let sequence: number | null = existingBook?.sequence ?? null;
+  let existingCoverPath = existingBook?.coverPath || "";
+
+  // A scan may have loaded the book before a match was applied. Re-read the
+  // current metadata so a stale scan cannot undo a newly matched author.
+  if (existingBook) {
+    const latestBook = await prisma.book.findUnique({
+      where: { id: existingBook.id },
+      select: {
+        title: true,
+        coverPath: true,
+        narrator: true,
+        description: true,
+        publisher: true,
+        year: true,
+        genres: true,
+        tags: true,
+        language: true,
+        subtitle: true,
+        isbn: true,
+        asin: true,
+        abridged: true,
+        seriesId: true,
+        sequence: true,
+        series: { select: { name: true } },
+        author: { select: { name: true } },
+      },
+    });
+
+    if (latestBook && hasMatchedMetadata(latestBook.tags)) {
+      title = latestBook.title;
+      authorName = latestBook.author.name;
+      existingCoverPath = latestBook.coverPath || "";
+      narrator = latestBook.narrator;
+      description = latestBook.description;
+      publisher = latestBook.publisher;
+      year = latestBook.year;
+      genres = latestBook.genres;
+      tagsField = latestBook.tags;
+      language = latestBook.language;
+      subtitle = latestBook.subtitle;
+      isbn = latestBook.isbn;
+      asin = latestBook.asin;
+      abridged = latestBook.abridged;
+      seriesName = latestBook.series?.name ?? null;
+      seriesId = latestBook.seriesId;
+      sequence = latestBook.sequence;
+    }
+  }
+
+  const coverPath = hasCover && existingBook ? getCoverUrl(existingBook.id) : existingCoverPath;
   const author = existingBook && existingBook.author.name === authorName
     ? existingBook.author
     : await prisma.author.upsert({ where: { name: authorName }, update: {}, create: { name: authorName } });
 
-  let seriesId: string | null = existingBook?.seriesId ?? null;
-  let sequence: number | null = existingBook?.sequence ?? null;
   if (!skipMetadata && seriesName) {
     const series = await prisma.series.upsert({ where: { name: seriesName }, update: {}, create: { name: seriesName } });
     seriesId = series.id;

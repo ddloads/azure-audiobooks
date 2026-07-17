@@ -1,6 +1,7 @@
 import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { fetchExternal } from "./externalFetch";
 
 export const getCoverUrl = (bookId: string) =>
   `/api/library/cover/${encodeURIComponent(bookId)}`;
@@ -41,7 +42,7 @@ export const findCoverInFolderAsync = async (folderPath: string): Promise<string
 
 export const downloadCover = async (url: string, folderPath: string): Promise<boolean> => {
   try {
-    const response = await fetch(url, {
+    const response = await fetchExternal(url, {
       headers: {
         "user-agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",

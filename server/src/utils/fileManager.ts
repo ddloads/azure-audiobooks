@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { randomUUID } from "crypto";
 import prisma from "../lib/prisma";
 import { getConfiguredLibraries, normalizeSourcePath } from "./libraryConfig";
 
@@ -89,6 +90,65 @@ const getProtectedReason = (relativePath: string) => {
 const getTrashRootPath = (root: ManagedRoot) => path.join(root.resolvedPath, TRASH_DIR_NAME);
 const getTrashItemsPath = (root: ManagedRoot) => path.join(getTrashRootPath(root), TRASH_ITEMS_DIR_NAME);
 
+const getCanonicalPath = (targetPath: string) => {
+  const missingSegments: string[] = [];
+  let existingPath = path.resolve(targetPath);
+
+  while (true) {
+    try {
+      const stats = fs.lstatSync(existingPath);
+      if (stats.isSymbolicLink()) {
+        existingPath = fs.realpathSync.native(existingPath);
+      } else {
+        existingPath = fs.realpathSync.native(existingPath);
+      }
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      const parentPath = path.dirname(existingPath);
+      if (parentPath === existingPath) throw new Error("Path cannot be resolved");
+      missingSegments.unshift(path.basename(existingPath));
+      existingPath = parentPath;
+    }
+  }
+
+  return missingSegments.reduce((currentPath, segment) => path.join(currentPath, segment), existingPath);
+};
+
+const assertPathInside = (rootPath: string, targetPath: string, message: string) => {
+  const canonicalRoot = getCanonicalPath(rootPath);
+  const canonicalTarget = getCanonicalPath(targetPath);
+  const relative = path.relative(canonicalRoot, canonicalTarget);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(message);
+  }
+  return canonicalTarget;
+};
+
+const assertPathStrictlyInside = (rootPath: string, targetPath: string, message: string) => {
+  const canonicalRoot = getCanonicalPath(rootPath);
+  const canonicalTarget = getCanonicalPath(targetPath);
+  const relative = path.relative(canonicalRoot, canonicalTarget);
+  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(message);
+  }
+  return canonicalTarget;
+};
+
+const validateTrashId = (trashId: string) => {
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(trashId)) {
+    throw new Error("Invalid trash entry");
+  }
+  return trashId;
+};
+
+const getTrashItemPath = (root: ManagedRoot, trashId: string) => {
+  const safeTrashId = validateTrashId(trashId);
+  const itemDir = path.join(getTrashItemsPath(root), safeTrashId);
+  assertPathStrictlyInside(getTrashItemsPath(root), itemDir, "Trash entry is outside the managed trash area");
+  return itemDir;
+};
+
 const statSafe = (targetPath: string) => fs.lstatSync(targetPath);
 
 const toEntry = (root: ManagedRoot, parentPath: string, entry: fs.Dirent): FileManagerEntry => {
@@ -139,6 +199,7 @@ const findManagedRootById = async (rootId: string) => {
 
 const validateRootPath = (root: ManagedRoot, targetPath: string) => {
   const resolvedPath = resolvePath(targetPath);
+  assertPathInside(root.resolvedPath, resolvedPath, "Path is outside the selected library root");
   const relativePath = getRelativeInsideRoot(root.resolvedPath, resolvedPath);
   return {
     resolvedPath,
@@ -154,12 +215,18 @@ const requireWritableRoot = (root: ManagedRoot) => {
 };
 
 const loadTrashRecord = (root: ManagedRoot, trashId: string): TrashRecord => {
-  const itemDir = path.join(getTrashItemsPath(root), trashId);
+  const itemDir = getTrashItemPath(root, trashId);
   const metadataPath = path.join(itemDir, TRASH_METADATA_FILE);
   if (!fs.existsSync(metadataPath)) {
     throw new Error("Trash entry not found");
   }
-  return JSON.parse(fs.readFileSync(metadataPath, "utf8")) as TrashRecord;
+  const record = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as TrashRecord;
+  if (record.rootId !== root.sourceId || record.trashId !== trashId) {
+    throw new Error("Trash entry metadata is invalid");
+  }
+  assertPathStrictlyInside(root.resolvedPath, record.originalPath, "Trash entry original path is outside the library root");
+  assertPathStrictlyInside(itemDir, record.trashedPath, "Trash entry path is outside the managed trash area");
+  return record;
 };
 
 const getRestoreTargetPath = (record: TrashRecord) => {
@@ -370,8 +437,8 @@ export const moveToTrash = async (rootId: string, itemPaths: string[], deletedBy
     if (!item.relativePath) throw new Error("The library source root cannot be deleted");
     if (!fs.existsSync(item.resolvedPath)) throw new Error(`${itemPath} does not exist`);
 
-    const trashId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const itemDir = path.join(getTrashItemsPath(root), trashId);
+    const trashId = randomUUID();
+    const itemDir = getTrashItemPath(root, trashId);
     ensureDirectory(itemDir);
 
     const trashedPath = path.join(itemDir, path.basename(item.resolvedPath));
@@ -449,7 +516,7 @@ export const permanentlyDeleteTrashItems = async (rootId: string, trashIds: stri
   requireWritableRoot(root);
 
   for (const trashId of trashIds) {
-    const itemDir = path.join(getTrashItemsPath(root), trashId);
+    const itemDir = getTrashItemPath(root, trashId);
     if (!fs.existsSync(itemDir)) {
       throw new Error("Trash entry not found");
     }

@@ -41,6 +41,8 @@ Create a `.env` file or set these in your container orchestrator (like Portainer
 | `JWT_SECRET` | Secret key for auth tokens | Recommended |
 | `CLIENT_ORIGIN` | Allowed CORS origin (your public domain) | `http://localhost:8080` |
 | `PORT_CLIENT` | External port for the web UI | `8080` |
+| `EXTERNAL_FETCH_TIMEOUT_MS` | Timeout for Audible, Google Books, Goodreads, and cover requests | `20000` |
+| `METADATA_SEARCH_CACHE_TTL_MS` | In-memory metadata result cache lifetime | `300000` |
 
 > **Note for Supabase users:** If using the connection pooler (port 6543), append `&statement_cache_size=0` to your `DATABASE_URL`.
 

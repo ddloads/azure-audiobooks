@@ -406,3 +406,5 @@ export const refreshLibraryWatchers = async () => {
 export const startLibraryWatchers = () => {
   void refreshLibraryWatchers();
 };
+
+export const stopLibraryWatchers = () => closeWatchers();

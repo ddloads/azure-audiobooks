@@ -15,7 +15,12 @@ services:
       - "4000:4000"
     volumes:
       - ./server/data:/app/data
-      - Audiobooks:/app/library
+      # Bind-mount a subpath of the host-level Unraid /data mount (see
+      # docs/audiobooks-nfs-hostmount-setup.md). Mounting via the host instead of
+      # a per-container Docker NFS volume avoids the redeploy re-stat that hit
+      # stale NFS handles (ESTALE) on the Unraid shfs user share. Container runs
+      # as root; the export is all_squash so writes land as 99:100 regardless.
+      - /mnt/unraid/data/media/audiobooks:/app/library
     networks:
       - azure-network
 
@@ -37,7 +42,3 @@ services:
 networks:
   azure-network:
     driver: bridge
-
-volumes:
-  Audiobooks:
-    external: true

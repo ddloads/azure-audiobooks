@@ -10,6 +10,8 @@ import {
 import { searchGoogleBooks } from "../../../utils/googleBooks";
 import { searchGoodreads } from "../../../utils/goodreads";
 import { downloadCover, findCoverInFolder, getCoverUrl } from "../../../utils/covers";
+import { METADATA_VERSION } from "../../../utils/scanner/shared";
+import { getMetadataSearchCache, setMetadataSearchCache } from "../../../utils/metadataSearchCache";
 import {
   toNullableString,
   toNullableNumber,
@@ -193,6 +195,17 @@ export const findBookMatchCandidates = async (
     asin: book.asin || parseAsinValue(book.description),
     duration: book.duration || null,
   };
+  const cacheKey = JSON.stringify({ provider, query, author, language, context });
+  const cachedCandidates = getMetadataSearchCache(cacheKey);
+  if (cachedCandidates) {
+    return {
+      provider,
+      query: provider === "audible" ? query : catalogQuery,
+      author,
+      language,
+      candidates: cachedCandidates,
+    };
+  }
 
   const loadAudibleCandidates = async () => {
     const cliAvailable = await isAudibleCliAvailable();
@@ -224,7 +237,9 @@ export const findBookMatchCandidates = async (
       if (!isDuplicate) candidates.push(google);
     }
 
-    return { provider, query: catalogQuery, author, language, candidates: filterCandidatesByLanguage(candidates, language) };
+    const filteredCandidates = filterCandidatesByLanguage(candidates, language);
+    setMetadataSearchCache(cacheKey, filteredCandidates);
+    return { provider, query: catalogQuery, author, language, candidates: filteredCandidates };
   }
 
   const candidates = provider === "audible"
@@ -233,12 +248,15 @@ export const findBookMatchCandidates = async (
       ? await searchGoogleBooks(catalogQuery, author)
       : await searchGoodreads(catalogQuery, author);
 
+  const filteredCandidates = filterCandidatesByLanguage(candidates, language);
+  setMetadataSearchCache(cacheKey, filteredCandidates);
+
   return {
     provider,
     query: provider === "audible" ? query : catalogQuery,
     author,
     language,
-    candidates: filterCandidatesByLanguage(candidates, language),
+    candidates: filteredCandidates,
   };
 };
 
@@ -397,6 +415,8 @@ export const applyMatchedFieldsToBook = async (
       updateData.sequence = toNullableNumber(sourceFields.seriesSequence);
     }
   }
+
+  updateData.metadataVersion = METADATA_VERSION;
 
   try {
     return await prisma.book.update({

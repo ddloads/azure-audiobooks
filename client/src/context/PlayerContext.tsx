@@ -152,16 +152,14 @@ export const PlayerProvider = ({ children }: { children: ReactNode }) => {
       : 0;
     const secondsListened = Math.max(0, Math.round(currentPos - sessionStartPositionRef.current));
 
-    // Use fetch with keepalive so the request survives page close, and
-    // include the Authorization header (sendBeacon cannot send custom headers).
-    const token = localStorage.getItem("token");
+    // Use fetch with keepalive so the request survives page close. The
+    // HttpOnly auth cookie is sent with credentials and cannot be read here.
     void fetch(`${api.defaults.baseURL ?? ""}/sessions/${id}`, {
       method: "POST",
       keepalive: true,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ secondsListened, ended }),
     });

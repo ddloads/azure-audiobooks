@@ -12,7 +12,7 @@ export const COVER_NAME_HINTS = ["cover", "folder", "front", "poster", "artwork"
 export const NON_COVER_NAME_HINTS = ["back", "spine", "logo", "banner", "thumbnail", "sample", "promo"];
 
 // Increment this when new metadata fields are added to force re-extraction on next scan
-export const METADATA_VERSION = 3;
+export const METADATA_VERSION = 4;
 
 export type LibraryWithSources = Awaited<ReturnType<typeof getConfiguredLibraries>>[number];
 

@@ -2,6 +2,8 @@ import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 import type { SilenceCheckProgressPayload } from "../workers/silenceCheckWorker";
 import { getAllowedOrigins, isOriginAllowed } from "../utils/securityConfig";
+import prisma from "./prisma";
+import { extractTokenFromHeaders, verifyAuthToken } from "../middleware/authMiddleware";
 
 let io: Server;
 export type WriteTagsProgressPayload = {
@@ -55,11 +57,48 @@ export const initSocket = (server: HttpServer) => {
     },
   });
 
+  io.use(async (socket, next) => {
+    const authorization = socket.handshake.headers.authorization;
+    const headerAuthorization = Array.isArray(authorization) ? authorization[0] : authorization;
+    const authToken =
+      typeof socket.handshake.auth?.token === "string" ? socket.handshake.auth.token : undefined;
+    const token = authToken || extractTokenFromHeaders(headerAuthorization, socket.handshake.headers.cookie);
+
+    if (!token) {
+      next(new Error("Unauthorized"));
+      return;
+    }
+
+    try {
+      const decoded = verifyAuthToken(token);
+      const user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { id: true, role: true, tokenVersion: true },
+      });
+
+      if (!user || user.tokenVersion !== decoded.tokenVersion) {
+        next(new Error("Unauthorized"));
+        return;
+      }
+
+      socket.data.user = {
+        userId: user.id,
+        role: user.role,
+        tokenVersion: user.tokenVersion,
+      };
+      next();
+    } catch {
+      next(new Error("Unauthorized"));
+    }
+  });
+
   io.on("connection", (socket) => {
-    console.log("Client connected to socket");
-    
+    if (socket.data.user?.role === "ADMIN") {
+      socket.join("admins");
+    }
+
     socket.on("disconnect", () => {
-      console.log("Client disconnected from socket");
+      socket.leave("admins");
     });
   });
 
@@ -95,7 +134,7 @@ export const emitScanProgress = (data: {
   }
 
   if (io) {
-    io.emit("scanProgress", data);
+    io.to("admins").emit("scanProgress", data);
   }
 };
 
@@ -118,7 +157,7 @@ export const emitMergeProgress = (data: {
   }
 
   if (io) {
-    io.emit("mergeProgress", data);
+    io.to("admins").emit("mergeProgress", data);
   }
 };
 
@@ -130,7 +169,7 @@ export const emitWriteTagsProgress = (data: WriteTagsProgressPayload) => {
   }
 
   if (io) {
-    io.emit("writeTagsProgress", data);
+    io.to("admins").emit("writeTagsProgress", data);
   }
 };
 
@@ -149,7 +188,7 @@ export const emitSilenceCheckProgress = (data: SilenceCheckProgressPayload) => {
   }
 
   if (io) {
-    io.emit("silenceCheckProgress", data);
+    io.to("admins").emit("silenceCheckProgress", data);
   }
 };
 

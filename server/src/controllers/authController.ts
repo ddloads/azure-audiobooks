@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import type { CookieOptions } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { randomInt } from "crypto";
 import prisma from "../lib/prisma";
 import { AUTH_COOKIE_NAME, AuthRequest } from "../middleware/authMiddleware";
 import {
@@ -14,7 +15,7 @@ import {
 import { getJwtSecret } from "../utils/securityConfig";
 
 // In-memory pairing codes for mobile QR connect. Single-use, 5-minute TTL.
-const pairingCodes = new Map<string, { userId: string; role: string; expiresAt: number }>();
+const pairingCodes = new Map<string, { userId: string; expiresAt: number }>();
 const PAIRING_CODE_TTL_MS = 5 * 60 * 1000;
 
 setInterval(() => {
@@ -28,7 +29,7 @@ function generatePairingCode(): string {
   // Omit easily confused characters: I, O, 0, 1
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-  for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 8; i++) code += chars[randomInt(chars.length)];
   return code;
 }
 
@@ -41,8 +42,8 @@ const authCookieOptions: CookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-const issueAuthToken = (userId: string, role: string) =>
-  jwt.sign({ userId, role }, JWT_SECRET, { expiresIn: "7d" });
+const issueAuthToken = (userId: string, tokenVersion: number) =>
+  jwt.sign({ userId, tokenVersion }, JWT_SECRET, { expiresIn: "7d" });
 
 const setAuthCookie = (res: Response, token: string) => {
   res.cookie(AUTH_COOKIE_NAME, token, authCookieOptions);
@@ -107,7 +108,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
-    const token = issueAuthToken(user.id, user.role);
+    const token = issueAuthToken(user.id, user.tokenVersion);
     setAuthCookie(res, token);
 
     res.status(201).json({
@@ -118,7 +119,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         avatarUrl: user.avatarUrl,
         role: user.role,
       },
-      token,
     });
   } catch (error) {
     console.error("Register error:", error);
@@ -148,7 +148,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const token = issueAuthToken(user.id, user.role);
+    const token = issueAuthToken(user.id, user.tokenVersion);
     setAuthCookie(res, token);
 
     res.json({
@@ -159,7 +159,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         avatarUrl: user.avatarUrl,
         role: user.role,
       },
-      token,
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -326,7 +325,7 @@ export const updateMyPassword = async (req: AuthRequest, res: Response): Promise
     const hashed = await bcrypt.hash(newPassword, 10);
     await prisma.user.update({
       where: { id: req.user.userId },
-      data: { password: hashed },
+      data: { password: hashed, tokenVersion: { increment: 1 } },
     });
 
     res.json({ success: true });
@@ -336,7 +335,21 @@ export const updateMyPassword = async (req: AuthRequest, res: Response): Promise
   }
 };
 
-export const logout = async (_req: Request, res: Response): Promise<void> => {
+export const logout = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (req.user?.userId) {
+      await prisma.user.updateMany({
+        where: { id: req.user.userId, tokenVersion: req.user.tokenVersion },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    }
+  } catch (error) {
+    console.error("Logout token revocation error:", error);
+    res.clearCookie(AUTH_COOKIE_NAME, authCookieOptions);
+    res.status(503).json({ error: "Logout service unavailable" });
+    return;
+  }
+
   res.clearCookie(AUTH_COOKIE_NAME, authCookieOptions);
   res.status(204).send();
 };
@@ -350,7 +363,7 @@ export const createPairingCode = async (req: AuthRequest, res: Response): Promis
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      select: { id: true, role: true },
+      select: { id: true },
     });
 
     if (!user) {
@@ -360,7 +373,7 @@ export const createPairingCode = async (req: AuthRequest, res: Response): Promis
 
     const code = generatePairingCode();
     const expiresAt = Date.now() + PAIRING_CODE_TTL_MS;
-    pairingCodes.set(code, { userId: user.id, role: user.role, expiresAt });
+    pairingCodes.set(code, { userId: user.id, expiresAt });
 
     res.json({ pairingCode: code, expiresAt });
   } catch (error) {
@@ -390,7 +403,7 @@ export const redeemPairingCode = async (req: Request, res: Response): Promise<vo
 
     const user = await prisma.user.findUnique({
       where: { id: entry.userId },
-      select: userSelect,
+      select: { ...userSelect, tokenVersion: true },
     });
 
     if (!user) {
@@ -398,8 +411,9 @@ export const redeemPairingCode = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const token = issueAuthToken(user.id, user.role);
-    res.json({ token, user });
+    const { tokenVersion, ...publicUser } = user;
+    const token = issueAuthToken(user.id, tokenVersion);
+    res.json({ token, user: publicUser });
   } catch (error) {
     res.status(500).json({ error: "Failed to redeem pairing code" });
   }
