@@ -14,6 +14,28 @@ const hasTag = (value: string | null | undefined, tagName: string) =>
     .map((tag) => tag.trim().toLowerCase())
     .includes(tagName.toLowerCase());
 
+const UNHIDE_POSITION_DELTA_SECS = 5;
+
+// Removes a book from Continue Listening without touching the saved position.
+export const hideProgress = async (req: AuthRequest, res: Response) => {
+  try {
+    const bookId = getSingleParam(req.params.bookId);
+    const userId = req.user?.userId;
+    if (!bookId || !userId) {
+      res.status(400).json({ error: "Invalid request" });
+      return;
+    }
+    await prisma.progress.updateMany({
+      where: { userId, bookId },
+      data: { hiddenAt: new Date() },
+    });
+    invalidateRecommendationCache(userId);
+    res.status(204).send();
+  } catch {
+    res.status(500).json({ error: "Failed to update progress" });
+  }
+};
+
 export const getAllUserProgress = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
@@ -29,6 +51,7 @@ export const getAllUserProgress = async (req: AuthRequest, res: Response) => {
           userId,
           currentTime: { gt: 30 },
           isFinished: false,
+          hiddenAt: null,
         },
         include: {
           book: { include: { author: true } },
@@ -127,6 +150,17 @@ export const updateProgress = async (req: AuthRequest, res: Response) => {
       return;
     }
 
+    // A book removed from Continue Listening comes back as soon as the user
+    // actually listens again. Periodic saves that don't move the position
+    // (e.g. the player's 30s heartbeat while paused) leave it hidden.
+    const existing = await prisma.progress.findUnique({
+      where: { userId_bookId: { userId, bookId } },
+      select: { currentTime: true, isFinished: true, hiddenAt: true },
+    });
+    const resumedListening = Boolean(existing?.hiddenAt)
+      && (Math.abs(existing!.currentTime - currentTime) > UNHIDE_POSITION_DELTA_SECS
+        || Boolean(isFinished) !== existing!.isFinished);
+
     const progress = await prisma.progress.upsert({
       where: {
         userId_bookId: {
@@ -137,6 +171,7 @@ export const updateProgress = async (req: AuthRequest, res: Response) => {
       update: {
         currentTime,
         isFinished,
+        ...(resumedListening ? { hiddenAt: null } : {}),
       },
       create: {
         userId,

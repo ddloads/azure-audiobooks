@@ -390,7 +390,7 @@ export const getBooks = async (req: AuthRequest, res: Response) => {
       genres: true,
       tags: true,
       library: { select: { id: true, name: true } },
-      author: { select: { name: true } },
+      author: { select: { id: true, name: true } },
     };
 
     if (userId) {

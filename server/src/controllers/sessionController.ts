@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { Prisma } from "@prisma/client";
 import { randomUUID } from "crypto";
 import prisma from "../lib/prisma";
 import { logger } from "../lib/logger";
@@ -98,6 +99,20 @@ export const updateSession = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+const DAILY_HISTORY_DAYS = 30;
+
+// Minutes to subtract from UTC to get the caller's local time, matching JS
+// Date#getTimezoneOffset() (e.g. 300 for UTC-5). Clamped to real offsets.
+function parseTzOffset(value: unknown): number {
+  const parsed = typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(-14 * 60, Math.min(14 * 60, Math.round(parsed)));
+}
+
+function localDayKey(date: Date, tzOffset: number): string {
+  return new Date(date.getTime() - tzOffset * 60_000).toISOString().slice(0, 10);
+}
+
 export const getUserStats = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
@@ -112,7 +127,11 @@ export const getUserStats = async (req: AuthRequest, res: Response): Promise<voi
     startOfWeek.setDate(startOfToday.getDate() - startOfToday.getDay());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [todayAgg, weekAgg, monthAgg, allTimeAgg, recentSessions] = await Promise.all([
+    const tzOffset = parseTzOffset(req.query.tzOffset);
+    const historyStart = new Date(startOfToday);
+    historyStart.setDate(historyStart.getDate() - (DAILY_HISTORY_DAYS + 1));
+
+    const [todayAgg, weekAgg, monthAgg, allTimeAgg, recentSessions, historyRows, daysRows, itemsFinished] = await Promise.all([
       prisma.listeningSession.aggregate({
         where: { userId, startedAt: { gte: startOfToday } },
         _sum: { secondsListened: true },
@@ -143,9 +162,37 @@ export const getUserStats = async (req: AuthRequest, res: Response): Promise<voi
           book: { select: { id: true, title: true, coverPath: true, author: { select: { name: true } } } },
         },
       }),
+      prisma.listeningSession.findMany({
+        where: { userId, startedAt: { gte: historyStart }, secondsListened: { gt: 0 } },
+        select: { startedAt: true, secondsListened: true },
+      }),
+      prisma.$queryRaw<Array<{ days: bigint | number }>>(Prisma.sql`
+        SELECT COUNT(DISTINCT to_char("startedAt" - make_interval(mins => ${tzOffset}::int), 'YYYY-MM-DD')) AS days
+        FROM "ListeningSession"
+        WHERE "userId" = ${userId} AND "secondsListened" > 0
+      `),
+      prisma.progress.count({ where: { userId, isFinished: true } }),
     ]);
 
+    // Seconds listened per local calendar day for the last 30 days, oldest
+    // first, zero-filled so clients can draw a chart directly.
+    const totalsByDay = new Map<string, number>();
+    for (const row of historyRows) {
+      const key = localDayKey(row.startedAt, tzOffset);
+      totalsByDay.set(key, (totalsByDay.get(key) ?? 0) + row.secondsListened);
+    }
+    const todayKey = localDayKey(now, tzOffset);
+    const dailySeconds = Array.from({ length: DAILY_HISTORY_DAYS }, (_, i) => {
+      const day = new Date(`${todayKey}T00:00:00Z`);
+      day.setUTCDate(day.getUTCDate() - (DAILY_HISTORY_DAYS - 1 - i));
+      const date = day.toISOString().slice(0, 10);
+      return { date, seconds: totalsByDay.get(date) ?? 0 };
+    });
+
     res.json({
+      dailySeconds,
+      daysListened:    Number(daysRows[0]?.days ?? 0),
+      itemsFinished,
       todaySeconds:    todayAgg._sum.secondsListened    ?? 0,
       weekSeconds:     weekAgg._sum.secondsListened     ?? 0,
       monthSeconds:    monthAgg._sum.secondsListened    ?? 0,
