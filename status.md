@@ -1,6 +1,6 @@
 # Azure Audiobooks Status
 
-Last updated: 2026-06-02
+Last updated: 2026-10-14
 
 ## Project State
 
@@ -37,6 +37,10 @@ The frontend uses a feature-module structure. Admin UI lives under `client/src/f
 
 ## Latest Changes
 
+- Continue Listening can now hide a book without losing its place. New `POST /api/progress/:bookId/hide` sets `Progress.hiddenAt` (migration `20261014000000_add_progress_hidden_at`). `GET /api/progress` skips hidden records, and the next progress save that moves the position by more than 5s (or changes finished state) un-hides it. The web Home and Library "Remove from Continue Listening" actions now use it instead of resetting the position to 0.
+- `GET /api/sessions/stats/me` also returns `dailySeconds` (the last 30 local days, zero-filled, oldest first), `daysListened` (distinct days with listening) and `itemsFinished`. An optional `tzOffset` query param (JS `getTimezoneOffset()` minutes) sets the day boundaries. Azure Player's Profile tab uses these.
+- Library list results now include the author `id` (`author: { id, name }`), so clients can filter related titles with `authorId` instead of fetching the whole library.
+- Added `server/test/progress-and-stats.test.cjs`, a DB-backed integration test for the above. It skips unless `DATABASE_URL` is set.
 ### 2026-06-02
 - Added Azure Player APK publishing support for the Connect Mobile App modal. Run `npm run publish:azure-player-apk` from `E:\Software Dev\Azure` after building a release APK in `E:\Software Dev\AzurePlayer`; the script copies the newest release APK from `android/app/build/outputs/apk/release` into `server/data/mobile` as the latest downloadable app package and writes a JSON manifest. On the Docker host, run `npm run publish:azure-player-apk:container` to copy the APK and manifest directly into `azure-server:/app/data/mobile`.
 - Added public APK metadata/download endpoints at `/api/mobile-app/latest` and `/api/mobile-app/latest.apk`; the Connect Mobile App modal now shows a Download Azure Player APK button when a published APK exists.

@@ -175,7 +175,7 @@ export default function Home() {
 
   const handleRemove = async (record: ProgressRecord) => {
     try {
-      await api.post(`/progress/${record.bookId}`, { currentTime: 0, isFinished: false });
+      await api.post(`/progress/${record.bookId}/hide`);
       removeRecord(record.bookId);
       setOpenMenuId(null);
       showToast({ title: "Removed", description: `"${record.book.title}" removed from Continue Listening.`, tone: "success" });

@@ -693,10 +693,9 @@ const Library = ({ defaultViewMode = "books" }: LibraryProps) => {
 
   const handleRemoveBookFromContinueListening = async (book: Pick<LibraryBook, "id" | "title">) => {
     try {
-      await api.post(`/progress/${book.id}`, {
-        currentTime: 0,
-        isFinished: false,
-      });
+      // Hide rather than reset so the listening position is kept; the book
+      // returns to the shelf automatically when playback resumes.
+      await api.post(`/progress/${book.id}/hide`);
       removeBookFromInProgressState(book.id);
       showToast({
         title: "Removed from Continue Listening",

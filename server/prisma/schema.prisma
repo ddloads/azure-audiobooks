@@ -250,6 +250,9 @@ model Progress {
   bookId       String
   currentTime  Float    @default(0)
   isFinished   Boolean  @default(false)
+  // Set when the user removes the book from Continue Listening. Cleared
+  // automatically once they listen again, so the position is never lost.
+  hiddenAt     DateTime?
   lastUpdate   DateTime @updatedAt
 
   @@unique([userId, bookId])
