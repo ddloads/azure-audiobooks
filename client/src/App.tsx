@@ -70,6 +70,7 @@ function AppRoutes() {
           <Route path="/profile"             element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
           <Route path="/menu"                element={<PrivateRoute><MobileMenu /></PrivateRoute>} />
           <Route path="/settings"            element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
+          <Route path="/settings/:section"   element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
           <Route path="/files"               element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
           <Route path="/duplicates"          element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
         </Route>

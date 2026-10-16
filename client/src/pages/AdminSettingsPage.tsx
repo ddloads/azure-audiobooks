@@ -2,7 +2,7 @@ import { Navigate } from "react-router-dom";
 import { lazy, Suspense, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 
-const AdminSettingsModal = lazy(() => import("../components/AdminSettingsModal"));
+const AdminSettings = lazy(() => import("../features/admin/AdminSettings"));
 const UploadModal = lazy(() => import("../components/UploadModal"));
 
 const AdminSettingsPage = () => {
@@ -15,7 +15,7 @@ const AdminSettingsPage = () => {
 
   return (
     <Suspense fallback={<div className="app-loading"><div className="app-loading-spinner" /></div>}>
-      <AdminSettingsModal
+      <AdminSettings
         onLibraryChanged={() => undefined}
         onRequestUpload={() => setIsUploadModalOpen(true)}
       />
