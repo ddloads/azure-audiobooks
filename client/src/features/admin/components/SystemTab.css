@@ -1,0 +1,51 @@
+/* System tab extras. Everything else comes from styles/admin.css. */
+.as-system-status { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.as-system-status .as-muted { font-size: 0.82rem; }
+.as-system-wrap { overflow-wrap: anywhere; min-width: 0; }
+
+.as-system-profile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--as-inset-bg);
+  color: var(--text-muted);
+}
+.as-system-profile-icon-active { background: var(--primary-subtle); color: var(--primary-light); }
+
+.as-system-btn-group { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 719px) {
+  .as-system-btn-group { flex: 1 1 100%; }
+  .as-system-btn-group > .as-btn { flex: 1 1 140px; }
+}
+
+.as-system-working {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.as-system-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.as-system-steps > li { display: flex; gap: 12px; min-width: 0; }
+.as-system-step-num {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--primary-subtle);
+  color: var(--primary-light);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.as-system-step-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.as-system-step-body > p { margin: 3px 0 0; font-size: 0.88rem; line-height: 1.45; color: var(--text-muted); }
+.as-system-steps > li.as-system-steps-actions { display: block; }
+.as-system-steps a.as-btn { text-decoration: none; }

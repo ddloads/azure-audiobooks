@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, LayoutList } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import type { AppearanceSettings } from "../types";
 import { getErrorMessage } from "../helpers";
+import { Panel, Stack, ToggleRow } from "../ui";
 
 const defaultSettings: AppearanceSettings = {
   showReviewBooks: true,
@@ -87,89 +88,52 @@ export default function AppearanceTab() {
 
   if (loading) {
     return (
-      <div className="admin-settings-loading">
+      <div className="as-loading">
         <div className="app-loading-spinner" />
       </div>
     );
   }
 
   return (
-    <div className="admin-panel-stack">
-
-      {/* Catalog visibility */}
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <div>
-            <h3>Catalog visibility</h3>
-            <p className="admin-library-meta-text">
-              Choose whether titles tagged for review appear in the main library views.
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className={`admin-overview-toggle ${settings.showReviewBooks ? "is-enabled" : ""}`}
-          onClick={() => void handleToggle("showReviewBooks")}
+    <Stack>
+      <Panel
+        title="Catalog visibility"
+        icon={Eye}
+        description="Choose whether titles tagged for review appear in the main library views."
+      >
+        <ToggleRow
+          title="Books marked for review"
+          description={
+            settings.showReviewBooks
+              ? "Visible in the library, mobile library, and filter results."
+              : "Hidden from the library, mobile library, and filter results."
+          }
+          checked={settings.showReviewBooks}
           disabled={actionLoading === "showReviewBooks"}
-          aria-pressed={settings.showReviewBooks}
-        >
-          <div className="admin-overview-toggle-copy">
-            <strong>Books marked for review</strong>
-            <small>
-              {settings.showReviewBooks
-                ? "Visible in the library, mobile library, and filter results."
-                : "Hidden from the library, mobile library, and filter results."}
-            </small>
-          </div>
-          {actionLoading === "showReviewBooks" ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : settings.showReviewBooks ? (
-            <Eye size={16} />
-          ) : (
-            <EyeOff size={16} />
-          )}
-        </button>
-      </div>
+          onChange={() => void handleToggle("showReviewBooks")}
+        />
+      </Panel>
 
-      {/* Home shelves */}
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <div>
-            <h3>Home shelves</h3>
-            <p className="admin-library-meta-text">
-              Choose which recommendation shelves appear on the home page.
-            </p>
-          </div>
-        </div>
+      <Panel
+        title="Home shelves"
+        icon={LayoutList}
+        description="Choose which recommendation shelves appear on the home page."
+      >
+        {SHELF_CONFIG.map(({ key, label, description }) => (
+          <ToggleRow
+            key={key}
+            title={label}
+            description={description}
+            checked={settings[key] as boolean}
+            disabled={actionLoading === key}
+            onChange={() => void handleToggle(key)}
+          />
+        ))}
+      </Panel>
 
-        {SHELF_CONFIG.map(({ key, label, description }) => {
-          const enabled = settings[key] as boolean;
-          return (
-            <button
-              key={key}
-              type="button"
-              className={`admin-overview-toggle ${enabled ? "is-enabled" : ""}`}
-              onClick={() => void handleToggle(key)}
-              disabled={actionLoading === key}
-              aria-pressed={enabled}
-            >
-              <div className="admin-overview-toggle-copy">
-                <strong>{label}</strong>
-                <small>{description}</small>
-              </div>
-              {actionLoading === key ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : enabled ? (
-                <Eye size={16} />
-              ) : (
-                <EyeOff size={16} />
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-    </div>
+      <p className="as-subtle" style={{ margin: 0, fontSize: "0.8rem" }}>
+        Changes save as soon as you flip a switch.
+      </p>
+    </Stack>
   );
 }

@@ -1,0 +1,137 @@
+/* Libraries tab extras. Everything else comes from styles/admin.css. */
+
+.as-libraries-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.as-libraries-grid > .as-btn { width: 100%; min-width: 0; padding: 6px 10px; white-space: normal; text-align: center; line-height: 1.2; }
+@media (min-width: 360px) {
+  .as-libraries-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (min-width: 1100px) {
+  .as-libraries-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.as-libraries-grid-compact > .as-btn { min-height: 40px; }
+@media (min-width: 720px) {
+  .as-libraries-grid-compact { display: flex; flex-wrap: wrap; }
+  .as-libraries-grid-compact > .as-btn { width: auto; }
+}
+
+.as-libraries-run { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.as-libraries-run-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.as-libraries-sectionhead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-top: 6px;
+  padding: 0 2px;
+}
+
+.as-libraries-cards { display: grid; grid-template-columns: 1fr; gap: var(--as-gap); align-items: start; }
+@media (min-width: 1280px) {
+  .as-libraries-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.as-libraries-title { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; overflow-wrap: anywhere; min-width: 0; }
+.as-libraries-desc { display: block; margin-bottom: 6px; }
+.as-libraries-counts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 0.82rem; }
+.as-libraries-counts strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.as-libraries-code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.as-libraries-path {
+  display: block;
+  min-width: 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.as-libraries-subhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.as-libraries-subhead .as-btn { text-transform: none; letter-spacing: 0; }
+
+.as-libraries-kind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: var(--primary-light);
+  background: var(--primary-subtle);
+}
+.as-libraries-flags { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+
+.as-libraries-inset {
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--as-inset-bg);
+  border: 1px solid var(--as-panel-border);
+  min-width: 0;
+}
+.as-libraries-inset .as-empty { padding: 12px 8px; }
+.as-libraries-toggles > .as-toggle-row { padding: 10px 0; }
+
+.as-libraries-path-picker { display: flex; gap: 8px; min-width: 0; }
+.as-libraries-path-picker > .form-control { flex: 1; min-width: 0; }
+.as-libraries-path-input { font-family: var(--font-mono, 'JetBrains Mono', monospace); }
+.as-libraries-path-picker > .as-btn { flex-shrink: 0; }
+
+.as-libraries-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(248, 113, 113, 0.22);
+}
+.as-libraries-danger-title { margin: 0 0 2px; font-size: 0.85rem; font-weight: 700; color: var(--as-danger); }
+
+.as-libraries-scroll { max-height: 360px; overflow-y: auto; border-radius: 12px; }
+.as-libraries-scroll > .as-list { border: 1px solid var(--as-panel-border); border-radius: 12px; }
+
+.as-libraries-files { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.as-libraries-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--as-inset-bg);
+}
+
+.as-libraries-loading { display: flex; align-items: center; gap: 10px; color: var(--text-muted); font-size: 0.88rem; }
+
+.as-libraries-list { border: 1px solid var(--as-panel-border); border-radius: 12px; overflow: hidden; }
+.as-libraries-list .as-item-row { padding-left: 12px; padding-right: 12px; }
+.as-libraries-list .as-item-extra { padding: 0 12px 12px; }

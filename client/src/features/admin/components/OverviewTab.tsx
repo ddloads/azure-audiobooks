@@ -1,17 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import {
+  Archive,
   BookOpen,
   ChevronDown,
-  ChevronRight,
-  Eye,
-  EyeOff,
+  ChevronUp,
+  Clock,
   FolderTree,
   Headphones,
   HardDrive,
-  Pencil,
+  RotateCcw,
   Save,
+  SlidersHorizontal,
   Sparkles,
   Users,
+  X,
+  type LucideIcon,
 } from "lucide-react";
 import { useTasks, type ClientRuntimeTask } from "../../../context/TaskContext";
 import api from "../../../api/axios";
@@ -23,7 +26,26 @@ import type {
   OverviewSectionKey,
   OverviewPreferences,
 } from "../types";
-import { formatDate, formatElapsed, formatHours, formatListenTime } from "../helpers";
+import { formatBytes, formatDate, formatElapsed, formatHours, formatListenTime } from "../helpers";
+import {
+  Actions,
+  Avatar,
+  Badge,
+  Button,
+  Columns,
+  EmptyState,
+  KeyValues,
+  List,
+  ListItem,
+  Panel,
+  Progress,
+  Stack,
+  Stat,
+  StatGrid,
+  ToggleRow,
+  type Tone,
+} from "../ui";
+import "./OverviewTab.css";
 
 type OverviewTask = AdminRuntimeTask | ClientRuntimeTask;
 
@@ -92,6 +114,62 @@ const loadOverviewPreferences = (): OverviewPreferences => {
     return defaults;
   }
 };
+
+const overviewSectionDescriptions: Record<OverviewSectionKey, string> = {
+  libraries: "Each library with its book and source counts.",
+  recentBooks: "The latest titles picked up by scans.",
+  recentUsers: "Newest accounts and their roles.",
+  storage: "Cover storage, source paths and recent backups.",
+  tasks: "Scans, merges, tag writes and downloads in progress.",
+  listening: "Listening time today and this week, with top listeners and books.",
+};
+
+const taskStatusTone = (status: string): Tone => {
+  if (status === "failed") return "danger";
+  if (status === "completed") return "success";
+  return "accent";
+};
+
+interface SectionPanelProps {
+  title: string;
+  icon: LucideIcon;
+  count?: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  flush?: boolean;
+  tone?: Tone;
+  children: ReactNode;
+}
+
+/** Overview card whose body can be folded away; the fold state is remembered per browser. */
+function SectionPanel({ title, icon, count, collapsed, onToggle, flush, tone, children }: SectionPanelProps) {
+  return (
+    <Panel
+      title={
+        <>
+          {title}
+          {count !== undefined && <Badge tone={tone === "accent" ? "accent" : "neutral"}>{count}</Badge>}
+        </>
+      }
+      icon={icon}
+      tone={tone}
+      flush={flush}
+      actions={
+        <Button
+          variant="ghost"
+          size="sm"
+          iconOnly
+          icon={collapsed ? ChevronDown : ChevronUp}
+          aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+        />
+      }
+    >
+      {collapsed ? undefined : children}
+    </Panel>
+  );
+}
 
 export default function OverviewTab({
   dashboard,
@@ -220,402 +298,332 @@ export default function OverviewTab({
   };
 
   return (
-    <div className="admin-panel-stack">
-      <div className="admin-overview-toolbar">
-        {!isEditingOverview ? (
-          <button className="btn btn-secondary" type="button" onClick={handleStartOverviewEdit}>
-            <Pencil size={15} />
-            Edit Overview
-          </button>
-        ) : (
-          <div className="admin-overview-toolbar-actions">
-            <button className="btn btn-secondary" type="button" onClick={resetOverviewPreferences}>
-              Reset layout
-            </button>
-            <button className="btn btn-secondary" type="button" onClick={handleCancelOverviewEdit}>
-              Cancel
-            </button>
-            <button className="btn btn-primary" type="button" onClick={handleSaveOverviewPreferences}>
-              <Save size={15} />
-              Save Layout
-            </button>
-          </div>
-        )}
-      </div>
-
-      {isEditingOverview && (
-        <div className="card admin-section-card admin-overview-customize-card">
-          <div className="admin-section-head admin-overview-customize-head">
-            <div>
-              <h3>Customize overview</h3>
-              <p className="admin-library-meta-text">
-                Choose which overview blocks stay visible in this browser.
-              </p>
-            </div>
-          </div>
-
-          <div className="admin-overview-customize-grid">
-            <button
-              type="button"
-              className={`admin-overview-toggle ${displayedOverviewPreferences.showStats ? "is-enabled" : ""}`}
-              onClick={toggleOverviewStatsVisibility}
-              aria-pressed={displayedOverviewPreferences.showStats}
-            >
-              <div className="admin-overview-toggle-copy">
-                <strong>Stats cards</strong>
-                <small>Show the top-level user, library, book, and runtime counters.</small>
-              </div>
-              {displayedOverviewPreferences.showStats ? <Eye size={16} /> : <EyeOff size={16} />}
-            </button>
-
-            {(Object.keys(overviewSectionLabels) as OverviewSectionKey[]).map((section) => (
-              <button
-                key={section}
-                type="button"
-                className={`admin-overview-toggle ${
-                  displayedOverviewPreferences.visibleSections[section] ? "is-enabled" : ""
-                }`}
-                onClick={() => toggleOverviewVisibility(section)}
-                aria-pressed={displayedOverviewPreferences.visibleSections[section]}
-              >
-                <div className="admin-overview-toggle-copy">
-                  <strong>{overviewSectionLabels[section]}</strong>
-                  <small>
-                    {displayedOverviewPreferences.visibleSections[section] ? "Visible" : "Hidden"}
-                    {displayedOverviewPreferences.collapsedSections[section] ? " and collapsed" : ""}
-                  </small>
-                </div>
-                {displayedOverviewPreferences.visibleSections[section] ? <Eye size={16} /> : <EyeOff size={16} />}
-              </button>
-            ))}
-          </div>
+    <Stack>
+      {!isEditingOverview && (
+        <div className="as-overview-bar">
+          <p className="as-overview-bar-note">
+            {overviewTasks.length > 0
+              ? `${overviewTasks.length} background ${overviewTasks.length === 1 ? "task" : "tasks"} running`
+              : "Everything is idle"}
+          </p>
+          <Button variant="ghost" size="sm" icon={SlidersHorizontal} onClick={handleStartOverviewEdit}>
+            Customize
+          </Button>
         </div>
       )}
 
+      {isEditingOverview && (
+        <Panel
+          title="Customize overview"
+          icon={SlidersHorizontal}
+          description="Choose which blocks stay visible in this browser. Use the arrow on any card to fold it."
+          tone="accent"
+        >
+          <Stack gap="md">
+            <div>
+              <ToggleRow
+                title="Stats cards"
+                description="User, library, book and runtime counters."
+                checked={displayedOverviewPreferences.showStats}
+                onChange={toggleOverviewStatsVisibility}
+              />
+              {(Object.keys(overviewSectionLabels) as OverviewSectionKey[]).map((section) => (
+                <ToggleRow
+                  key={section}
+                  title={overviewSectionLabels[section]}
+                  description={
+                    displayedOverviewPreferences.visibleSections[section] &&
+                    displayedOverviewPreferences.collapsedSections[section]
+                      ? `${overviewSectionDescriptions[section]} Currently collapsed.`
+                      : overviewSectionDescriptions[section]
+                  }
+                  checked={displayedOverviewPreferences.visibleSections[section]}
+                  onChange={() => toggleOverviewVisibility(section)}
+                />
+              ))}
+            </div>
+            <Actions>
+              <Button variant="ghost" icon={RotateCcw} onClick={resetOverviewPreferences}>
+                Reset layout
+              </Button>
+              <Button variant="secondary" icon={X} onClick={handleCancelOverviewEdit}>
+                Cancel
+              </Button>
+              <Button variant="primary" icon={Save} onClick={handleSaveOverviewPreferences}>
+                Save layout
+              </Button>
+            </Actions>
+          </Stack>
+        </Panel>
+      )}
+
+      {displayedOverviewPreferences.visibleSections.tasks && overviewTasks.length > 0 && (
+        <SectionPanel
+          title="Running tasks"
+          icon={Sparkles}
+          count={overviewTasks.length}
+          tone="accent"
+          collapsed={displayedOverviewPreferences.collapsedSections.tasks}
+          onToggle={() => toggleOverviewSection("tasks")}
+          flush
+        >
+          <List>
+            {overviewTasks.map((task) => {
+              const stage = "stage" in task && task.stage ? task.stage : null;
+              return (
+                <ListItem
+                  key={task.id}
+                  title={task.title}
+                  subtitle={`${getRuntimeTaskTypeLabel(task)} · ${stage ?? task.detail}`}
+                  meta={`Updated ${formatElapsed(task.updatedAt) || "just now"}`}
+                  trailing={
+                    <>
+                      <span className="as-overview-pct">{task.progress}%</span>
+                      <Badge tone={taskStatusTone(task.status)}>{task.status}</Badge>
+                    </>
+                  }
+                >
+                  <div className="as-overview-task-extra">
+                    <Progress value={task.progress} tone={taskStatusTone(task.status)} label={`${task.title} progress`} />
+                    {task.detail && stage && task.detail !== stage && (
+                      <p className="as-overview-task-detail">{task.detail}</p>
+                    )}
+                  </div>
+                </ListItem>
+              );
+            })}
+          </List>
+        </SectionPanel>
+      )}
+
       {displayedOverviewPreferences.showStats && (
-        <div className="admin-stat-grid">
-          <div className="admin-stat-card">
-            <div className="admin-stat-icon"><Users size={15} /></div>
-            <strong>{dashboard.stats.users}</strong>
-            <span>Users</span>
-            <small>{dashboard.stats.admins} admins</small>
-          </div>
-          <div className="admin-stat-card">
-            <div className="admin-stat-icon"><FolderTree size={15} /></div>
-            <strong>{dashboard.stats.libraries}</strong>
-            <span>Libraries</span>
-            <small>{dashboard.stats.sources} source paths</small>
-          </div>
-          <div className="admin-stat-card">
-            <div className="admin-stat-icon"><BookOpen size={15} /></div>
-            <strong>{dashboard.stats.books}</strong>
-            <span>Books</span>
-            <small>{dashboard.stats.authors} authors</small>
-          </div>
-          <div className="admin-stat-card">
-            <div className="admin-stat-icon"><HardDrive size={15} /></div>
-            <strong>{formatHours(dashboard.stats.totalDuration)}</strong>
-            <span>Total runtime</span>
-            <small>{dashboard.stats.audioFiles} audio files</small>
-          </div>
-        </div>
+        <StatGrid>
+          <Stat label="Users" value={dashboard.stats.users} sub={`${dashboard.stats.admins} admins`} icon={Users} tone="accent" />
+          <Stat label="Libraries" value={dashboard.stats.libraries} sub={`${dashboard.stats.sources} source paths`} icon={FolderTree} tone="accent" />
+          <Stat label="Books" value={dashboard.stats.books} sub={`${dashboard.stats.authors} authors`} icon={BookOpen} tone="accent" />
+          <Stat label="Total runtime" value={formatHours(dashboard.stats.totalDuration)} sub={`${dashboard.stats.audioFiles} audio files`} icon={Clock} tone="accent" />
+        </StatGrid>
       )}
 
       {!displayedOverviewPreferences.showStats &&
         !(Object.values(displayedOverviewPreferences.visibleSections) as boolean[]).some(Boolean) && (
-          <div className="admin-empty-state">
-            Overview is fully hidden. Use Customize overview to turn sections back on.
-          </div>
+          <Panel>
+            <EmptyState
+              icon={SlidersHorizontal}
+              title="Overview is fully hidden"
+              action={
+                !isEditingOverview && (
+                  <Button variant="secondary" size="sm" icon={SlidersHorizontal} onClick={handleStartOverviewEdit}>
+                    Customize overview
+                  </Button>
+                )
+              }
+            >
+              Turn sections back on to see them here.
+            </EmptyState>
+          </Panel>
         )}
 
-      <div className="admin-split-grid">
+      <Columns>
         {displayedOverviewPreferences.visibleSections.libraries && (
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <button
-                className="admin-collapsible-head"
-                type="button"
-                onClick={() => toggleOverviewSection("libraries")}
-                aria-expanded={!displayedOverviewPreferences.collapsedSections.libraries}
-              >
-                <div className="admin-collapsible-title">
-                  {displayedOverviewPreferences.collapsedSections.libraries ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  <h3>Libraries</h3>
-                  <span className="admin-collapsible-count">{dashboard.library.libraries.length}</span>
-                </div>
-                <FolderTree size={15} />
-              </button>
-            </div>
-            {!displayedOverviewPreferences.collapsedSections.libraries && (
-              <div className="admin-collapsible-body admin-list">
+          <SectionPanel
+            title="Libraries"
+            icon={FolderTree}
+            count={dashboard.library.libraries.length}
+            collapsed={displayedOverviewPreferences.collapsedSections.libraries}
+            onToggle={() => toggleOverviewSection("libraries")}
+            flush
+          >
+            {dashboard.library.libraries.length === 0 ? (
+              <EmptyState icon={FolderTree} title="No libraries configured" />
+            ) : (
+              <List>
                 {dashboard.library.libraries.map((library) => (
-                  <div key={library.id} className="admin-row">
-                    <div>
-                      <strong>{library.name}</strong>
-                      <small>{library._count.books} books · {library._count.sources} sources</small>
-                    </div>
-                    <div className="admin-pill">{library._count.books}</div>
-                  </div>
+                  <ListItem
+                    key={library.id}
+                    title={library.name}
+                    subtitle={`${library._count.books} ${library._count.books === 1 ? "book" : "books"} · ${library._count.sources} ${library._count.sources === 1 ? "source" : "sources"}`}
+                    trailing={<Badge>{library._count.books}</Badge>}
+                  />
                 ))}
-                {dashboard.library.libraries.length === 0 && (
-                  <div className="admin-empty-state">No libraries configured.</div>
-                )}
-              </div>
+              </List>
             )}
-          </div>
+          </SectionPanel>
         )}
 
         {displayedOverviewPreferences.visibleSections.recentBooks && (
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <button
-                className="admin-collapsible-head"
-                type="button"
-                onClick={() => toggleOverviewSection("recentBooks")}
-                aria-expanded={!displayedOverviewPreferences.collapsedSections.recentBooks}
-              >
-                <div className="admin-collapsible-title">
-                  {displayedOverviewPreferences.collapsedSections.recentBooks ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  <h3>Recent books</h3>
-                  <span className="admin-collapsible-count">{dashboard.recentBooks.length}</span>
-                </div>
-                <BookOpen size={15} />
-              </button>
-            </div>
-            {!displayedOverviewPreferences.collapsedSections.recentBooks && (
-              <div className="admin-collapsible-body admin-list">
+          <SectionPanel
+            title="Recent books"
+            icon={BookOpen}
+            count={dashboard.recentBooks.length}
+            collapsed={displayedOverviewPreferences.collapsedSections.recentBooks}
+            onToggle={() => toggleOverviewSection("recentBooks")}
+            flush
+          >
+            {dashboard.recentBooks.length === 0 ? (
+              <EmptyState icon={BookOpen} title="No books scanned yet" />
+            ) : (
+              <List>
                 {dashboard.recentBooks.map((book) => (
-                  <div key={book.id} className="admin-row">
-                    <div>
-                      <strong>{book.title}</strong>
-                      <small>{book.author.name} · {book.library.name}</small>
-                    </div>
-                    <span className="admin-row-meta">{formatHours(book.duration)}</span>
-                  </div>
+                  <ListItem
+                    key={book.id}
+                    title={book.title}
+                    subtitle={`${book.author.name} · ${book.library.name}`}
+                    trailing={<span className="as-muted">{formatHours(book.duration)}</span>}
+                  />
                 ))}
-                {dashboard.recentBooks.length === 0 && (
-                  <div className="admin-empty-state">No books scanned yet.</div>
-                )}
-              </div>
+              </List>
             )}
-          </div>
+          </SectionPanel>
         )}
-      </div>
 
-      <div className="admin-split-grid">
-        {displayedOverviewPreferences.visibleSections.tasks && (
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <button
-                className="admin-collapsible-head"
-                type="button"
-                onClick={() => toggleOverviewSection("tasks")}
-                aria-expanded={!displayedOverviewPreferences.collapsedSections.tasks}
-              >
-                <div className="admin-collapsible-title">
-                  {displayedOverviewPreferences.collapsedSections.tasks ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  <h3>Tasks</h3>
-                  <span className="admin-collapsible-count">{overviewTasks.length}</span>
-                </div>
-                <Sparkles size={15} />
-              </button>
-            </div>
-            {!displayedOverviewPreferences.collapsedSections.tasks && (
-              <div className="admin-collapsible-body admin-task-list">
-                {overviewTasks.map((task) => (
-                  <div key={task.id} className="admin-task-card">
-                    <div className="admin-task-head">
-                      <div>
-                        <strong>{task.title}</strong>
-                        <small>{getRuntimeTaskTypeLabel(task)} • {task.progress}%</small>
-                      </div>
-                      <div className="admin-pill">{task.status}</div>
-                    </div>
-                    <div className="progress-bar-container">
-                      <div className="progress-bar-fill" style={{ width: `${task.progress}%` }} />
-                    </div>
-                    <div className="admin-task-meta">
-                      <span>{"stage" in task && task.stage ? task.stage : task.detail}</span>
-                      <span>{formatElapsed(task.updatedAt) || "just now"}</span>
-                    </div>
-                    {task.detail && "stage" in task && task.stage && task.detail !== task.stage && (
-                      <div className="admin-task-submeta">{task.detail}</div>
-                    )}
-                  </div>
-                ))}
-                {overviewTasks.length === 0 && (
-                  <div className="admin-empty-state">No tracked background tasks are currently running.</div>
-                )}
-              </div>
-            )}
-          </div>
+        {displayedOverviewPreferences.visibleSections.tasks && overviewTasks.length === 0 && (
+          <SectionPanel
+            title="Tasks"
+            icon={Sparkles}
+            count={0}
+            collapsed={displayedOverviewPreferences.collapsedSections.tasks}
+            onToggle={() => toggleOverviewSection("tasks")}
+            flush
+          >
+            <EmptyState icon={Sparkles} title="No background tasks running">
+              Scans, merges, tag writes and downloads show up here with live progress.
+            </EmptyState>
+          </SectionPanel>
         )}
 
         {displayedOverviewPreferences.visibleSections.recentUsers && (
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <button
-                className="admin-collapsible-head"
-                type="button"
-                onClick={() => toggleOverviewSection("recentUsers")}
-                aria-expanded={!displayedOverviewPreferences.collapsedSections.recentUsers}
-              >
-                <div className="admin-collapsible-title">
-                  {displayedOverviewPreferences.collapsedSections.recentUsers ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  <h3>Recent users</h3>
-                  <span className="admin-collapsible-count">{dashboard.recentUsers.length}</span>
-                </div>
-                <Users size={15} />
-              </button>
-            </div>
-            {!displayedOverviewPreferences.collapsedSections.recentUsers && (
-              <div className="admin-collapsible-body admin-list">
+          <SectionPanel
+            title="Recent users"
+            icon={Users}
+            count={dashboard.recentUsers.length}
+            collapsed={displayedOverviewPreferences.collapsedSections.recentUsers}
+            onToggle={() => toggleOverviewSection("recentUsers")}
+            flush
+          >
+            {dashboard.recentUsers.length === 0 ? (
+              <EmptyState icon={Users} title="No users yet" />
+            ) : (
+              <List>
                 {dashboard.recentUsers.map((user) => (
-                  <div key={user.id} className="admin-row">
-                    <div className="admin-row-with-avatar">
-                      <div className="admin-user-avatar admin-user-avatar-sm">
-                        {user.username.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <strong>{user.username}</strong>
-                        <small>
-                          <span className={`admin-role-badge admin-role-${user.role.toLowerCase()}`}>{user.role}</span>
-                          {" · "}{user.email || "No recovery email"} · joined {formatDate(user.createdAt)}
-                        </small>
-                      </div>
-                    </div>
-                  </div>
+                  <ListItem
+                    key={user.id}
+                    leading={<Avatar name={user.username} tone={user.role === "ADMIN" ? "accent" : "neutral"} />}
+                    title={
+                      <>
+                        {user.username}
+                        <Badge tone={user.role === "ADMIN" ? "accent" : "neutral"}>{user.role}</Badge>
+                      </>
+                    }
+                    subtitle={user.email || "No recovery email"}
+                    meta={`Joined ${formatDate(user.createdAt)}`}
+                  />
                 ))}
-                {dashboard.recentUsers.length === 0 && (
-                  <div className="admin-empty-state">No users yet.</div>
-                )}
-              </div>
+              </List>
             )}
-          </div>
+          </SectionPanel>
         )}
 
         {displayedOverviewPreferences.visibleSections.listening && (
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <button
-                className="admin-collapsible-head"
-                type="button"
-                onClick={() => toggleOverviewSection("listening")}
-                aria-expanded={!displayedOverviewPreferences.collapsedSections.listening}
-              >
-                <div className="admin-collapsible-title">
-                  {displayedOverviewPreferences.collapsedSections.listening ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  <h3>Listening activity</h3>
+          <SectionPanel
+            title="Listening activity"
+            icon={Headphones}
+            collapsed={displayedOverviewPreferences.collapsedSections.listening}
+            onToggle={() => toggleOverviewSection("listening")}
+            flush
+          >
+            {!listenStats ? (
+              <EmptyState title="Loading…" />
+            ) : (
+              <>
+                <div className="as-overview-pad">
+                  <StatGrid>
+                    <Stat
+                      label="Today"
+                      value={formatListenTime(listenStats.todaySeconds)}
+                      sub={`${listenStats.todaySessions} ${listenStats.todaySessions === 1 ? "session" : "sessions"}`}
+                    />
+                    <Stat label="This week" value={formatListenTime(listenStats.weekSeconds)} />
+                  </StatGrid>
                 </div>
-                <Headphones size={15} />
-              </button>
-            </div>
-            {!displayedOverviewPreferences.collapsedSections.listening && (
-              <div className="admin-collapsible-body">
-                {!listenStats ? (
-                  <div className="admin-empty-state">Loading…</div>
-                ) : (
+
+                {listenStats.topListeners.length > 0 && (
                   <>
-                    <div className="admin-listen-stat-row">
-                      <div className="admin-listen-stat">
-                        <span>Today</span>
-                        <strong>{formatListenTime(listenStats.todaySeconds)}</strong>
-                        <small>{listenStats.todaySessions} {listenStats.todaySessions === 1 ? "session" : "sessions"}</small>
-                      </div>
-                      <div className="admin-listen-stat">
-                        <span>This week</span>
-                        <strong>{formatListenTime(listenStats.weekSeconds)}</strong>
-                      </div>
-                    </div>
-
-                    <div className="admin-listen-split">
-                      {listenStats.topListeners.length > 0 && (
-                        <div>
-                          <p className="admin-listen-sub-label">Top listeners this week</p>
-                          <div className="admin-list">
-                            {listenStats.topListeners.map(({ user, weekSeconds }) => (
-                              <div key={user.id} className="admin-row">
-                                <div className="admin-row-with-avatar">
-                                  <div className="admin-user-avatar admin-user-avatar-sm">
-                                    {user.username.slice(0, 2).toUpperCase()}
-                                  </div>
-                                  <strong>{user.username}</strong>
-                                </div>
-                                <span className="admin-row-meta">{formatListenTime(weekSeconds)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {listenStats.topBooks.length > 0 && (
-                        <div>
-                          <p className="admin-listen-sub-label">Most listened this week</p>
-                          <div className="admin-list">
-                            {listenStats.topBooks.map(({ book, weekSeconds }) => (
-                              <div key={book.id} className="admin-row">
-                                <div>
-                                  <strong>{book.title}</strong>
-                                  {book.author && <small>{book.author.name}</small>}
-                                </div>
-                                <span className="admin-row-meta">{formatListenTime(weekSeconds)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {listenStats.topListeners.length === 0 && listenStats.topBooks.length === 0 && (
-                        <div className="admin-empty-state">No listening sessions recorded this week.</div>
-                      )}
-                    </div>
+                    <p className="as-overview-sub">Top listeners this week</p>
+                    <List>
+                      {listenStats.topListeners.map(({ user, weekSeconds }) => (
+                        <ListItem
+                          key={user.id}
+                          leading={<Avatar name={user.username} tone="neutral" />}
+                          title={user.username}
+                          trailing={<span className="as-muted">{formatListenTime(weekSeconds)}</span>}
+                        />
+                      ))}
+                    </List>
                   </>
                 )}
-              </div>
+
+                {listenStats.topBooks.length > 0 && (
+                  <>
+                    <p className="as-overview-sub">Most listened this week</p>
+                    <List>
+                      {listenStats.topBooks.map(({ book, weekSeconds }) => (
+                        <ListItem
+                          key={book.id}
+                          title={book.title}
+                          subtitle={book.author?.name}
+                          trailing={<span className="as-muted">{formatListenTime(weekSeconds)}</span>}
+                        />
+                      ))}
+                    </List>
+                  </>
+                )}
+
+                {listenStats.topListeners.length === 0 && listenStats.topBooks.length === 0 && (
+                  <EmptyState icon={Headphones} title="No listening sessions recorded this week" />
+                )}
+              </>
             )}
-          </div>
+          </SectionPanel>
         )}
 
         {displayedOverviewPreferences.visibleSections.storage && (
-          <div className="card admin-section-card">
-            <div className="admin-section-head">
-              <button
-                className="admin-collapsible-head"
-                type="button"
-                onClick={() => toggleOverviewSection("storage")}
-                aria-expanded={!displayedOverviewPreferences.collapsedSections.storage}
-              >
-                <div className="admin-collapsible-title">
-                  {displayedOverviewPreferences.collapsedSections.storage ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
-                  <h3>Storage</h3>
-                  <span className="admin-collapsible-count">4</span>
-                </div>
-                <HardDrive size={15} />
-              </button>
+          <SectionPanel
+            title="Storage"
+            icon={HardDrive}
+            collapsed={displayedOverviewPreferences.collapsedSections.storage}
+            onToggle={() => toggleOverviewSection("storage")}
+            flush
+          >
+            <div className="as-overview-pad">
+              <KeyValues
+                items={[
+                  { label: "Cover storage", value: dashboard.library.coversRoot, mono: true },
+                  { label: "Enabled source paths", value: enabledSourceCount },
+                  { label: "Writable source paths", value: writableSourceCount },
+                  { label: "Recent backups", value: dashboard.backups.length },
+                ]}
+              />
             </div>
-            {!displayedOverviewPreferences.collapsedSections.storage && (
-              <div className="admin-collapsible-body admin-meta-list">
-                <div>
-                  <span>Cover storage</span>
-                  <code>{dashboard.library.coversRoot}</code>
-                </div>
-                <div>
-                  <span>Enabled source paths</span>
-                  <code>{enabledSourceCount}</code>
-                </div>
-                <div>
-                  <span>Writable source paths</span>
-                  <code>{writableSourceCount}</code>
-                </div>
-                <div>
-                  <span>Recent backups</span>
-                  <code>{dashboard.backups.length}</code>
-                </div>
-              </div>
+            {dashboard.backups.length > 0 && (
+              <>
+                <p className="as-overview-sub">Recent backups</p>
+                <List>
+                  {dashboard.backups.map((backup) => (
+                    <ListItem
+                      key={backup.name}
+                      leading={<Archive size={18} className="as-subtle" aria-hidden="true" />}
+                      title={<span className="as-mono">{backup.name}</span>}
+                      subtitle={formatDate(backup.createdAt)}
+                      trailing={<span className="as-muted">{formatBytes(backup.size)}</span>}
+                    />
+                  ))}
+                </List>
+              </>
             )}
-          </div>
+          </SectionPanel>
         )}
-      </div>
-    </div>
+      </Columns>
+    </Stack>
   );
 }

@@ -1,0 +1,23 @@
+/* Overview tab extras; shared look comes from styles/admin.css. */
+.as-overview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+}
+.as-overview-bar-note { margin: 0; font-size: 0.8rem; color: var(--text-subtle); min-width: 0; }
+.as-overview-task-extra { display: flex; flex-direction: column; gap: 8px; }
+.as-overview-task-detail { margin: 0; font-size: 0.78rem; color: var(--text-subtle); overflow-wrap: anywhere; }
+.as-overview-pct { font-weight: 700; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.as-overview-sub {
+  margin: 0;
+  padding: 14px var(--as-pad) 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  border-top: 1px solid var(--as-panel-border);
+}
+.as-overview-pad { padding: 0 var(--as-pad) var(--as-pad); }

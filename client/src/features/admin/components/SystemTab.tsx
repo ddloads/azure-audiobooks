@@ -1,17 +1,23 @@
 import { useState, useEffect } from "react";
 import {
-  Database,
-  RefreshCw,
-  Loader2,
-  HardDrive,
-  Users,
-  Save,
-  X,
-  Pencil,
+  AlertTriangle,
   Check,
-  Trash2,
-  Network,
+  CheckCircle2,
   Copy,
+  Database,
+  ExternalLink,
+  HardDrive,
+  Link2,
+  Loader2,
+  Network,
+  RefreshCw,
+  Save,
+  Terminal,
+  Trash2,
+  UserCircle2,
+  Users,
+  Wrench,
+  X,
 } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
@@ -23,6 +29,36 @@ import type {
   PendingAdminConfirm,
 } from "../types";
 import { formatDate, formatBytes, getErrorMessage } from "../helpers";
+import {
+  Actions,
+  Badge,
+  Button,
+  Columns,
+  EmptyState,
+  Field,
+  FormGrid,
+  KeyValues,
+  List,
+  ListItem,
+  Notice,
+  Panel,
+  Stack,
+} from "../ui";
+import "./SystemTab.css";
+
+const MARKETPLACES: Array<{ value: string; label: string }> = [
+  { value: "us", label: "US (audible.com)" },
+  { value: "uk", label: "UK (audible.co.uk)" },
+  { value: "de", label: "Germany (audible.de)" },
+  { value: "fr", label: "France (audible.fr)" },
+  { value: "ca", label: "Canada (audible.ca)" },
+  { value: "it", label: "Italy (audible.it)" },
+  { value: "au", label: "Australia (audible.com.au)" },
+  { value: "in", label: "India (audible.in)" },
+  { value: "jp", label: "Japan (audible.co.jp)" },
+  { value: "es", label: "Spain (audible.es)" },
+];
+
 
 interface SystemTabProps {
   onLibraryChanged?: () => Promise<unknown> | unknown;
@@ -280,7 +316,7 @@ export default function SystemTab({ onLibraryChanged }: SystemTabProps) {
 
   if (loading || !dashboard) {
     return (
-      <div className="admin-settings-loading">
+      <div className="as-loading" aria-live="polite">
         <div className="app-loading-spinner" />
       </div>
     );
@@ -291,95 +327,163 @@ export default function SystemTab({ onLibraryChanged }: SystemTabProps) {
     0
   );
 
+  const resetAuthFlow = () => {
+    setAudibleAuthStep("idle");
+    setAudibleAuthToken("");
+    setAudibleAuthUrl("");
+    setAudibleAuthRedirect("");
+  };
+
+  const cli = audibleCliStatus;
+
   return (
-    <div className="admin-panel-stack">
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Audible CLI Integration</h3>
-          <div className="admin-section-head-actions">
-            <button
-              className="btn btn-secondary"
-              type="button"
-              disabled={audibleCliStatusLoading}
-              onClick={() => void loadAudibleCliStatus()}
-            >
-              {audibleCliStatusLoading ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <RefreshCw size={14} />
-              )}
-              Check status
-            </button>
-          </div>
-        </div>
+    <Stack>
+      {/* ── Audible CLI status ─────────────────────────────────────── */}
+      <Panel
+        title="Audible CLI"
+        icon={Terminal}
+        description="audible-cli powers metadata searches; the web scraper is kept as a fallback."
+        actions={
+          <Button
+            size="sm"
+            icon={RefreshCw}
+            loading={audibleCliStatusLoading}
+            onClick={() => void loadAudibleCliStatus()}
+          >
+            Check status
+          </Button>
+        }
+      >
+        {cli ? (
+          <Stack gap="sm">
+            <KeyValues
+              items={[
+                {
+                  label: "CLI installed",
+                  value: cli.installed ? (
+                    <span className="as-system-status">
+                      <Badge tone="success">Installed</Badge>
+                      <span className="as-muted">audible found in PATH</span>
+                    </span>
+                  ) : (
+                    <span className="as-system-status">
+                      <Badge tone="danger">Not found</Badge>
+                    </span>
+                  ),
+                },
+                {
+                  label: "Authenticated",
+                  value: cli.authenticated ? (
+                    <span className="as-system-status">
+                      <Badge tone="success">Yes</Badge>
+                      <span className="as-muted">profile detected</span>
+                    </span>
+                  ) : cli.installed ? (
+                    <span className="as-system-status">
+                      <Badge tone="warning">No profile</Badge>
+                      <span className="as-muted">
+                        connect an account below or run <code className="as-mono">audible quickstart</code>
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="as-system-status">
+                      <Badge>N/A</Badge>
+                    </span>
+                  ),
+                },
+                { label: "Config directory", value: cli.configDir, mono: true },
+                { label: "Marketplace", value: cli.marketplace, mono: true },
+                {
+                  label: "Active profile",
+                  value: cli.activeProfile ?? <span className="as-muted">Automatic fallback</span>,
+                  mono: Boolean(cli.activeProfile),
+                },
+              ]}
+            />
 
-        {audibleCliStatus ? (
-          <>
-            <div className="admin-meta-list">
-              <div>
-                <span>CLI installed</span>
-                <span className={`audible-cli-status-dot ${audibleCliStatus.installed ? "ok" : "off"}`}>
-                  {audibleCliStatus.installed
-                    ? "Yes — audible found in PATH"
-                    : "Not found — ensure you have redeployed with the latest Docker image"}
-                </span>
-              </div>
-              <div>
-                <span>Authenticated</span>
-                <span
-                  className={`audible-cli-status-dot ${
-                    audibleCliStatus.authenticated
-                      ? "ok"
-                      : audibleCliStatus.installed
-                      ? "warn"
-                      : "off"
-                  }`}
-                >
-                  {audibleCliStatus.authenticated
-                    ? "Yes — profile detected"
-                    : audibleCliStatus.installed
-                    ? "No profile found — run: audible quickstart"
-                    : "N/A"}
-                </span>
-              </div>
-              <div>
-                <span>Config directory</span>
-                <code>{audibleCliStatus.configDir}</code>
-              </div>
-              <div>
-                <span>Marketplace</span>
-                <code>{audibleCliStatus.marketplace}</code>
-              </div>
-              <div>
-                <span>Active profile</span>
-                <code>{audibleCliStatus.activeProfile ?? "Automatic fallback"}</code>
-              </div>
-            </div>
-
-            {!audibleCliStatus.installed && (
-              <div className="audible-cli-setup-hint">
-                <strong>Installation pending</strong>
-                <p>
-                  audible-cli is now automatically installed in the server container. If it shows as
-                  "Not found", please pull the latest image and redeploy your stack.
-                </p>
-              </div>
+            {!cli.installed && (
+              <Notice tone="warning" icon={AlertTriangle}>
+                <strong>Installation pending.</strong> audible-cli is installed automatically in the
+                server container. If it shows as "Not found", pull the latest Docker image and
+                redeploy your stack.
+              </Notice>
             )}
 
-            {audibleCliStatus.installed && audibleCliStatus.profiles.length > 0 && (
-              <div className="card admin-section-card" style={{ marginTop: "1rem" }}>
-                <div className="admin-section-head">
-                  <h3>Connected accounts</h3>
-                  <Users size={15} />
-                </div>
-                <div className="admin-table">
-                  {audibleCliStatus.profiles.map((profileName) => (
-                    <div key={profileName} className="admin-table-row">
-                      <div className="admin-book-summary">
-                        {editingAudibleProfile === profileName ? (
+            {(cli.authenticated || audibleAuthStep === "done") && (
+              <Notice tone="success" icon={CheckCircle2}>
+                Metadata searches will use the active Audible profile via audible-cli. The web
+                scraper is kept as a fallback.
+              </Notice>
+            )}
+          </Stack>
+        ) : audibleCliStatusLoading ? (
+          <EmptyState icon={Loader2} title="Checking audible-cli…" />
+        ) : (
+          <EmptyState icon={Terminal} title="Status unknown">
+            Tap "Check status" to probe the server environment.
+          </EmptyState>
+        )}
+      </Panel>
+
+      {/* ── Connected Audible accounts ─────────────────────────────── */}
+      {cli?.installed && cli.profiles.length > 0 && (
+        <Panel
+          title="Connected accounts"
+          icon={Users}
+          description="Tap an account to rename it, make it active or remove it."
+          flush
+        >
+          <List>
+            {cli.profiles.map((profileName) => {
+              const expanded = editingAudibleProfile === profileName;
+              const isActive = cli.activeProfile === profileName;
+              const draft = audibleProfileDrafts[profileName] ?? profileName;
+              const renameDirty = draft.trim().length > 0 && draft.trim() !== profileName;
+              return (
+                <ListItem
+                  key={profileName}
+                  selected={expanded}
+                  onClick={() => {
+                    if (expanded) {
+                      setEditingAudibleProfile(null);
+                      setAudibleProfileDrafts((current) => ({ ...current, [profileName]: profileName }));
+                    } else {
+                      setEditingAudibleProfile(profileName);
+                      setAudibleProfileDrafts((current) => ({
+                        ...current,
+                        [profileName]: current[profileName] ?? profileName,
+                      }));
+                    }
+                  }}
+                  leading={
+                    <span className={`as-system-profile-icon${isActive ? " as-system-profile-icon-active" : ""}`}>
+                      <UserCircle2 size={20} aria-hidden="true" />
+                    </span>
+                  }
+                  title={
+                    <>
+                      <span className="as-system-wrap">{profileName}</span>
+                      {isActive && <Badge tone="accent">Active</Badge>}
+                    </>
+                  }
+                  subtitle={isActive ? "Used for audible-cli metadata searches" : "Available account"}
+                  chevron={!expanded}
+                >
+                  {expanded && (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void handleRenameAudibleProfile(profileName);
+                      }}
+                    >
+                      <Stack gap="md">
+                        <Field label="Profile name" htmlFor={`audible-profile-${profileName}`}>
                           <input
+                            id={`audible-profile-${profileName}`}
                             className="form-control"
-                            value={audibleProfileDrafts[profileName] ?? profileName}
+                            autoComplete="off"
+                            autoCapitalize="none"
+                            value={draft}
                             onChange={(e) =>
                               setAudibleProfileDrafts((current) => ({
                                 ...current,
@@ -387,377 +491,290 @@ export default function SystemTab({ onLibraryChanged }: SystemTabProps) {
                               }))
                             }
                           />
-                        ) : (
-                          <strong>{profileName}</strong>
-                        )}
-                        <small>
-                          {audibleCliStatus.activeProfile === profileName
-                            ? "Used for audible-cli metadata searches"
-                            : "Available account"}
-                        </small>
-                      </div>
-                      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                        {editingAudibleProfile === profileName ? (
-                          <>
-                            <button
-                              className="btn btn-secondary"
-                              type="button"
-                              disabled={actionLoading === `audible-rename-${profileName}`}
-                              onClick={() => void handleRenameAudibleProfile(profileName)}
-                            >
-                              {actionLoading === `audible-rename-${profileName}` ? (
-                                <Loader2 size={14} className="animate-spin" />
-                              ) : (
-                                <Save size={14} />
-                              )}
-                              Save
-                            </button>
-                            <button
-                              className="btn btn-secondary"
-                              type="button"
-                              onClick={() => {
-                                setEditingAudibleProfile(null);
-                                setAudibleProfileDrafts((current) => ({
-                                  ...current,
-                                  [profileName]: profileName,
-                                }));
-                              }}
-                            >
-                              <X size={14} />
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            className="btn btn-secondary"
-                            type="button"
-                            onClick={() => {
-                              setEditingAudibleProfile(profileName);
-                              setAudibleProfileDrafts((current) => ({
-                                ...current,
-                                [profileName]: current[profileName] ?? profileName,
-                              }));
-                            }}
+                        </Field>
+                        <Actions align="between">
+                          <Button
+                            variant="danger"
+                            icon={Trash2}
+                            loading={actionLoading === `audible-delete-${profileName}`}
+                            onClick={() =>
+                              setPendingConfirm({
+                                title: "Remove Audible Profile",
+                                message: `Remove Audible profile "${profileName}"?`,
+                                confirmLabel: "Remove Profile",
+                                tone: "danger",
+                                onConfirm: () => void handleDeleteAudibleProfile(profileName),
+                              })
+                            }
                           >
-                            <Pencil size={14} />
-                            Rename
-                          </button>
-                        )}
-                        {audibleCliStatus.activeProfile === profileName ? (
-                          <div className="admin-pill">Active</div>
-                        ) : (
-                          <button
-                            className="btn btn-secondary"
-                            type="button"
-                            disabled={actionLoading === `audible-active-${profileName}`}
-                            onClick={() => void handleSetActiveAudibleProfile(profileName)}
-                          >
-                            {actionLoading === `audible-active-${profileName}` ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <Check size={14} />
+                            Remove
+                          </Button>
+                          <div className="as-system-btn-group">
+                            {!isActive && (
+                              <Button
+                                icon={Check}
+                                loading={actionLoading === `audible-active-${profileName}`}
+                                onClick={() => void handleSetActiveAudibleProfile(profileName)}
+                              >
+                                Make active
+                              </Button>
                             )}
-                            Make active
-                          </button>
-                        )}
-                        <button
-                          className="btn admin-danger-btn"
-                          type="button"
-                          disabled={actionLoading === `audible-delete-${profileName}`}
-                          onClick={() =>
-                            setPendingConfirm({
-                              title: "Remove Audible Profile",
-                              message: `Remove Audible profile "${profileName}"?`,
-                              confirmLabel: "Remove Profile",
-                              tone: "danger",
-                              onConfirm: () => void handleDeleteAudibleProfile(profileName),
-                            })
-                          }
-                        >
-                          {actionLoading === `audible-delete-${profileName}` ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={14} />
-                          )}
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                            <Button
+                              type="submit"
+                              variant="primary"
+                              icon={Save}
+                              disabled={!renameDirty}
+                              loading={actionLoading === `audible-rename-${profileName}`}
+                            >
+                              Save name
+                            </Button>
+                          </div>
+                        </Actions>
+                      </Stack>
+                    </form>
+                  )}
+                </ListItem>
+              );
+            })}
+          </List>
+        </Panel>
+      )}
+
+      {/* ── Connect an Audible account ─────────────────────────────── */}
+      {cli?.installed && (
+        <Panel
+          title={cli.authenticated ? "Add another Audible account" : "Connect your Audible account"}
+          icon={Link2}
+          description="A free Audible account is sufficient."
+          tone={cli.authenticated ? undefined : "accent"}
+        >
+          <Stack gap="md">
+            {audibleAuthError && (
+              <Notice tone="danger" icon={AlertTriangle}>
+                {audibleAuthError}
+              </Notice>
             )}
 
-            {audibleCliStatus.installed && (
-              <div className="audible-cli-setup-hint" style={{ marginTop: "1rem" }}>
-                <strong>
-                  {audibleCliStatus.authenticated
-                    ? "Add another Audible account"
-                    : "Connect your Audible account"}
-                </strong>
-                {audibleAuthError && (
-                  <div className="auth-error" style={{ marginBottom: "0.5rem", color: "var(--brand-danger)" }}>
-                    {audibleAuthError}
-                  </div>
-                )}
-
-                {audibleAuthStep === "idle" && (
-                  <>
-                    <p>
-                      Choose a marketplace, assign a profile name, and generate a login URL. A free
-                      Audible account is sufficient.
-                    </p>
-                    <div className="audible-cli-auth-row">
-                      <div className="select-wrap" style={{ minWidth: "160px" }}>
-                        <select
-                          className="form-control"
-                          value={audibleAuthMarketplace}
-                          onChange={(e) => setAudibleAuthMarketplace(e.target.value)}
-                        >
-                          <option value="us">US (audible.com)</option>
-                          <option value="uk">UK (audible.co.uk)</option>
-                          <option value="de">Germany (audible.de)</option>
-                          <option value="fr">France (audible.fr)</option>
-                          <option value="ca">Canada (audible.ca)</option>
-                          <option value="it">Italy (audible.it)</option>
-                          <option value="au">Australia (audible.com.au)</option>
-                          <option value="in">India (audible.in)</option>
-                          <option value="jp">Japan (audible.co.jp)</option>
-                          <option value="es">Spain (audible.es)</option>
-                        </select>
-                      </div>
-                      <input
+            {audibleAuthStep !== "url" && audibleAuthStep !== "completing" && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleAudibleAuthStart();
+                }}
+              >
+                <Stack gap="md">
+                  <FormGrid>
+                    <Field label="Marketplace" htmlFor="audible-auth-marketplace">
+                      <select
+                        id="audible-auth-marketplace"
                         className="form-control"
-                        style={{ minWidth: "180px" }}
-                        placeholder="Profile name"
+                        value={audibleAuthMarketplace}
+                        onChange={(e) => setAudibleAuthMarketplace(e.target.value)}
+                      >
+                        {MARKETPLACES.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Profile name" htmlFor="audible-auth-profile" hint="How this account is labelled here.">
+                      <input
+                        id="audible-auth-profile"
+                        className="form-control"
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        placeholder="e.g. family"
                         value={audibleAuthProfileName}
                         onChange={(e) => setAudibleAuthProfileName(e.target.value)}
                       />
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={() => void handleAudibleAuthStart()}
-                      >
-                        <Network size={14} />
-                        Generate login URL
-                      </button>
-                    </div>
-                  </>
-                )}
+                    </Field>
+                  </FormGrid>
+                  <Actions>
+                    <Button type="submit" variant="primary" icon={Network}>
+                      Generate login URL
+                    </Button>
+                  </Actions>
+                </Stack>
+              </form>
+            )}
 
-                {audibleAuthStep === "url" && audibleAuthUrl && (
-                  <>
+            {audibleAuthStep === "url" && !audibleAuthUrl && (
+              <p className="as-system-working">
+                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                Generating login URL…
+              </p>
+            )}
+
+            {audibleAuthStep === "url" && audibleAuthUrl && (
+              <ol className="as-system-steps">
+                <li>
+                  <span className="as-system-step-num" aria-hidden="true">1</span>
+                  <div className="as-system-step-body">
                     <p>
-                      <strong>Step 1:</strong> Open the link below in your browser and log in with your
-                      Amazon / Audible account.
+                      Open the link and log in with your Amazon / Audible account
+                      {audibleAuthProfileName ? (
+                        <> for profile <strong className="as-system-wrap">{audibleAuthProfileName}</strong></>
+                      ) : null}
+                      .
                     </p>
-                    <div className="audible-cli-auth-url-row" style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                    <Actions align="start">
                       <a
-                        className="btn btn-primary"
+                        className="as-btn as-btn-primary"
                         href={audibleAuthUrl}
                         target="_blank"
                         rel="noreferrer"
                       >
-                        <Network size={14} />
+                        <ExternalLink size={16} aria-hidden="true" />
                         Open Audible login
                       </a>
-                      <button
-                        className="btn btn-secondary"
-                        type="button"
+                      <Button
+                        icon={Copy}
                         onClick={() => void navigator.clipboard?.writeText(audibleAuthUrl)}
                       >
-                        <Copy size={14} />
                         Copy URL
-                      </button>
-                    </div>
+                      </Button>
+                    </Actions>
+                  </div>
+                </li>
+                <li>
+                  <span className="as-system-step-num" aria-hidden="true">2</span>
+                  <div className="as-system-step-body">
                     <p>
-                      <strong>Step 2:</strong> After logging in, your browser will show an error page
-                      — that's expected. Copy the full URL from your browser's address bar and paste
-                      it below.
+                      After logging in your browser shows an error page — that's expected. Copy the
+                      full URL from the address bar and paste it here.
                     </p>
-                    <textarea
-                      className="form-control audible-cli-redirect-input"
-                      placeholder="Paste the redirect URL here (starts with https://www.amazon.com/ap/maplanding?...)"
-                      value={audibleAuthRedirect}
-                      rows={3}
-                      onChange={(e) => setAudibleAuthRedirect(e.target.value)}
-                      style={{ width: "100%", marginBottom: "0.5rem" }}
-                    />
-                    <div className="audible-cli-auth-row" style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        className="btn btn-secondary"
-                        type="button"
-                        onClick={() => {
-                          setAudibleAuthStep("idle");
-                          setAudibleAuthToken("");
-                          setAudibleAuthUrl("");
-                          setAudibleAuthRedirect("");
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        disabled={!audibleAuthRedirect.trim()}
-                        onClick={() => void handleAudibleAuthComplete()}
-                      >
-                        <Check size={14} />
-                        Complete setup
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {audibleAuthStep === "url" && !audibleAuthUrl && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    <Loader2 size={15} className="animate-spin" />
-                    Generating login URL…
+                    <Field label="Redirect URL" htmlFor="audible-auth-redirect">
+                      <textarea
+                        id="audible-auth-redirect"
+                        className="form-control as-mono"
+                        placeholder="https://www.amazon.com/ap/maplanding?..."
+                        value={audibleAuthRedirect}
+                        rows={3}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        onChange={(e) => setAudibleAuthRedirect(e.target.value)}
+                      />
+                    </Field>
                   </div>
-                )}
-
-                {audibleAuthStep === "completing" && (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      color: "var(--text-secondary)",
-                    }}
-                  >
-                    <Loader2 size={15} className="animate-spin" />
-                    Completing authentication…
-                  </div>
-                )}
-              </div>
+                </li>
+                <li className="as-system-steps-actions">
+                  <Actions>
+                    <Button variant="ghost" icon={X} onClick={resetAuthFlow}>
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="primary"
+                      icon={Check}
+                      disabled={!audibleAuthRedirect.trim()}
+                      onClick={() => void handleAudibleAuthComplete()}
+                    >
+                      Complete setup
+                    </Button>
+                  </Actions>
+                </li>
+              </ol>
             )}
 
-            {(audibleCliStatus.authenticated || audibleAuthStep === "done") && (
-              <p className="audible-cli-active-note" style={{ marginTop: "1rem", color: "var(--text-secondary)", fontSize: "0.85rem" }}>
-                Metadata searches will use the active Audible profile via audible-cli. The web
-                scraper is kept as a fallback.
+            {audibleAuthStep === "completing" && (
+              <p className="as-system-working">
+                <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+                Completing authentication…
               </p>
             )}
-          </>
+          </Stack>
+        </Panel>
+      )}
+
+      {/* ── Maintenance + storage ──────────────────────────────────── */}
+      <Columns>
+        <Panel title="Maintenance" icon={Wrench} flush>
+          <List>
+            <ListItem
+              leading={<span className="as-system-profile-icon"><Database size={18} aria-hidden="true" /></span>}
+              title="Create backup"
+              subtitle="Snapshot the current database to a timestamped file"
+            >
+              <Actions align="start">
+                <Button
+                  variant="primary"
+                  icon={Database}
+                  loading={actionLoading === "create-backup"}
+                  onClick={() => void handleCreateBackup()}
+                >
+                  Backup now
+                </Button>
+              </Actions>
+            </ListItem>
+            <ListItem
+              leading={<span className="as-system-profile-icon"><RefreshCw size={18} aria-hidden="true" /></span>}
+              title="Full library rescan"
+              subtitle="Re-index all source paths and refresh book metadata"
+            >
+              <Actions align="start">
+                <Button
+                  icon={RefreshCw}
+                  loading={actionLoading === "rescan-library"}
+                  onClick={() =>
+                    setPendingConfirm({
+                      title: "Full Library Rescan",
+                      message: "Queue a full scan across all active library sources?",
+                      confirmLabel: "Scan Libraries",
+                      tone: "default",
+                      onConfirm: () => void handleRescan(),
+                    })
+                  }
+                >
+                  Rescan all
+                </Button>
+              </Actions>
+            </ListItem>
+          </List>
+        </Panel>
+
+        <Panel title="Paths & storage" icon={HardDrive}>
+          <KeyValues
+            items={[
+              { label: "Cover storage", value: dashboard.library.coversRoot, mono: true },
+              { label: "Configured libraries", value: dashboard.stats.libraries },
+              { label: "Enabled sources", value: enabledSourceCount },
+              { label: "Total backups", value: dashboard.backups.length },
+            ]}
+          />
+        </Panel>
+      </Columns>
+
+      {/* ── Backup history ─────────────────────────────────────────── */}
+      <Panel
+        title="Backup history"
+        icon={Database}
+        description={
+          dashboard.backups.length > 0
+            ? `${dashboard.backups.length} ${dashboard.backups.length === 1 ? "backup" : "backups"} · ${formatBytes(
+                dashboard.backups.reduce((total, backup) => total + backup.size, 0)
+              )} total`
+            : undefined
+        }
+        flush
+      >
+        {dashboard.backups.length === 0 ? (
+          <EmptyState icon={Database} title="No backups yet">
+            Use "Backup now" under Maintenance to create the first snapshot.
+          </EmptyState>
         ) : (
-          <div className="admin-empty-state">
-            {audibleCliStatusLoading
-              ? "Checking audible-cli…"
-              : "Click 'Check status' to probe the server environment."}
-          </div>
+          <List>
+            {dashboard.backups.map((backup) => (
+              <ListItem
+                key={backup.name}
+                title={<span className="as-system-wrap as-mono">{backup.name}</span>}
+                subtitle={formatDate(backup.createdAt)}
+                trailing={<Badge>{formatBytes(backup.size)}</Badge>}
+              />
+            ))}
+          </List>
         )}
-      </div>
-
-      <div className="admin-split-grid">
-        <div className="card admin-section-card">
-          <div className="admin-section-head">
-            <h3>Maintenance</h3>
-            <Database size={15} />
-          </div>
-          <div className="admin-action-list">
-            <div className="admin-action-item">
-              <div>
-                <strong>Create backup</strong>
-                <small>Snapshot the current database to a timestamped file</small>
-              </div>
-              <button
-                className="btn btn-primary"
-                type="button"
-                disabled={actionLoading === "create-backup"}
-                onClick={() => void handleCreateBackup()}
-              >
-                {actionLoading === "create-backup" ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <Database size={15} />
-                )}
-                Backup now
-              </button>
-            </div>
-            <div className="admin-action-item">
-              <div>
-                <strong>Full library rescan</strong>
-                <small>Re-index all source paths and refresh book metadata</small>
-              </div>
-              <button
-                className="btn btn-secondary"
-                type="button"
-                disabled={actionLoading === "rescan-library"}
-                onClick={() =>
-                  setPendingConfirm({
-                    title: "Full Library Rescan",
-                    message: "Queue a full scan across all active library sources?",
-                    confirmLabel: "Scan Libraries",
-                    tone: "default",
-                    onConfirm: () => void handleRescan(),
-                  })
-                }
-              >
-                {actionLoading === "rescan-library" ? (
-                  <Loader2 size={15} className="animate-spin" />
-                ) : (
-                  <RefreshCw size={15} />
-                )}
-                Rescan all
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="card admin-section-card">
-          <div className="admin-section-head">
-            <h3>Paths & storage</h3>
-            <HardDrive size={15} />
-          </div>
-          <div className="admin-meta-list">
-            <div>
-              <span>Cover storage</span>
-              <code>{dashboard.library.coversRoot}</code>
-            </div>
-            <div>
-              <span>Configured libraries</span>
-              <code>{dashboard.stats.libraries}</code>
-            </div>
-            <div>
-              <span>Enabled sources</span>
-              <code>{enabledSourceCount}</code>
-            </div>
-            <div>
-              <span>Total backups</span>
-              <code>{dashboard.backups.length}</code>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Backup history</h3>
-          <Database size={15} />
-        </div>
-        <div className="admin-table">
-          {dashboard.backups.length === 0 ? (
-            <div className="admin-empty-state">No backups yet. Create one above.</div>
-          ) : (
-            dashboard.backups.map((backup) => (
-              <div key={backup.name} className="admin-table-row">
-                <div className="admin-book-summary">
-                  <strong>{backup.name}</strong>
-                  <small>{formatDate(backup.createdAt)}</small>
-                </div>
-                <div className="admin-pill">{formatBytes(backup.size)}</div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      </Panel>
 
       <ConfirmDialog
         open={pendingConfirm !== null}
@@ -774,6 +791,6 @@ export default function SystemTab({ onLibraryChanged }: SystemTabProps) {
           current.onConfirm();
         }}
       />
-    </div>
+    </Stack>
   );
 }
