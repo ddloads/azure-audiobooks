@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { Loader2, Play, RefreshCw } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Circle, FileCode2, Play, RefreshCw, TerminalSquare } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import type { AdminScriptOption, AdminScriptResult } from "../types";
 import { formatDate, getErrorMessage } from "../helpers";
+import { Actions, Badge, Button, EmptyState, KeyValues, List, ListItem, Notice, Panel, Stack } from "../ui";
+import "./ScriptsTab.css";
 
 export default function ScriptsTab() {
   const { showToast } = useToast();
@@ -69,124 +71,137 @@ export default function ScriptsTab() {
     }
   };
 
-  return (
-    <div className="admin-panel-stack">
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <div>
-            <h3>Maintenance scripts</h3>
-            <p className="admin-library-meta-text">
-              Select an approved server-side script and run it from the admin console.
-            </p>
-          </div>
-        </div>
+  const selectedScript = adminScripts.find((script) => script.id === selectedScriptId);
+  const running = actionLoading === "run-admin-script";
+  const succeeded = scriptResult ? scriptResult.exitCode === 0 && !scriptResult.timedOut : false;
+  const durationSeconds = scriptResult
+    ? Math.max(0, (new Date(scriptResult.finishedAt).getTime() - new Date(scriptResult.startedAt).getTime()) / 1000)
+    : 0;
 
-        <div className="admin-toolbar">
-          <select
-            className="form-control"
-            value={selectedScriptId}
-            disabled={scriptsLoading || adminScripts.length === 0}
-            onChange={(event) => {
-              setSelectedScriptId(event.target.value);
-              setScriptResult(null);
-            }}
-          >
-            {adminScripts.length === 0 ? (
-              <option value="">
-                {scriptsLoading ? "Loading scripts..." : "No scripts available"}
-              </option>
-            ) : (
-              adminScripts.map((script) => (
-                <option key={script.id} value={script.id}>
-                  {script.label}
-                </option>
-              ))
-            )}
-          </select>
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={!selectedScriptId || scriptsLoading || actionLoading === "run-admin-script"}
-            onClick={() => void handleRunAdminScript()}
-          >
-            {actionLoading === "run-admin-script" ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Play size={15} />
-            )}
-            Run
-          </button>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={scriptsLoading || actionLoading === "run-admin-script"}
+  return (
+    <Stack>
+      <Panel
+        title="Maintenance scripts"
+        icon={FileCode2}
+        description="Pick an approved server-side script and run it from the admin console."
+        actions={
+          <Button
+            size="sm"
+            icon={RefreshCw}
+            loading={scriptsLoading}
+            disabled={running}
             onClick={() => void loadAdminScripts()}
           >
-            <RefreshCw size={15} className={scriptsLoading ? "animate-spin" : ""} />
             Refresh
-          </button>
-        </div>
-
+          </Button>
+        }
+        flush
+      >
         {scriptsError && (
-          <div className="admin-empty-state">
-            Unable to load scripts: {scriptsError}
+          <div className="as-panel-body as-scripts-notice">
+            <Notice tone="danger" icon={AlertTriangle}>
+              Unable to load scripts: {scriptsError}
+            </Notice>
           </div>
         )}
 
-        {adminScripts.find((script) => script.id === selectedScriptId) && (
-          <div className="admin-meta-list">
-            <div>
-              <span>Selected script</span>
-              <strong>{adminScripts.find((script) => script.id === selectedScriptId)?.label}</strong>
+        {adminScripts.length === 0 ? (
+          scriptsLoading ? (
+            <div className="as-loading" aria-live="polite">
+              <div className="app-loading-spinner" />
             </div>
-            <div>
-              <span>Description</span>
-              <small>{adminScripts.find((script) => script.id === selectedScriptId)?.description}</small>
+          ) : (
+            <EmptyState icon={FileCode2} title="No scripts available">
+              The server has no approved maintenance scripts configured.
+            </EmptyState>
+          )
+        ) : (
+          <>
+            <List className="as-scripts-list">
+              {adminScripts.map((script) => {
+                const selected = script.id === selectedScriptId;
+                return (
+                  <ListItem
+                    key={script.id}
+                    selected={selected}
+                    onClick={() => {
+                      if (running) return;
+                      setSelectedScriptId(script.id);
+                      setScriptResult(null);
+                    }}
+                    leading={
+                      selected ? (
+                        <CheckCircle2 size={20} className="as-scripts-radio as-scripts-radio-on" aria-hidden="true" />
+                      ) : (
+                        <Circle size={20} className="as-scripts-radio" aria-hidden="true" />
+                      )
+                    }
+                    title={script.label}
+                    subtitle={script.description}
+                  />
+                );
+              })}
+            </List>
+            <div className="as-panel-body">
+              <Actions>
+                <Button
+                  variant="primary"
+                  icon={Play}
+                  className="as-scripts-run"
+                  loading={running}
+                  disabled={!selectedScriptId || scriptsLoading}
+                  onClick={() => void handleRunAdminScript()}
+                >
+                  {running ? "Running…" : selectedScript ? `Run ${selectedScript.label}` : "Run"}
+                </Button>
+              </Actions>
             </div>
-          </div>
+          </>
         )}
-      </div>
+      </Panel>
 
       {scriptResult && (
-        <div className="card admin-section-card">
-          <div className="admin-section-head">
-            <div>
-              <h3>Last run</h3>
-              <p className="admin-library-meta-text">
-                {scriptResult.script.label} finished with exit code {scriptResult.exitCode ?? "unknown"}.
-              </p>
-            </div>
-            <div className={`admin-pill ${scriptResult.exitCode === 0 && !scriptResult.timedOut ? "" : "admin-inactive-badge"}`}>
+        <Panel
+          title="Last run"
+          icon={TerminalSquare}
+          tone={succeeded ? undefined : "danger"}
+          description={`${scriptResult.script.label} finished with exit code ${scriptResult.exitCode ?? "unknown"}.`}
+          actions={
+            <Badge tone={scriptResult.timedOut ? "warning" : succeeded ? "success" : "danger"}>
               {scriptResult.timedOut ? "Timed out" : scriptResult.exitCode === 0 ? "Success" : "Failed"}
-            </div>
-          </div>
+            </Badge>
+          }
+        >
+          <Stack gap="md">
+            <KeyValues
+              items={[
+                { label: "Started", value: formatDate(scriptResult.startedAt) },
+                { label: "Finished", value: formatDate(scriptResult.finishedAt) },
+                { label: "Duration", value: `${durationSeconds < 10 ? durationSeconds.toFixed(1) : Math.round(durationSeconds)}s` },
+                { label: "Exit code", value: scriptResult.exitCode ?? "unknown", mono: true },
+              ]}
+            />
 
-          <div className="admin-meta-list">
-            <div>
-              <span>Started</span>
-              <small>{formatDate(scriptResult.startedAt)}</small>
-            </div>
-            <div>
-              <span>Finished</span>
-              <small>{formatDate(scriptResult.finishedAt)}</small>
-            </div>
-          </div>
+            {scriptResult.stdout && (
+              <div className="as-scripts-output">
+                <span className="as-field-label">Output</span>
+                <pre className="as-code">{scriptResult.stdout}</pre>
+              </div>
+            )}
 
-          {scriptResult.stdout && (
-            <div className="admin-log-details">
-              <strong>Output</strong>
-              <pre className="admin-log-block">{scriptResult.stdout}</pre>
-            </div>
-          )}
+            {scriptResult.stderr && (
+              <div className="as-scripts-output">
+                <span className="as-field-label">Errors</span>
+                <pre className="as-code as-scripts-stderr">{scriptResult.stderr}</pre>
+              </div>
+            )}
 
-          {scriptResult.stderr && (
-            <div className="admin-log-details">
-              <strong>Errors</strong>
-              <pre className="admin-log-block">{scriptResult.stderr}</pre>
-            </div>
-          )}
-        </div>
+            {!scriptResult.stdout && !scriptResult.stderr && (
+              <p className="as-subtle as-scripts-nooutput">The script produced no output.</p>
+            )}
+          </Stack>
+        </Panel>
       )}
-    </div>
+    </Stack>
   );
 }

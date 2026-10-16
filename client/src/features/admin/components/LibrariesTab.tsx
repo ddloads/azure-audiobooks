@@ -1,45 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Database,
-  FolderTree,
-  HardDrive,
-  Loader2,
-  Network,
-  Pencil,
-  Plus,
-  RefreshCw,
-  ScanLine,
-  Server,
-  Trash2,
-  Upload,
-  Volume2,
-  X,
-} from "lucide-react";
+import { FolderPlus, FolderTree, Library, RefreshCw, Upload, Volume2, X, Zap } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import { useScanProgress } from "../../../context/ScanProgressContext";
 import ConfirmDialog from "../../../components/ConfirmDialog";
-import FolderBrowserModal from "../../../components/FolderBrowserModal";
-import type { AdminLibrary, PendingAdminConfirm, StructureCheckResult } from "../types";
-import { detectKind, derivedLabel, getErrorMessage } from "../helpers";
-
-type SilentFileResult = {
-  id: string;
-  path: string;
-  fileName: string;
-  maxVolumeDb: number | null;
-  silenceCheckedAt: string | null;
-  book: { id: string; title: string; author: { name: string } } | null;
-};
-
-type SilenceCheckResults = {
-  totalFiles: number;
-  totalChecked: number;
-  totalSilent: number;
-  silentFiles: SilentFileResult[];
-};
+import type { AdminLibrary, AdminLibrarySource, PendingAdminConfirm, StructureCheckResult } from "../types";
+import { getErrorMessage } from "../helpers";
+import { Actions, Button, EmptyState, Field, FormGrid, Panel, Progress, Stack } from "../ui";
+import LibraryCard, { type LibraryDraft } from "./libraries/LibraryCard";
+import SilenceResultsPanel, { type SilenceCheckResults } from "./libraries/SilenceResultsPanel";
+import type { SourceDraft, SourceFlag } from "./libraries/SourceList";
+import "./LibrariesTab.css";
 
 interface LibrariesTabProps {
   libraries: AdminLibrary[];
@@ -47,22 +18,11 @@ interface LibrariesTabProps {
   onRequestUpload: () => void;
 }
 
-const FOLDER_PATTERNS = [
-  { value: "", label: "None — no structure check" },
-  { value: "{author} - {title}", label: "{Author} - {Title}  (e.g. Douglas Adams - Hitchhiker's Guide)" },
-  { value: "{title}", label: "{Title} only  (e.g. Hitchhiker's Guide)" },
-  { value: "{author}/{title}", label: "{Author}/{Title}  (nested 2 levels)" },
-  { value: "{author}/{series}/{title}", label: "{Author}/{Series}/{Title}  (nested 3 levels)" },
-];
-
-export default function LibrariesTab({
-  libraries,
-  onRefresh,
-  onRequestUpload,
-}: LibrariesTabProps) {
+export default function LibrariesTab({ libraries, onRefresh, onRequestUpload }: LibrariesTabProps) {
   const { showToast } = useToast();
   const { silenceCheckProgress } = useScanProgress();
 
+  const [creating, setCreating] = useState(false);
   const [newLibraryName, setNewLibraryName] = useState("");
   const [newLibraryDescription, setNewLibraryDescription] = useState("");
 
@@ -71,21 +31,8 @@ export default function LibrariesTab({
   const prevSilenceStatusRef = useRef<string | null>(null);
   const lastSilenceResultsRefreshRef = useRef(0);
 
-  const [editingLibraryId, setEditingLibraryId] = useState<string | null>(null);
-  const [libraryEditDrafts, setLibraryEditDrafts] = useState<
-    Record<string, { name: string; description: string; isActive: boolean; folderPattern: string }>
-  >({});
-
-  const [sourceDrafts, setSourceDrafts] = useState<
-    Record<string, { label: string; path: string; kind: string; isWritable: boolean; isWatched: boolean }>
-  >({});
-
-  const [structureCheckResults, setStructureCheckResults] = useState<
-    Record<string, StructureCheckResult | null>
-  >({});
+  const [structureCheckResults, setStructureCheckResults] = useState<Record<string, StructureCheckResult | null>>({});
   const [structureCheckLoading, setStructureCheckLoading] = useState<string | null>(null);
-
-  const [sourceBrowserLibraryId, setSourceBrowserLibraryId] = useState<string | null>(null);
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingAdminConfirm | null>(null);
@@ -169,13 +116,10 @@ export default function LibrariesTab({
           name: newLibraryName.trim(),
           description: newLibraryDescription.trim(),
         });
-        showToast({
-          title: "Library created",
-          description: `Created ${newLibraryName.trim()}`,
-          tone: "success",
-        });
+        showToast({ title: "Library created", description: `Created ${newLibraryName.trim()}`, tone: "success" });
         setNewLibraryName("");
         setNewLibraryDescription("");
+        setCreating(false);
         await onRefresh();
       } catch (error) {
         showToast({
@@ -187,10 +131,9 @@ export default function LibrariesTab({
     });
   };
 
-  const handleUpdateLibrary = async (libraryId: string) => {
-    const draft = libraryEditDrafts[libraryId];
-    if (!draft?.name.trim()) return;
-
+  const handleUpdateLibrary = async (libraryId: string, draft: LibraryDraft) => {
+    if (!draft.name.trim()) return false;
+    let ok = false;
     await runAction(`update-library-${libraryId}`, async () => {
       try {
         await api.patch(`/admin/libraries/${libraryId}`, {
@@ -199,11 +142,8 @@ export default function LibrariesTab({
           isActive: draft.isActive,
           folderPattern: draft.folderPattern,
         });
-        showToast({
-          title: "Library updated",
-          tone: "success",
-        });
-        setEditingLibraryId(null);
+        showToast({ title: "Library updated", tone: "success" });
+        ok = true;
         await onRefresh();
       } catch (error) {
         showToast({
@@ -213,17 +153,14 @@ export default function LibrariesTab({
         });
       }
     });
+    return ok;
   };
 
   const handleDeleteLibrary = async (library: AdminLibrary) => {
     await runAction(`delete-library-${library.id}`, async () => {
       try {
         await api.delete(`/admin/libraries/${library.id}`);
-        showToast({
-          title: "Library deleted",
-          description: `Deleted ${library.name}`,
-          tone: "success",
-        });
+        showToast({ title: "Library deleted", description: `Deleted ${library.name}`, tone: "success" });
         await onRefresh();
       } catch (error) {
         showToast({
@@ -258,9 +195,7 @@ export default function LibrariesTab({
   const handleCheckStructure = async (library: AdminLibrary) => {
     setStructureCheckLoading(library.id);
     try {
-      const response = await api.get<StructureCheckResult>(
-        `/admin/libraries/${library.id}/structure-check`
-      );
+      const response = await api.get<StructureCheckResult>(`/admin/libraries/${library.id}/structure-check`);
       setStructureCheckResults((c) => ({ ...c, [library.id]: response.data }));
     } catch (checkError) {
       showToast({
@@ -273,10 +208,9 @@ export default function LibrariesTab({
     }
   };
 
-  const handleCreateSource = async (libraryId: string) => {
-    const draft = sourceDrafts[libraryId];
-    if (!draft?.path.trim()) return;
-
+  const handleCreateSource = async (libraryId: string, draft: SourceDraft) => {
+    if (!draft.path.trim()) return false;
+    let ok = false;
     await runAction(`create-source-${libraryId}`, async () => {
       try {
         await api.post(`/admin/libraries/${libraryId}/sources`, {
@@ -287,20 +221,8 @@ export default function LibrariesTab({
           isWatched: draft.isWatched,
           isEnabled: true,
         });
-        showToast({
-          title: "Source path added",
-          tone: "success",
-        });
-        setSourceDrafts((current) => ({
-          ...current,
-          [libraryId]: {
-            label: "",
-            path: "",
-            kind: "LOCAL",
-            isWritable: false,
-            isWatched: false,
-          },
-        }));
+        showToast({ title: "Source path added", tone: "success" });
+        ok = true;
         await onRefresh();
       } catch (error) {
         showToast({
@@ -310,20 +232,14 @@ export default function LibrariesTab({
         });
       }
     });
+    return ok;
   };
 
-  const handleToggleSource = async (
-    sourceId: string,
-    field: "isEnabled" | "isWritable" | "isWatched",
-    value: boolean
-  ) => {
+  const handleToggleSource = async (sourceId: string, field: SourceFlag, value: boolean) => {
     await runAction(`update-source-${sourceId}-${field}`, async () => {
       try {
         await api.patch(`/admin/sources/${sourceId}`, { [field]: value });
-        showToast({
-          title: "Source updated",
-          tone: "success",
-        });
+        showToast({ title: "Source updated", tone: "success" });
         await onRefresh();
       } catch (error) {
         showToast({
@@ -339,11 +255,7 @@ export default function LibrariesTab({
     await runAction(`delete-source-${sourceId}`, async () => {
       try {
         await api.delete(`/admin/sources/${sourceId}`);
-        showToast({
-          title: "Source removed",
-          description: `Removed source "${label}"`,
-          tone: "success",
-        });
+        showToast({ title: "Source removed", description: `Removed source "${label}"`, tone: "success" });
         await onRefresh();
       } catch (error) {
         showToast({
@@ -455,659 +367,204 @@ export default function LibrariesTab({
     });
   };
 
-  const handleSelectSourcePath = (libraryId: string, selectedPath: string) => {
-    const existingDraft = sourceDrafts[libraryId] ?? {
-      label: "",
-      path: "",
-      kind: "LOCAL",
-      isWritable: false,
-      isWatched: false,
-    };
-
-    setSourceDrafts((current) => ({
-      ...current,
-      [libraryId]: {
-        ...existingDraft,
-        path: selectedPath,
-        kind: detectKind(selectedPath),
-      },
-    }));
-    setSourceBrowserLibraryId(null);
+  const confirmRemoveSource = (source: AdminLibrarySource) => {
+    const label = source.label || source.path;
+    setPendingConfirm({
+      title: "Remove Source",
+      message: `Remove source "${label}"?`,
+      confirmLabel: "Remove Source",
+      tone: "danger",
+      onConfirm: () => void handleDeleteSource(source.id, label),
+    });
   };
 
+  const totalBooks = libraries.reduce((sum, library) => sum + library._count.books, 0);
+  const totalSources = libraries.reduce((sum, library) => sum + library.sources.length, 0);
+  const runningLibrary = silenceCheckProgress?.libraryId
+    ? libraries.find((library) => library.id === silenceCheckProgress.libraryId)
+    : undefined;
+
   return (
-    <div className="admin-panel-stack">
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Create library</h3>
-          <FolderTree size={16} />
-        </div>
-        <div className="admin-library-create-grid">
-          <input
-            className="form-control"
-            placeholder="Library name"
-            value={newLibraryName}
-            onChange={(e) => setNewLibraryName(e.target.value)}
-          />
-          <input
-            className="form-control"
-            placeholder="Description (optional)"
-            value={newLibraryDescription}
-            onChange={(e) => setNewLibraryDescription(e.target.value)}
-          />
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={!newLibraryName.trim() || actionLoading === "create-library"}
-            onClick={() => void handleCreateLibrary()}
-          >
-            <FolderTree size={15} />
-            Create library
-          </button>
-        </div>
-      </div>
-
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-actions">
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={actionLoading === "rescan-library"}
-            onClick={() => void handleRescan()}
-          >
-            {actionLoading === "rescan-library" ? (
-              <RefreshCw size={15} className="animate-spin" />
-            ) : (
-              <RefreshCw size={15} />
-            )}
-            Rescan all libraries
-          </button>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={actionLoading === "silence-check"}
-            onClick={() => void handleSilenceCheck()}
-            title="Probe unchecked and previously-silent files to detect silent or broken tracks"
-          >
-            {actionLoading === "silence-check" ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Volume2 size={15} />
-            )}
-            Check New/Silent Audio
-          </button>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={actionLoading === "silence-check-all"}
-            onClick={() => void handleSilenceCheck(true)}
-            title="Re-probe every audio file in every library"
-          >
-            {actionLoading === "silence-check-all" ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Volume2 size={15} />
-            )}
-            Check All Audio
-          </button>
-          <button className="btn btn-primary" type="button" onClick={onRequestUpload}>
-            <Upload size={15} />
-            Upload book
-          </button>
-        </div>
-      </div>
-
-      <div className="admin-library-grid">
-        {libraries.map((library) => {
-          const draft = sourceDrafts[library.id] ?? {
-            label: "",
-            path: "",
-            kind: "LOCAL",
-            isWritable: false,
-            isWatched: false,
-          };
-
-          return (
-            <div key={library.id} className="card admin-section-card admin-library-manager-card">
-              <div className="admin-section-head">
-                <div>
-                  <h3>{library.name}</h3>
-                  <p className="admin-library-meta-text">
-                    {library._count.books} books · {library.sources.length} source paths
-                    {!library.isActive && <span className="admin-inactive-badge"> · Inactive</span>}
-                    {library.folderPattern && (
-                      <span className="admin-pattern-badge"> · <code>{library.folderPattern}</code></span>
-                    )}
-                  </p>
-                </div>
-                <div className="admin-library-card-actions">
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    onClick={() => {
-                      if (editingLibraryId === library.id) {
-                        setEditingLibraryId(null);
-                      } else {
-                        setLibraryEditDrafts((c) => ({
-                          ...c,
-                          [library.id]: {
-                            name: library.name,
-                            description: library.description ?? "",
-                            isActive: library.isActive,
-                            folderPattern: library.folderPattern ?? "",
-                          },
-                        }));
-                        setEditingLibraryId(library.id);
-                      }
-                    }}
-                  >
-                    {editingLibraryId === library.id ? <X size={14} /> : <Pencil size={14} />}
-                    {editingLibraryId === library.id ? "Cancel" : "Edit"}
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    disabled={actionLoading === `rescan-library-${library.id}`}
-                    onClick={() => void handleRescanSingleLibrary(library)}
-                  >
-                    {actionLoading === `rescan-library-${library.id}` ? (
-                      <RefreshCw size={14} className="animate-spin" />
-                    ) : (
-                      <RefreshCw size={14} />
-                    )}
-                    Scan
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    disabled={actionLoading === `silence-check-${library.id}`}
-                    onClick={() => void handleLibrarySilenceCheck(library)}
-                    title="Probe unchecked and previously-silent files to detect silent or broken tracks"
-                  >
-                    {actionLoading === `silence-check-${library.id}` ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Volume2 size={14} />
-                    )}
-                    Check New/Silent
-                  </button>
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    disabled={actionLoading === `silence-check-all-${library.id}`}
-                    onClick={() => void handleLibrarySilenceCheck(library, true)}
-                    title="Re-probe every audio file in this library"
-                  >
-                    {actionLoading === `silence-check-all-${library.id}` ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Volume2 size={14} />
-                    )}
-                    Check All
-                  </button>
-                  {library.folderPattern && (
-                    <button
-                      className="btn btn-secondary"
-                      type="button"
-                      disabled={structureCheckLoading === library.id}
-                      onClick={() => void handleCheckStructure(library)}
-                    >
-                      {structureCheckLoading === library.id ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : (
-                        <ScanLine size={14} />
-                      )}
-                      Check Structure
-                    </button>
-                  )}
-                  <button
-                    className="btn admin-danger-btn"
-                    type="button"
-                    disabled={actionLoading === `purge-library-${library.id}`}
-                    onClick={() =>
-                      setPendingConfirm({
-                        title: "Purge Library Database",
-                        message: `Delete all books, audio files, chapters, and progress records from "${library.name}"? The library and source paths will stay in place so you can rescan from scratch.`,
-                        confirmLabel: "Purge Library",
-                        tone: "danger",
-                        onConfirm: () => void handlePurgeLibrary(library),
-                      })
-                    }
-                  >
-                    {actionLoading === `purge-library-${library.id}` ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Database size={14} />
-                    )}
-                    Purge DB
-                  </button>
-                  <button
-                    className="btn admin-danger-btn"
-                    type="button"
-                    disabled={actionLoading === `delete-library-${library.id}`}
-                    onClick={() =>
-                      setPendingConfirm({
-                        title: "Delete Library",
-                        message: `Delete library "${library.name}"?`,
-                        confirmLabel: "Delete Library",
-                        tone: "danger",
-                        onConfirm: () => void handleDeleteLibrary(library),
-                      })
-                    }
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {editingLibraryId === library.id && libraryEditDrafts[library.id] && (
-                <div className="admin-library-edit-form">
-                  <input
-                    className="form-control"
-                    placeholder="Library name"
-                    value={libraryEditDrafts[library.id].name}
-                    onChange={(e) =>
-                      setLibraryEditDrafts((c) => ({
-                        ...c,
-                        [library.id]: { ...c[library.id], name: e.target.value },
-                      }))
-                    }
-                  />
-                  <input
-                    className="form-control"
-                    placeholder="Description (optional)"
-                    value={libraryEditDrafts[library.id].description}
-                    onChange={(e) =>
-                      setLibraryEditDrafts((c) => ({
-                        ...c,
-                        [library.id]: { ...c[library.id], description: e.target.value },
-                      }))
-                    }
-                  />
-                  <div className="admin-library-pattern-row">
-                    <label className="admin-field-label">
-                      Folder structure model
-                      <small className="admin-field-hint">Expected naming pattern for book folders</small>
-                    </label>
-                    <select
-                      className="form-control"
-                      value={libraryEditDrafts[library.id].folderPattern}
-                      onChange={(e) =>
-                        setLibraryEditDrafts((c) => ({
-                          ...c,
-                          [library.id]: { ...c[library.id], folderPattern: e.target.value },
-                        }))
-                      }
-                    >
-                      {FOLDER_PATTERNS.map((p) => (
-                        <option key={p.value} value={p.value}>
-                          {p.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="admin-library-edit-footer">
-                    <label className="admin-checkbox">
-                      <input
-                        type="checkbox"
-                        checked={libraryEditDrafts[library.id].isActive}
-                        onChange={(e) =>
-                          setLibraryEditDrafts((c) => ({
-                            ...c,
-                            [library.id]: { ...c[library.id], isActive: e.target.checked },
-                          }))
-                        }
-                      />
-                      Active
-                    </label>
-                    <button
-                      className="btn btn-primary"
-                      type="button"
-                      disabled={
-                        !libraryEditDrafts[library.id].name.trim() ||
-                        actionLoading === `update-library-${library.id}`
-                      }
-                      onClick={() => void handleUpdateLibrary(library.id)}
-                    >
-                      {actionLoading === `update-library-${library.id}` ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : null}
-                      Save changes
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {!editingLibraryId && library.description && (
-                <p className="admin-library-description">{library.description}</p>
-              )}
-
-              <div className="admin-source-list">
-                {library.sources.map((source) => (
-                  <div key={source.id} className="admin-source-card">
-                    <div className="admin-source-head">
-                      <div>
-                        <strong>{source.label || source.path}</strong>
-                        <small>{source.kind} · {source.path}</small>
-                      </div>
-                      <button
-                        className="btn admin-danger-btn"
-                        type="button"
-                        disabled={actionLoading === `delete-source-${source.id}`}
-                        onClick={() =>
-                          setPendingConfirm({
-                            title: "Remove Source",
-                            message: `Remove source "${source.label || source.path}"?`,
-                            confirmLabel: "Remove Source",
-                            tone: "danger",
-                            onConfirm: () => void handleDeleteSource(source.id, source.label || source.path),
-                          })
-                        }
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                    <div className="admin-source-actions">
-                      <label className="admin-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={source.isEnabled}
-                          onChange={(e) =>
-                            void handleToggleSource(source.id, "isEnabled", e.target.checked)
-                          }
-                        />
-                        Enabled
-                      </label>
-                      <label className="admin-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={source.isWritable}
-                          onChange={(e) =>
-                            void handleToggleSource(source.id, "isWritable", e.target.checked)
-                          }
-                        />
-                        Writable
-                      </label>
-                      <label className="admin-checkbox">
-                        <input
-                          type="checkbox"
-                          checked={source.isWatched}
-                          onChange={(e) =>
-                            void handleToggleSource(source.id, "isWatched", e.target.checked)
-                          }
-                        />
-                        Watched
-                      </label>
-                      <div className="admin-pill">
-                        {source.kind === "NETWORK" ? (
-                          <Network size={12} />
-                        ) : source.kind === "MAPPED" ? (
-                          <Server size={12} />
-                        ) : (
-                          <HardDrive size={12} />
-                        )}
-                        {source.kind}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="admin-source-form">
-                <div className="admin-source-form-heading">Add source path</div>
-                <div className="admin-source-path-row">
-                  <div className="admin-source-path-picker">
-                    <input
-                      className="form-control"
-                      placeholder={`C:\\Audiobooks  or  \\\\server\\share`}
-                      value={draft.path}
-                      onChange={(e) => {
-                        const path = e.target.value;
-                        setSourceDrafts((current) => ({
-                          ...current,
-                          [library.id]: { ...draft, path, kind: detectKind(path) },
-                        }));
-                      }}
-                    />
-                    <button
-                      className="btn btn-secondary"
-                      type="button"
-                      onClick={() => setSourceBrowserLibraryId(library.id)}
-                    >
-                      Browse
-                    </button>
-                  </div>
-                  <div className={`admin-pill admin-kind-pill-${draft.kind.toLowerCase()}`}>
-                    {draft.kind === "NETWORK" ? (
-                      <Network size={12} />
-                    ) : draft.kind === "MAPPED" ? (
-                      <Server size={12} />
-                    ) : (
-                      <HardDrive size={12} />
-                    )}
-                    {draft.kind}
-                  </div>
-                </div>
-                <div className="admin-source-meta-row">
-                  <input
-                    className="form-control"
-                    placeholder={
-                      draft.path
-                        ? `Label — default: "${derivedLabel(draft.path)}"`
-                        : "Label (optional)"
-                    }
-                    value={draft.label}
-                    onChange={(e) =>
-                      setSourceDrafts((current) => ({
-                        ...current,
-                        [library.id]: { ...draft, label: e.target.value },
-                      }))
-                    }
-                  />
-                  <label className="admin-checkbox admin-writable-label">
-                    <input
-                      type="checkbox"
-                      checked={draft.isWritable}
-                      onChange={(e) =>
-                        setSourceDrafts((current) => ({
-                          ...current,
-                          [library.id]: { ...draft, isWritable: e.target.checked },
-                        }))
-                      }
-                    />
-                    <span>
-                      Writable
-                      <small className="admin-field-hint">Allow uploads</small>
-                    </span>
-                  </label>
-                  <label className="admin-checkbox admin-writable-label">
-                    <input
-                      type="checkbox"
-                      checked={draft.isWatched}
-                      onChange={(e) =>
-                        setSourceDrafts((current) => ({
-                          ...current,
-                          [library.id]: { ...draft, isWatched: e.target.checked },
-                        }))
-                      }
-                    />
-                    <span>
-                      Watch
-                      <small className="admin-field-hint">Auto-scan changes</small>
-                    </span>
-                  </label>
-                  <button
-                    className="btn btn-secondary"
-                    type="button"
-                    disabled={!draft.path.trim() || actionLoading === `create-source-${library.id}`}
-                    onClick={() => void handleCreateSource(library.id)}
-                  >
-                    {actionLoading === `create-source-${library.id}` ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Plus size={14} />
-                    )}
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              {structureCheckResults[library.id] !== undefined && (
-                <div className="structure-check-panel">
-                  {(() => {
-                    const result = structureCheckResults[library.id];
-                    if (!result) return null;
-                    return (
-                      <>
-                        <div className="structure-check-summary">
-                          {result.nonConforming.length === 0 ? (
-                            <span className="structure-check-ok">
-                              <CheckCircle2 size={15} />
-                              All {result.total} folders match <code>{result.pattern}</code>
-                            </span>
-                          ) : (
-                            <span className="structure-check-issues">
-                              <ScanLine size={15} />
-                              {result.conforming} of {result.total} conform · <strong>{result.nonConforming.length} don&apos;t match</strong> <code>{result.pattern}</code>
-                            </span>
-                          )}
-                        </div>
-                        {result.nonConforming.length > 0 && (
-                          <div className="structure-check-list">
-                            {result.nonConforming.map((item) => (
-                              <div key={item.id} className="structure-check-item">
-                                <div className="structure-check-item-title">
-                                  {item.title} <span className="structure-check-item-author">— {item.author}</span>
-                                </div>
-                                <div className="structure-check-item-path">{item.folderPath}</div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {(silenceResults !== null || silenceResultsLoading) && (
-        <div className="card admin-section-card">
-          <div className="silence-results-head">
-            <div className="silence-results-head-left">
-              <Volume2 size={16} />
-              <h3>Audio Check Results</h3>
-            </div>
-            <button
-              className="btn btn-secondary"
-              type="button"
-              disabled={silenceResultsLoading}
-              onClick={() => void fetchSilenceResults()}
+    <Stack>
+      <Panel title="Library actions" icon={Zap} description="Run across every library. Scans and audio checks continue in the background.">
+        <Stack gap="md">
+          <div className="as-libraries-grid">
+            <Button icon={RefreshCw} loading={actionLoading === "rescan-library"} onClick={() => void handleRescan()}>
+              Rescan all libraries
+            </Button>
+            <Button
+              icon={Volume2}
+              loading={actionLoading === "silence-check"}
+              onClick={() => void handleSilenceCheck()}
+              title="Probe unchecked and previously-silent files to detect silent or broken tracks"
             >
-              {silenceResultsLoading ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <RefreshCw size={14} />
-              )}
-              Refresh
-            </button>
+              Check new/silent audio
+            </Button>
+            <Button
+              icon={Volume2}
+              loading={actionLoading === "silence-check-all"}
+              onClick={() => void handleSilenceCheck(true)}
+              title="Re-probe every audio file in every library"
+            >
+              Check all audio
+            </Button>
+            <Button variant="primary" icon={Upload} onClick={onRequestUpload}>
+              Upload book
+            </Button>
           </div>
-
-          {silenceResultsLoading && !silenceResults && (
-            <p className="silence-results-empty">Loading…</p>
-          )}
-
-          {silenceResults && (
-            <>
-              <div className="silence-results-stats">
-                {isSilenceCheckActive && (
-                  <span className="silence-results-stat">
-                    Current run:{" "}
-                    <strong>{(silenceCheckProgress?.checkedFiles ?? 0).toLocaleString()}</strong> of{" "}
-                    {(silenceCheckProgress?.totalFiles ?? 0).toLocaleString()} files
-                  </span>
-                )}
-                <span className="silence-results-stat">
-                  <strong>{silenceResults.totalChecked.toLocaleString()}</strong> of{" "}
-                  {silenceResults.totalFiles.toLocaleString()} files checked
-                </span>
-                <span className="silence-results-stat">
-                  <strong>{silenceResults.totalSilent.toLocaleString()}</strong> silent
+          {isSilenceCheckActive && (
+            <div className="as-libraries-run">
+              <div className="as-libraries-run-head">
+                <span>Audio check running{runningLibrary ? ` · ${runningLibrary.name}` : ""}</span>
+                <span className="as-muted">
+                  {(silenceCheckProgress?.checkedFiles ?? 0).toLocaleString()} / {(silenceCheckProgress?.totalFiles ?? 0).toLocaleString()}
                 </span>
               </div>
-
-              <div className="silence-results-summary">
-                {silenceResults.totalChecked === 0 ? (
-                  <span className="silence-results-empty">
-                    No files have been checked yet — run a silence check above.
-                  </span>
-                ) : silenceResults.totalSilent === 0 ? (
-                  <span className="silence-results-ok">
-                    <CheckCircle2 size={15} />
-                    All {silenceResults.totalChecked.toLocaleString()} checked files have audible content.
-                  </span>
-                ) : (
-                  <span className="silence-results-issues">
-                    <AlertTriangle size={15} />
-                    {silenceResults.totalSilent} silent file{silenceResults.totalSilent === 1 ? "" : "s"} found
-                  </span>
-                )}
-              </div>
-
-              {silenceResults.totalSilent > 0 && (() => {
-                const groups = silenceResults.silentFiles.reduce<
-                  Record<string, { book: SilentFileResult["book"]; files: SilentFileResult[] }>
-                >((acc, file) => {
-                  const key = file.book?.id ?? "__unknown";
-                  if (!acc[key]) acc[key] = { book: file.book, files: [] };
-                  acc[key].files.push(file);
-                  return acc;
-                }, {});
-
-                return (
-                  <div className="silence-results-list">
-                    {Object.values(groups).map((group) => (
-                      <div key={group.book?.id ?? "__unknown"} className="silence-book-group">
-                        <div className="silence-book-header">
-                          {group.book?.title ?? "Unknown book"}
-                          {group.book?.author && (
-                            <span className="silence-book-header-author">
-                              {" "}— {group.book.author.name}
-                            </span>
-                          )}
-                        </div>
-                        {group.files.map((file) => (
-                          <div key={file.id} className="silence-file-row">
-                            <span className="silence-file-name" title={file.path}>
-                              {file.fileName}
-                            </span>
-                            <span
-                              className={`silence-volume-badge${file.maxVolumeDb === null ? " no-audio" : ""}`}
-                            >
-                              {file.maxVolumeDb !== null
-                                ? `${file.maxVolumeDb.toFixed(1)} dB`
-                                : "no audio"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </>
+              <Progress value={silenceCheckProgress?.progress ?? 0} label="Audio check progress" />
+              {silenceCheckProgress?.currentFile && (
+                <span className="as-libraries-path as-subtle">{silenceCheckProgress.currentFile}</span>
+              )}
+            </div>
           )}
+        </Stack>
+      </Panel>
+
+      {creating && (
+        <Panel title="New library" icon={FolderPlus} description="Add source folders after it's created." tone="accent">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (newLibraryName.trim()) void handleCreateLibrary();
+            }}
+          >
+            <Stack gap="md">
+              <FormGrid>
+                <Field label="Library name" htmlFor="new-library-name">
+                  <input
+                    id="new-library-name"
+                    className="form-control"
+                    autoComplete="off"
+                    placeholder="e.g. Audiobooks"
+                    value={newLibraryName}
+                    onChange={(e) => setNewLibraryName(e.target.value)}
+                  />
+                </Field>
+                <Field label="Description" htmlFor="new-library-description">
+                  <input
+                    id="new-library-description"
+                    className="form-control"
+                    autoComplete="off"
+                    placeholder="Optional"
+                    value={newLibraryDescription}
+                    onChange={(e) => setNewLibraryDescription(e.target.value)}
+                  />
+                </Field>
+              </FormGrid>
+              <Actions>
+                <Button
+                  variant="ghost"
+                  icon={X}
+                  onClick={() => {
+                    setCreating(false);
+                    setNewLibraryName("");
+                    setNewLibraryDescription("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  icon={FolderTree}
+                  disabled={!newLibraryName.trim()}
+                  loading={actionLoading === "create-library"}
+                >
+                  Create library
+                </Button>
+              </Actions>
+            </Stack>
+          </form>
+        </Panel>
+      )}
+
+      <div className="as-libraries-sectionhead">
+        <div>
+          <h3 className="as-panel-title">
+            <Library size={16} aria-hidden="true" />
+            Libraries
+          </h3>
+          <p className="as-panel-desc">
+            {libraries.length} {libraries.length === 1 ? "library" : "libraries"} · {totalBooks.toLocaleString()}{" "}
+            {totalBooks === 1 ? "book" : "books"} · {totalSources} {totalSources === 1 ? "source" : "sources"}
+          </p>
+        </div>
+        {!creating && (
+          <Button variant="primary" size="sm" icon={FolderPlus} onClick={() => setCreating(true)}>
+            Add library
+          </Button>
+        )}
+      </div>
+
+      {libraries.length === 0 ? (
+        <Panel>
+          <EmptyState
+            icon={FolderTree}
+            title="No libraries yet"
+            action={
+              !creating && (
+                <Button variant="primary" icon={FolderPlus} onClick={() => setCreating(true)}>
+                  Add library
+                </Button>
+              )
+            }
+          >
+            Create a library, then add the folders that hold your audiobooks.
+          </EmptyState>
+        </Panel>
+      ) : (
+        <div className="as-libraries-cards">
+          {libraries.map((library) => (
+            <LibraryCard
+              key={library.id}
+              library={library}
+              actionLoading={actionLoading}
+              structureResult={structureCheckResults[library.id]}
+              structureLoading={structureCheckLoading === library.id}
+              onSave={(draft) => handleUpdateLibrary(library.id, draft)}
+              onScan={() => void handleRescanSingleLibrary(library)}
+              onSilenceCheck={(recheckAll) => void handleLibrarySilenceCheck(library, recheckAll)}
+              onCheckStructure={() => void handleCheckStructure(library)}
+              onPurge={() =>
+                setPendingConfirm({
+                  title: "Purge Library Database",
+                  message: `Delete all books, audio files, chapters, and progress records from "${library.name}"? The library and source paths will stay in place so you can rescan from scratch.`,
+                  confirmLabel: "Purge Library",
+                  tone: "danger",
+                  onConfirm: () => void handlePurgeLibrary(library),
+                })
+              }
+              onDelete={() =>
+                setPendingConfirm({
+                  title: "Delete Library",
+                  message: `Delete library "${library.name}"?`,
+                  confirmLabel: "Delete Library",
+                  tone: "danger",
+                  onConfirm: () => void handleDeleteLibrary(library),
+                })
+              }
+              onToggleSource={(sourceId, field, value) => void handleToggleSource(sourceId, field, value)}
+              onRemoveSource={confirmRemoveSource}
+              onCreateSource={(draft) => handleCreateSource(library.id, draft)}
+            />
+          ))}
         </div>
       )}
 
-      {sourceBrowserLibraryId && (
-        <FolderBrowserModal
-          initialPath={sourceDrafts[sourceBrowserLibraryId]?.path ?? ""}
-          onClose={() => setSourceBrowserLibraryId(null)}
-          onSelect={(selectedPath) => handleSelectSourcePath(sourceBrowserLibraryId, selectedPath)}
+      {(silenceResults !== null || silenceResultsLoading) && (
+        <SilenceResultsPanel
+          results={silenceResults}
+          loading={silenceResultsLoading}
+          onRefresh={() => void fetchSilenceResults()}
         />
       )}
 
@@ -1126,6 +583,6 @@ export default function LibrariesTab({
           current.onConfirm();
         }}
       />
-    </div>
+    </Stack>
   );
 }

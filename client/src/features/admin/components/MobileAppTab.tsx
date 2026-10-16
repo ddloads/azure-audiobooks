@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Download, Loader2, Smartphone, Upload } from "lucide-react";
+import { Download, FileUp, Package, Smartphone, Upload, X } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import { formatBytes, formatDate, getErrorMessage } from "../helpers";
+import { Actions, Button, EmptyState, Field, KeyValues, Panel, Progress, Stack } from "../ui";
+import "./MobileAppTab.css";
 
 type MobileAppRelease = {
   appName: string;
@@ -20,6 +22,7 @@ export default function MobileAppTab() {
   const [release, setRelease] = useState<MobileAppRelease | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [version, setVersion] = useState("");
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -49,9 +52,16 @@ export default function MobileAppTab() {
     }
   };
 
+  const clearFile = () => {
+    setFile(null);
+    setVersion("");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
       const form = new FormData();
       form.append("apk", file);
@@ -59,11 +69,12 @@ export default function MobileAppTab() {
       if (trimmed) form.append("version", trimmed);
       const res = await api.post<MobileAppRelease>("/mobile-app/upload", form, {
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (event) => {
+          if (event.total) setUploadProgress((event.loaded / event.total) * 100);
+        },
       });
       setRelease(res.data);
-      setFile(null);
-      setVersion("");
-      if (fileRef.current) fileRef.current.value = "";
+      clearFile();
       showToast({
         title: "Azure Player APK published",
         description: `Version ${res.data.version} is now downloadable.`,
@@ -81,120 +92,111 @@ export default function MobileAppTab() {
   };
 
   return (
-    <div className="admin-panel-stack">
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Currently published</h3>
-          <Smartphone size={15} />
-        </div>
+    <Stack>
+      <Panel title="Currently published" icon={Smartphone} description="What the Download Azure Player APK button serves.">
         {loading ? (
-          <div className="admin-empty-state">Checking latest APK…</div>
+          <div className="as-loading">
+            <div className="app-loading-spinner" />
+          </div>
         ) : release ? (
-          <>
-            <div className="admin-meta-list">
-              <div>
-                <span>Version</span>
-                <code>{release.version}</code>
-              </div>
-              <div>
-                <span>File</span>
-                <code>{release.fileName}</code>
-              </div>
-              <div>
-                <span>Size</span>
-                <code>{formatBytes(release.size)}</code>
-              </div>
-              <div>
-                <span>Published</span>
-                <code>{formatDate(release.updatedAt)}</code>
-              </div>
-            </div>
-            <a
-              className="btn btn-secondary"
-              href={release.downloadUrl}
-              download={release.fileName}
-              style={{ marginTop: "1rem" }}
-            >
-              <Download size={14} />
-              Download published APK
-            </a>
-          </>
+          <Stack gap="md">
+            <KeyValues
+              items={[
+                { label: "Version", value: release.version, mono: true },
+                { label: "File", value: release.fileName, mono: true },
+                { label: "Size", value: formatBytes(release.size) },
+                { label: "Uploaded", value: formatDate(release.updatedAt) },
+              ]}
+            />
+            <Actions align="start">
+              <a className="as-btn as-btn-secondary" href={release.downloadUrl} download={release.fileName}>
+                <Download size={16} aria-hidden="true" />
+                Download APK
+              </a>
+            </Actions>
+          </Stack>
         ) : (
-          <div className="admin-empty-state">
-            No APK has been published yet. Upload one below to enable the
-            Download Azure Player APK button in the Connect Mobile App modal.
-          </div>
+          <EmptyState icon={Package} title="No APK published yet">
+            Upload one below to enable the Download Azure Player APK button in the Connect Mobile App modal.
+          </EmptyState>
         )}
-      </div>
+      </Panel>
 
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Publish a new APK</h3>
-          <Upload size={15} />
-        </div>
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-          Upload a release APK from the Azure Player Android build (for example{" "}
-          <code>AzurePlayer-v1.0.7-release.apk</code>). It replaces the file
-          served by the Download Azure Player APK button immediately.
-        </p>
-
-        <div className="admin-action-list" style={{ marginTop: "1rem" }}>
-          <div className="admin-action-item">
-            <div>
-              <strong>APK file</strong>
-              <small>
-                {file
-                  ? `${file.name} (${formatBytes(file.size)})`
-                  : "Select a .apk file to upload"}
-              </small>
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".apk,application/vnd.android.package-archive"
-              onChange={handleFileChange}
-              disabled={uploading}
-              style={{ maxWidth: "280px" }}
-            />
-          </div>
-
-          <div className="admin-action-item">
-            <div>
-              <strong>Version</strong>
-              <small>Optional. Defaults to the version parsed from the filename.</small>
-            </div>
-            <input
-              className="form-control"
-              type="text"
-              placeholder="1.0.7"
-              value={version}
-              onChange={(e) => setVersion(e.target.value)}
-              disabled={uploading}
-              style={{ maxWidth: "200px" }}
-            />
-          </div>
-
-          <div className="admin-action-item">
-            <div>
-              <strong>Publish</strong>
-              <small>Replaces the currently published APK and manifest.</small>
-            </div>
-            <button
-              className="btn btn-primary"
-              type="button"
-              disabled={!file || uploading}
-              onClick={() => void handleUpload()}
-            >
-              {uploading ? (
-                <Loader2 size={15} className="animate-spin" />
+      <Panel
+        title="Publish a new APK"
+        icon={Upload}
+        description={
+          <>
+            Upload a release build (for example <code>AzurePlayer-v1.0.7-release.apk</code>). It replaces the
+            published APK and manifest immediately.
+          </>
+        }
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleUpload();
+          }}
+        >
+          <Stack gap="md">
+            <Field label="APK file" htmlFor="mobile-apk-file">
+              <input
+                id="mobile-apk-file"
+                ref={fileRef}
+                className="as-mobile-file-input"
+                type="file"
+                accept=".apk,application/vnd.android.package-archive"
+                onChange={handleFileChange}
+                disabled={uploading}
+              />
+              {file ? (
+                <div className="as-mobile-file as-mobile-file-selected">
+                  <span className="as-mobile-file-icon"><Package size={18} aria-hidden="true" /></span>
+                  <span className="as-mobile-file-text">
+                    <strong>{file.name}</strong>
+                    <small>{formatBytes(file.size)}</small>
+                  </span>
+                  <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Remove file" disabled={uploading} onClick={clearFile} />
+                </div>
               ) : (
-                <Upload size={15} />
+                <label htmlFor="mobile-apk-file" className="as-mobile-file">
+                  <span className="as-mobile-file-icon"><FileUp size={18} aria-hidden="true" /></span>
+                  <span className="as-mobile-file-text">
+                    <strong>Choose an .apk file</strong>
+                    <small>Tap to browse</small>
+                  </span>
+                </label>
               )}
-              {uploading ? "Uploading…" : "Publish APK"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            </Field>
+
+            <Field label="Version" htmlFor="mobile-apk-version" hint="Optional. Defaults to the version parsed from the filename.">
+              <input
+                id="mobile-apk-version"
+                className="form-control"
+                type="text"
+                inputMode="decimal"
+                placeholder="1.0.7"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                disabled={uploading}
+              />
+            </Field>
+
+            {uploading && (
+              <div className="as-mobile-progress">
+                <Progress value={uploadProgress} label="Upload progress" />
+                <span>{uploadProgress >= 100 ? "Processing…" : `Uploading… ${Math.round(uploadProgress)}%`}</span>
+              </div>
+            )}
+
+            <Actions>
+              <Button type="submit" variant="primary" icon={Upload} disabled={!file} loading={uploading}>
+                {uploading ? "Uploading…" : "Publish APK"}
+              </Button>
+            </Actions>
+          </Stack>
+        </form>
+      </Panel>
+    </Stack>
   );
 }

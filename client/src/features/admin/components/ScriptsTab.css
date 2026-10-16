@@ -1,0 +1,12 @@
+/* Scripts tab extras. */
+.as-scripts-notice { padding-top: 12px; padding-bottom: 4px; }
+.as-scripts-list { border-bottom: 1px solid var(--as-panel-border); }
+.as-scripts-radio { color: var(--text-subtle); }
+.as-scripts-radio-on { color: var(--primary-light); }
+.as-scripts-run { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 719px) {
+  .as-scripts-run { flex: 1 1 100%; }
+}
+.as-scripts-output { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.as-scripts-stderr { color: var(--as-danger); }
+.as-scripts-nooutput { margin: 0; font-size: 0.85rem; }

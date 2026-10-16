@@ -1,0 +1,43 @@
+/* Reports tab extras — see ReportsTab.tsx */
+.as-reports-filters { padding-top: 0; }
+.as-reports-body { border-top: 1px solid var(--as-panel-border); }
+
+.as-reports-comment {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.as-reports-comment.as-subtle { color: var(--text-subtle); font-style: italic; }
+
+.as-reports-extra {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.as-reports-path {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: var(--as-inset-bg);
+  border: 1px solid var(--as-panel-border);
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+.as-reports-ua {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 719px) {
+  .as-reports-extra .as-actions > .as-btn { flex: 1 1 0; min-width: 0; }
+}

@@ -1,44 +1,57 @@
-import { useState, useEffect } from "react";
-import { Eye, EyeOff, Loader2, Shield, Trash2, UserPlus } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Save, Trash2, UserPlus, Users, X } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import type { AdminUser, PendingAdminConfirm } from "../types";
-import { formatDate, getErrorMessage } from "../helpers";
+import { getErrorMessage } from "../helpers";
+import {
+  Actions,
+  Avatar,
+  Badge,
+  Button,
+  EmptyState,
+  Field,
+  FormGrid,
+  List,
+  ListItem,
+  Panel,
+  PasswordInput,
+  SearchInput,
+  Stack,
+  Toolbar,
+} from "../ui";
 
 interface UsersTabProps {
   users: AdminUser[];
   onRefresh: () => Promise<unknown> | unknown;
 }
 
+const EMPTY_DRAFT = { username: "", email: "", password: "", role: "USER" };
+
 export default function UsersTab({ users, onRefresh }: UsersTabProps) {
   const { showToast } = useToast();
-  const [newUsername, setNewUsername] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [newRole, setNewRole] = useState("USER");
-
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [query, setQuery] = useState("");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [roleDrafts, setRoleDrafts] = useState<Record<string, string>>({});
   const [passwordDrafts, setPasswordDrafts] = useState<Record<string, string>>({});
-  const [visiblePasswordDrafts, setVisiblePasswordDrafts] = useState<Record<string, boolean>>({});
-
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingAdminConfirm | null>(null);
 
-  useEffect(() => {
-    if (users) {
-      setRoleDrafts((prev) => {
-        const next = { ...prev };
-        users.forEach((user) => {
-          if (next[user.id] === undefined) {
-            next[user.id] = user.role;
-          }
-        });
-        return next;
-      });
-    }
-  }, [users]);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const list = q
+      ? users.filter((user) => user.username.toLowerCase().includes(q) || (user.email ?? "").toLowerCase().includes(q))
+      : users;
+    // Admins first, then alphabetical.
+    return [...list].sort((a, b) =>
+      a.role === b.role ? a.username.localeCompare(b.username) : a.role === "ADMIN" ? -1 : 1,
+    );
+  }, [users, query]);
+
+  const adminCount = users.filter((user) => user.role === "ADMIN").length;
 
   const runAction = async (key: string, action: () => Promise<void>) => {
     setActionLoading(key);
@@ -49,251 +62,228 @@ export default function UsersTab({ users, onRefresh }: UsersTabProps) {
     }
   };
 
-  const handleCreateUser = async () => {
-    await runAction("create-user", async () => {
+  const handleCreateUser = () =>
+    runAction("create-user", async () => {
       try {
         await api.post("/admin/users", {
-          username: newUsername.trim(),
-          email: newEmail.trim(),
-          password: newPassword,
-          role: newRole,
+          username: draft.username.trim(),
+          email: draft.email.trim(),
+          password: draft.password,
+          role: draft.role,
         });
-        showToast({
-          title: "User created",
-          description: `Created ${newUsername.trim()}`,
-          tone: "success",
-        });
-        setNewUsername("");
-        setNewEmail("");
-        setNewPassword("");
-        setNewRole("USER");
+        showToast({ title: "User created", description: `Created ${draft.username.trim()}`, tone: "success" });
+        setDraft(EMPTY_DRAFT);
+        setCreating(false);
         await onRefresh();
       } catch (error) {
-        showToast({
-          title: "Failed to create user",
-          description: getErrorMessage(error, "Failed to create user"),
-          tone: "error",
-        });
+        showToast({ title: "Failed to create user", description: getErrorMessage(error, "Failed to create user"), tone: "error" });
       }
     });
-  };
 
-  const handleUpdateUser = async (userId: string) => {
-    await runAction(`update-user-${userId}`, async () => {
+  const handleUpdateUser = (user: AdminUser) =>
+    runAction(`update-user-${user.id}`, async () => {
       try {
         const payload: { role?: string; password?: string } = {};
-        if (roleDrafts[userId]) payload.role = roleDrafts[userId];
-        if (passwordDrafts[userId]?.trim()) payload.password = passwordDrafts[userId];
+        const role = roleDrafts[user.id];
+        if (role && role !== user.role) payload.role = role;
+        if (passwordDrafts[user.id]?.trim()) payload.password = passwordDrafts[user.id];
+        if (!payload.role && !payload.password) return;
 
-        await api.patch(`/admin/users/${userId}`, payload);
-        setPasswordDrafts((current) => ({ ...current, [userId]: "" }));
+        await api.patch(`/admin/users/${user.id}`, payload);
+        setPasswordDrafts((current) => ({ ...current, [user.id]: "" }));
         showToast({
           title: "User updated",
+          description: payload.password ? `Password reset for ${user.username}` : `${user.username} is now ${payload.role === "ADMIN" ? "an admin" : "a user"}`,
           tone: "success",
         });
         await onRefresh();
       } catch (error) {
-        showToast({
-          title: "Failed to update user",
-          description: getErrorMessage(error, "Failed to update user"),
-          tone: "error",
-        });
+        showToast({ title: "Failed to update user", description: getErrorMessage(error, "Failed to update user"), tone: "error" });
       }
     });
-  };
 
-  const handleDeleteUser = async (userId: string, username: string) => {
-    await runAction(`delete-user-${userId}`, async () => {
+  const handleDeleteUser = (user: AdminUser) =>
+    runAction(`delete-user-${user.id}`, async () => {
       try {
-        await api.delete(`/admin/users/${userId}`);
-        showToast({
-          title: "User deleted",
-          description: `Deleted ${username}`,
-          tone: "success",
-        });
+        await api.delete(`/admin/users/${user.id}`);
+        showToast({ title: "User deleted", description: `Deleted ${user.username}`, tone: "success" });
+        setExpandedId(null);
         await onRefresh();
       } catch (error) {
-        showToast({
-          title: "Failed to delete user",
-          description: getErrorMessage(error, "Failed to delete user"),
-          tone: "error",
-        });
+        showToast({ title: "Failed to delete user", description: getErrorMessage(error, "Failed to delete user"), tone: "error" });
       }
     });
-  };
+
+  const canCreate = draft.username.trim() && draft.email.trim() && draft.password;
 
   return (
-    <div className="admin-panel-stack">
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Create user</h3>
-          <UserPlus size={15} />
-        </div>
-        <div className="admin-create-user-grid">
-          <input
-            className="form-control"
-            placeholder="Username"
-            value={newUsername}
-            onChange={(e) => setNewUsername(e.target.value)}
-          />
-          <input
-            className="form-control"
-            placeholder="Recovery email"
-            type="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-          />
-          <div className="password-field">
-            <input
-              className="form-control password-input"
-              placeholder="Temporary password"
-              type={showNewPassword ? "text" : "password"}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              className="password-toggle"
-              onClick={() => setShowNewPassword((current) => !current)}
-              aria-label={showNewPassword ? "Hide password" : "Show password"}
-            >
-              {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          <select
-            className="form-control"
-            value={newRole}
-            onChange={(e) => setNewRole(e.target.value)}
+    <Stack>
+      {creating && (
+        <Panel
+          title="New user"
+          icon={UserPlus}
+          description="They can change this temporary password after signing in."
+          tone="accent"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canCreate) void handleCreateUser();
+            }}
           >
-            <option value="USER">User</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-          <button
-            className="btn btn-primary"
-            type="button"
-            disabled={
-              !newUsername.trim() ||
-              !newEmail.trim() ||
-              !newPassword ||
-              actionLoading === "create-user"
-            }
-            onClick={() => void handleCreateUser()}
-          >
-            {actionLoading === "create-user" ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <UserPlus size={15} />
-            )}
-            Create
-          </button>
-        </div>
-      </div>
-
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>All accounts</h3>
-          <Shield size={15} />
-        </div>
-        <div className="admin-table">
-          {users.map((user) => (
-            <div key={user.id} className="admin-table-row">
-              <div className="admin-row-with-avatar">
-                <div className="admin-user-avatar">
-                  {user.username.slice(0, 2).toUpperCase()}
-                </div>
-                <div className="admin-user-summary">
-                  <strong>{user.username}</strong>
-                  <small>
-                    <span className={`admin-role-badge admin-role-${user.role.toLowerCase()}`}>
-                      {user.role}
-                    </span>
-                    {" · "}{user.email || "No recovery email"} · {user._count.progress} listens · joined {formatDate(user.createdAt)}
-                  </small>
-                </div>
-              </div>
-
-              <div className="admin-user-controls">
-                <select
-                  className="form-control"
-                  value={roleDrafts[user.id] ?? user.role}
-                  onChange={(e) =>
-                    setRoleDrafts((current) => ({
-                      ...current,
-                      [user.id]: e.target.value,
-                    }))
-                  }
-                >
-                  <option value="USER">User</option>
-                  <option value="ADMIN">Admin</option>
-                </select>
-                <div className="password-field">
+            <Stack gap="md">
+              <FormGrid>
+                <Field label="Username" htmlFor="new-user-name">
                   <input
-                    className="form-control password-input"
-                    type={visiblePasswordDrafts[user.id] ? "text" : "password"}
-                    placeholder="New password"
-                    value={passwordDrafts[user.id] ?? ""}
-                    onChange={(e) =>
-                      setPasswordDrafts((current) => ({
-                        ...current,
-                        [user.id]: e.target.value,
-                      }))
-                    }
+                    id="new-user-name"
+                    className="form-control"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    value={draft.username}
+                    onChange={(e) => setDraft({ ...draft, username: e.target.value })}
                   />
-                  <button
-                    type="button"
-                    className="password-toggle"
-                    onClick={() =>
-                      setVisiblePasswordDrafts((current) => ({
-                        ...current,
-                        [user.id]: !current[user.id],
-                      }))
-                    }
-                    aria-label={
-                      visiblePasswordDrafts[user.id] ? "Hide password" : "Show password"
-                    }
+                </Field>
+                <Field label="Recovery email" htmlFor="new-user-email">
+                  <input
+                    id="new-user-email"
+                    className="form-control"
+                    type="email"
+                    autoComplete="off"
+                    value={draft.email}
+                    onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                  />
+                </Field>
+                <Field label="Temporary password" htmlFor="new-user-password">
+                  <PasswordInput
+                    id="new-user-password"
+                    autoComplete="new-password"
+                    value={draft.password}
+                    onChange={(e) => setDraft({ ...draft, password: e.target.value })}
+                  />
+                </Field>
+                <Field label="Role" htmlFor="new-user-role">
+                  <select
+                    id="new-user-role"
+                    className="form-control"
+                    value={draft.role}
+                    onChange={(e) => setDraft({ ...draft, role: e.target.value })}
                   >
-                    {visiblePasswordDrafts[user.id] ? (
-                      <EyeOff size={16} />
-                    ) : (
-                      <Eye size={16} />
-                    )}
-                  </button>
-                </div>
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  disabled={actionLoading === `update-user-${user.id}`}
-                  onClick={() => void handleUpdateUser(user.id)}
-                >
-                  {actionLoading === `update-user-${user.id}` ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : null}
-                  Save
-                </button>
-                <button
-                  className="btn admin-danger-btn"
-                  type="button"
-                  disabled={actionLoading === `delete-user-${user.id}`}
-                  onClick={() =>
-                    setPendingConfirm({
-                      title: "Delete User",
-                      message: `Delete user "${user.username}"? This also removes saved progress.`,
-                      confirmLabel: "Delete User",
-                      tone: "danger",
-                      onConfirm: () => void handleDeleteUser(user.id, user.username),
-                    })
+                    <option value="USER">Listener</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </Field>
+              </FormGrid>
+              <Actions>
+                <Button variant="ghost" icon={X} onClick={() => { setCreating(false); setDraft(EMPTY_DRAFT); }}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" icon={UserPlus} disabled={!canCreate} loading={actionLoading === "create-user"}>
+                  Create user
+                </Button>
+              </Actions>
+            </Stack>
+          </form>
+        </Panel>
+      )}
+
+      <Panel
+        title="Accounts"
+        icon={Users}
+        description={`${users.length} ${users.length === 1 ? "account" : "accounts"} · ${adminCount} ${adminCount === 1 ? "admin" : "admins"}`}
+        actions={!creating && <Button variant="primary" size="sm" icon={UserPlus} onClick={() => setCreating(true)}>Add user</Button>}
+        flush
+      >
+        {users.length > 6 && (
+          <div className="as-panel-body" style={{ paddingTop: 0 }}>
+            <Toolbar>
+              <SearchInput placeholder="Search by name or email" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search users" />
+            </Toolbar>
+          </div>
+        )}
+        {filtered.length === 0 ? (
+          <EmptyState icon={Users} title={query ? "No matching accounts" : "No accounts yet"} />
+        ) : (
+          <List>
+            {filtered.map((user) => {
+              const expanded = expandedId === user.id;
+              const roleDraft = roleDrafts[user.id] ?? user.role;
+              const passwordDraft = passwordDrafts[user.id] ?? "";
+              const dirty = roleDraft !== user.role || passwordDraft.trim().length > 0;
+              return (
+                <ListItem
+                  key={user.id}
+                  selected={expanded}
+                  onClick={() => setExpandedId(expanded ? null : user.id)}
+                  leading={<Avatar name={user.username} tone={user.role === "ADMIN" ? "accent" : "neutral"} />}
+                  title={
+                    <>
+                      {user.username}
+                      {user.role === "ADMIN" && <Badge tone="accent">Admin</Badge>}
+                    </>
                   }
+                  subtitle={user.email || "No recovery email"}
+                  meta={`${user._count.progress} ${user._count.progress === 1 ? "book" : "books"} listened · joined ${new Date(user.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}`}
+                  chevron={!expanded}
                 >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </div>
-          ))}
-          {users.length === 0 && (
-            <div className="admin-empty-state">No accounts found.</div>
-          )}
-        </div>
-      </div>
+                  {expanded && (
+                    <Stack gap="md">
+                      <FormGrid>
+                        <Field label="Role" htmlFor={`role-${user.id}`}>
+                          <select
+                            id={`role-${user.id}`}
+                            className="form-control"
+                            value={roleDraft}
+                            onChange={(e) => setRoleDrafts((current) => ({ ...current, [user.id]: e.target.value }))}
+                          >
+                            <option value="USER">Listener</option>
+                            <option value="ADMIN">Admin</option>
+                          </select>
+                        </Field>
+                        <Field label="Reset password" htmlFor={`password-${user.id}`} hint="Leave empty to keep the current password.">
+                          <PasswordInput
+                            id={`password-${user.id}`}
+                            autoComplete="new-password"
+                            placeholder="New password"
+                            value={passwordDraft}
+                            onChange={(e) => setPasswordDrafts((current) => ({ ...current, [user.id]: e.target.value }))}
+                          />
+                        </Field>
+                      </FormGrid>
+                      <Actions align="between">
+                        <Button
+                          variant="danger"
+                          icon={Trash2}
+                          loading={actionLoading === `delete-user-${user.id}`}
+                          onClick={() =>
+                            setPendingConfirm({
+                              title: "Delete user",
+                              message: `Delete "${user.username}"? Their listening progress is removed too.`,
+                              confirmLabel: "Delete user",
+                              tone: "danger",
+                              onConfirm: () => void handleDeleteUser(user),
+                            })
+                          }
+                        >
+                          Delete
+                        </Button>
+                        <Button
+                          variant="primary"
+                          icon={Save}
+                          disabled={!dirty}
+                          loading={actionLoading === `update-user-${user.id}`}
+                          onClick={() => void handleUpdateUser(user)}
+                        >
+                          Save changes
+                        </Button>
+                      </Actions>
+                    </Stack>
+                  )}
+                </ListItem>
+              );
+            })}
+          </List>
+        )}
+      </Panel>
 
       <ConfirmDialog
         open={pendingConfirm !== null}
@@ -310,6 +300,6 @@ export default function UsersTab({ users, onRefresh }: UsersTabProps) {
           current.onConfirm();
         }}
       />
-    </div>
+    </Stack>
   );
 }
