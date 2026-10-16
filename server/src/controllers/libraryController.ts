@@ -28,6 +28,17 @@ const TRANSPARENT_PNG_1X1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
   "base64",
 );
+let lastUnreachableWarning = 0;
+const warnLibraryUnreachable = (folderPath: string, err: unknown) => {
+  const now = Date.now();
+  if (now - lastUnreachableWarning < 60_000) return;
+  lastUnreachableWarning = now;
+  const code = (err as NodeJS.ErrnoException)?.code ?? String(err);
+  console.error(
+    `[covers] Book folder unreachable (${code}): ${folderPath}. ` +
+      "If every cover is missing, the library mount is probably stale — see docs/audiobooks-nfs-hostmount-setup.md.",
+  );
+};
 const COVER_THUMB_CACHE_DIR = path.join(process.cwd(), "data", "cache", "covers");
 
 const normalizeBookCover = <T extends { coverPath?: string | null }>(book: T) => ({
@@ -746,8 +757,15 @@ export const getCover = async (req: Request, res: Response) => {
         void prisma.book
           .update({ where: { id: bookId }, data: { coverPath: null } })
           .catch(() => {});
-      } catch {
-        /* folder unreachable — leave coverPath alone */
+      } catch (err) {
+        // Folder unreachable (stale NFS handle, unmounted share): report an
+        // uncacheable error rather than a blank image, so browsers and the
+        // mobile app's image cache retry once the library is back instead of
+        // keeping an empty cover.
+        warnLibraryUnreachable(book.folderPath, err);
+        res.setHeader("Cache-Control", "no-store");
+        res.status(503).send("Library folder unavailable");
+        return;
       }
     }
     res.setHeader("Cache-Control", "public, max-age=300");
