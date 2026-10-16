@@ -29,16 +29,32 @@ FROM node:22-slim
 
 WORKDIR /app
 
-# Install production dependencies: FFmpeg, Python (for Audible), and wget to fetch 'tone'
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    postgresql-client \
-    python3 \
-    python3-pip \
-    wget \
-    tar \
-    openssl \
-    && rm -rf /var/lib/apt/lists/*
+# pg_dump must be at least as new as the database server, and Debian's own
+# postgresql-client is older (15), so the client comes from the PostgreSQL
+# apt repository. Match PG_CLIENT_VERSION to the database's major version.
+ARG PG_CLIENT_VERSION=17
+
+# Install production dependencies: FFmpeg, Python (for Audible), the
+# PostgreSQL client for backups, and wget to fetch 'tone'
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates wget gnupg; \
+    install -d /usr/share/keyrings; \
+    wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg; \
+    . /etc/os-release; \
+    echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list; \
+    apt-get update; \
+    apt-get install -y \
+      ffmpeg \
+      postgresql-client-${PG_CLIENT_VERSION} \
+      python3 \
+      python3-pip \
+      tar \
+      openssl; \
+    pg_dump --version; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install Audible library for Python scripts and audible-cli
 RUN pip3 install audible audible-cli --break-system-packages
