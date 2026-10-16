@@ -2,19 +2,16 @@ import { useState, useEffect } from "react";
 import {
   AlertCircle,
   AlertTriangle,
-  Info,
   Bug,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
   FileText,
-  Loader2,
+  Info,
   RefreshCw,
   Trash2,
-  Clock,
-  ChevronDown,
-  Copy,
-  Check,
-  Globe,
-  Users,
-  ChevronRight,
 } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
@@ -28,7 +25,6 @@ import type {
 } from "../types";
 import {
   formatDate,
-  formatElapsed,
   formatDurationMs,
   formatJsonBlock,
   buildLogSummary,
@@ -37,24 +33,59 @@ import {
   copyTextToClipboard,
   getErrorMessage,
 } from "../helpers";
+import {
+  Actions,
+  Badge,
+  Button,
+  EmptyState,
+  KeyValues,
+  List,
+  ListItem,
+  Panel,
+  SearchInput,
+  Segmented,
+  Stack,
+  Toolbar,
+  type Tone,
+} from "../ui";
+import "./LogsTab.css";
 
-const LOG_LEVEL_OPTIONS: Array<{ value: AdminLogLevel; label: string }> = [
-  { value: "error", label: "Errors" },
-  { value: "warn", label: "Warnings" },
-  { value: "info", label: "Info" },
-  { value: "debug", label: "Debug" },
-];
+type LevelFilter = "all" | AdminLogLevel;
+
+const ALL_LEVELS: AdminLogLevel[] = ["error", "warn", "info", "debug"];
+
+const LEVEL_META: Record<AdminLogLevel, { label: string; tone: Tone; icon: typeof Info }> = {
+  error: { label: "Errors", tone: "danger", icon: AlertCircle },
+  warn: { label: "Warnings", tone: "warning", icon: AlertTriangle },
+  info: { label: "Info", tone: "accent", icon: Info },
+  debug: { label: "Debug", tone: "neutral", icon: Bug },
+};
+
+const STATUS_TONE: Record<ReturnType<typeof getStatusCodeCategory>, Tone> = {
+  "2xx": "success",
+  "3xx": "accent",
+  "4xx": "warning",
+  "5xx": "danger",
+  other: "neutral",
+};
+
+const formatAgo = (value: string) => {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  if (seconds < 5) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return formatDate(value);
+};
 
 export default function LogsTab() {
   const { showToast } = useToast();
   const [logsData, setLogsData] = useState<AdminLogsResponse | null>(null);
   const [logsPage, setLogsPage] = useState(1);
   const [logsLoading, setLogsLoading] = useState(false);
-  const [enabledLogLevels, setEnabledLogLevels] = useState<AdminLogLevel[]>([
-    "info",
-    "warn",
-    "error",
-  ]);
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>("all");
   const [logSearch, setLogSearch] = useState("");
   const [logScopeFilter, setLogScopeFilter] = useState<AdminLogScope>("all");
   const [expandedLogKeys, setExpandedLogKeys] = useState<Set<string>>(new Set());
@@ -62,6 +93,8 @@ export default function LogsTab() {
 
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<PendingAdminConfirm | null>(null);
+
+  const enabledLogLevels = levelFilter === "all" ? ALL_LEVELS : [levelFilter];
 
   const loadLogs = async (page: number) => {
     setLogsLoading(true);
@@ -94,17 +127,15 @@ export default function LogsTab() {
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [enabledLogLevels, logSearch, logScopeFilter]);
+  }, [levelFilter, logSearch, logScopeFilter]);
 
   // Handle manual/pagination loads
   useEffect(() => {
     void loadLogs(logsPage);
   }, [logsPage]);
 
-  const toggleLogLevel = (level: AdminLogLevel) => {
-    setEnabledLogLevels((prev) =>
-      prev.includes(level) ? prev.filter((l) => l !== level) : [...prev, level]
-    );
+  const changeLevel = (level: LevelFilter) => {
+    setLevelFilter(level);
     setLogsPage(1);
   };
 
@@ -126,15 +157,9 @@ export default function LogsTab() {
     if (success) {
       setCopiedLogKey(logKey);
       setTimeout(() => setCopiedLogKey(null), 2000);
-      showToast({
-        title: "Copied to clipboard",
-        tone: "success",
-      });
+      showToast({ title: "Copied to clipboard", tone: "success" });
     } else {
-      showToast({
-        title: "Failed to copy",
-        tone: "error",
-      });
+      showToast({ title: "Failed to copy", tone: "error" });
     }
   };
 
@@ -142,10 +167,7 @@ export default function LogsTab() {
     setActionLoading("clear-logs");
     try {
       await api.delete("/admin/logs");
-      showToast({
-        title: "Logs cleared",
-        tone: "success",
-      });
+      showToast({ title: "Logs cleared", tone: "success" });
       setLogsPage(1);
       await loadLogs(1);
     } catch (error) {
@@ -159,282 +181,217 @@ export default function LogsTab() {
     }
   };
 
-  return (
-    <div className="admin-panel-stack">
-      <div className="admin-log-stats-grid">
-        <div className="admin-log-stat-chip admin-log-stat-error">
-          <AlertCircle size={14} />
-          <strong>{logsData?.stats.error ?? 0}</strong>
-          <span>Errors</span>
-        </div>
-        <div className="admin-log-stat-chip admin-log-stat-warn">
-          <AlertTriangle size={14} />
-          <strong>{logsData?.stats.warn ?? 0}</strong>
-          <span>Warnings</span>
-        </div>
-        <div className="admin-log-stat-chip admin-log-stat-info">
-          <Info size={14} />
-          <strong>{logsData?.stats.info ?? 0}</strong>
-          <span>Info</span>
-        </div>
-        <div className="admin-log-stat-chip admin-log-stat-debug">
-          <Bug size={14} />
-          <strong>{logsData?.stats.debug ?? 0}</strong>
-          <span>Debug</span>
-        </div>
-      </div>
+  const stats = logsData?.stats;
+  const totalCount = stats ? ALL_LEVELS.reduce((sum, level) => sum + stats[level], 0) : undefined;
+  const currentPage = logsData?.page ?? logsPage;
+  const totalPages = logsData?.totalPages ?? 1;
 
-      <div className="card admin-section-card">
-        <div className="admin-section-head admin-logs-explorer-head">
-          <div className="admin-logs-explorer-title">
-            <FileText size={15} />
-            <h3>Log explorer</h3>
-          </div>
-          <div className="admin-log-level-toggles" role="group" aria-label="Enabled log levels">
-            {LOG_LEVEL_OPTIONS.map((option) => {
-              const enabled = enabledLogLevels.includes(option.value);
-              return (
-                <button
-                  key={option.value}
-                  className={`admin-log-level-toggle ${enabled ? "enabled" : ""} admin-log-level-toggle-${option.value}`}
-                  type="button"
-                  onClick={() => toggleLogLevel(option.value)}
-                  aria-pressed={enabled}
-                  title={enabled ? `Hide ${option.label.toLowerCase()}` : `Show ${option.label.toLowerCase()}`}
-                >
-                  <span className={`admin-log-level admin-log-level-${option.value}`}>
-                    {option.value === "error" && <AlertCircle size={11} />}
-                    {option.value === "warn" && <AlertTriangle size={11} />}
-                    {option.value === "info" && <Info size={11} />}
-                    {option.value === "debug" && <Bug size={11} />}
-                    {option.value}
-                  </span>
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+  const renderEntry = (entry: AdminLogEntry) => {
+    const logKey = `${entry.timestamp}-${entry.requestId ?? entry.message}`;
+    const isCopied = copiedLogKey === logKey;
+    const isExpanded = expandedLogKeys.has(logKey);
+    const isHttp = entry.tags?.includes("http") || (entry.method != null && entry.statusCode != null);
+    const statusCategory = entry.statusCode != null ? getStatusCodeCategory(entry.statusCode) : null;
+    const level = LEVEL_META[entry.level];
+    const LevelIcon = level.icon;
 
-        <div className="admin-logs-toolbar">
-          <input
-            className="form-control admin-search"
-            placeholder="Search messages, paths, request IDs, or payloads…"
-            value={logSearch}
-            onChange={(e) => {
-              setLogSearch(e.target.value);
-              setLogsPage(1);
-            }}
+    const metaParts = [
+      entry.context,
+      formatAgo(entry.timestamp),
+      entry.durationMs != null ? formatDurationMs(entry.durationMs) : null,
+    ].filter(Boolean);
+
+    const details = [
+      { label: "Time", value: formatDate(entry.timestamp) },
+      ...(isHttp ? [{ label: "Message", value: entry.message }] : []),
+      { label: "Context", value: entry.context },
+      ...(isHttp && entry.method ? [{ label: "Method", value: entry.method, mono: true }] : []),
+      ...(entry.path ? [{ label: "Path", value: entry.path, mono: true }] : []),
+      ...(entry.statusCode != null ? [{ label: "Status", value: String(entry.statusCode), mono: true }] : []),
+      ...(entry.durationMs != null ? [{ label: "Duration", value: formatDurationMs(entry.durationMs) }] : []),
+      ...(entry.userId ? [{ label: "User", value: entry.role ? `${entry.userId} (${entry.role})` : entry.userId, mono: true }] : []),
+      ...(entry.ip ? [{ label: "IP", value: entry.ip, mono: true }] : []),
+      ...(entry.requestId ? [{ label: "Request ID", value: entry.requestId, mono: true }] : []),
+      ...(entry.tags?.length ? [{ label: "Tags", value: entry.tags.join(", ") }] : []),
+    ];
+
+    return (
+      <ListItem
+        key={logKey}
+        selected={isExpanded}
+        onClick={() => toggleLogExpanded(logKey)}
+        leading={
+          <span className={`as-logs-level as-logs-level-${entry.level}`} title={entry.level}>
+            <LevelIcon size={15} aria-hidden="true" />
+          </span>
+        }
+        title={
+          <>
+            {isHttp && entry.method && <Badge>{entry.method}</Badge>}
+            {entry.statusCode != null && statusCategory && <Badge tone={STATUS_TONE[statusCategory]}>{entry.statusCode}</Badge>}
+            <span className="as-logs-summary">
+              {isHttp ? entry.path || buildLogSummary(entry) : entry.message}
+            </span>
+          </>
+        }
+        subtitle={entry.error && !isHttp ? <span className="as-logs-error-line">{entry.error.message}</span> : undefined}
+        meta={<span title={formatDate(entry.timestamp)}>{metaParts.join(" · ")}</span>}
+        trailing={
+          <ChevronDown
+            size={16}
+            className={`as-logs-chevron${isExpanded ? " as-logs-chevron-open" : ""}`}
+            aria-hidden="true"
           />
-          <select
-            className="form-control"
-            value={logScopeFilter}
-            onChange={(e) => {
-              setLogScopeFilter(e.target.value as AdminLogScope);
-              setLogsPage(1);
-            }}
-          >
-            <option value="all">All log entries</option>
-            <option value="metadata">Metadata related</option>
-          </select>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={logsLoading}
-            onClick={() => void loadLogs(logsPage)}
-          >
-            {logsLoading ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <RefreshCw size={14} />
-            )}
-            Refresh
-          </button>
-          <button
-            className="btn admin-danger-btn"
-            type="button"
-            disabled={actionLoading === "clear-logs"}
-            onClick={() =>
-              setPendingConfirm({
-                title: "Clear Application Logs",
-                message: "Clear all application logs?",
-                confirmLabel: "Clear Logs",
-                tone: "danger",
-                onConfirm: () => void handleClearLogs(),
-              })
-            }
-          >
-            {actionLoading === "clear-logs" ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Trash2 size={14} />
-            )}
-            Clear logs
-          </button>
-        </div>
-      </div>
+        }
+      >
+        {isExpanded && (
+          <Stack gap="sm">
+            <KeyValues items={details} />
+            {entry.error ? (
+              <div className="as-logs-error">
+                <p className="as-logs-error-head">
+                  <AlertCircle size={14} aria-hidden="true" />
+                  <strong>{entry.error.name}</strong>
+                  <span>{entry.error.message}</span>
+                </p>
+                {entry.error.stack ? (
+                  <pre className="as-code">
+                    {entry.error.stack.replace(`${entry.error.name}: ${entry.error.message}\n`, "").trim()}
+                  </pre>
+                ) : null}
+              </div>
+            ) : null}
+            {entry.data !== undefined ? <pre className="as-code">{formatJsonBlock(entry.data)}</pre> : null}
+            <Actions>
+              <Button
+                size="sm"
+                icon={isCopied ? Check : Copy}
+                onClick={() => void copyLogEntry(entry, logKey)}
+                title="Copy readable log entry"
+              >
+                {isCopied ? "Copied" : "Copy entry"}
+              </Button>
+            </Actions>
+          </Stack>
+        )}
+      </ListItem>
+    );
+  };
 
-      <div className="card admin-section-card">
-        <div className="admin-section-head">
-          <h3>Entries</h3>
-          <div className="admin-pill">{logsData?.totalMatching ?? 0} matching</div>
+  return (
+    <Stack>
+      <Panel
+        title="Log explorer"
+        icon={FileText}
+        description={logsData ? `${logsData.totalMatching.toLocaleString()} matching ${logsData.totalMatching === 1 ? "entry" : "entries"}` : "Loading entries…"}
+        actions={
+          <>
+            <Button
+              size="sm"
+              icon={RefreshCw}
+              loading={logsLoading}
+              onClick={() => void loadLogs(logsPage)}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              icon={Trash2}
+              loading={actionLoading === "clear-logs"}
+              onClick={() =>
+                setPendingConfirm({
+                  title: "Clear Application Logs",
+                  message: "Clear all application logs?",
+                  confirmLabel: "Clear Logs",
+                  tone: "danger",
+                  onConfirm: () => void handleClearLogs(),
+                })
+              }
+            >
+              Clear
+            </Button>
+          </>
+        }
+        flush
+      >
+        <div className="as-panel-body as-logs-filters">
+          <Stack gap="sm">
+            <Segmented<LevelFilter>
+              label="Log level"
+              value={levelFilter}
+              onChange={changeLevel}
+              options={[
+                { value: "all", label: "All", count: totalCount },
+                ...ALL_LEVELS.map((level) => ({ value: level, label: LEVEL_META[level].label, count: stats?.[level] })),
+              ]}
+            />
+            <SearchInput
+              placeholder="Search messages, paths, request IDs, payloads…"
+              aria-label="Search logs"
+              value={logSearch}
+              onChange={(e) => {
+                setLogSearch(e.target.value);
+                setLogsPage(1);
+              }}
+            />
+            <Toolbar>
+              <select
+                className="form-control"
+                aria-label="Log scope"
+                value={logScopeFilter}
+                onChange={(e) => {
+                  setLogScopeFilter(e.target.value as AdminLogScope);
+                  setLogsPage(1);
+                }}
+              >
+                <option value="all">All log entries</option>
+                <option value="metadata">Metadata related</option>
+              </select>
+            </Toolbar>
+          </Stack>
         </div>
 
-        <div className={`admin-logs-list ${logsLoading ? "admin-logs-list-loading" : ""}`}>
+        <div className={logsLoading && logsData ? "as-logs-list as-logs-list-loading" : "as-logs-list"}>
           {logsLoading && !logsData ? (
-            <div className="admin-settings-loading">
+            <div className="as-loading">
               <div className="app-loading-spinner" />
             </div>
           ) : logsData?.entries.length ? (
-            logsData.entries.map((entry) => {
-              const logKey = `${entry.timestamp}-${entry.requestId ?? entry.message}`;
-              const isCopied = copiedLogKey === logKey;
-              const isExpanded = expandedLogKeys.has(logKey);
-              const isHttp =
-                entry.tags?.includes("http") || (entry.method != null && entry.statusCode != null);
-              const hasDetails = entry.error != null || entry.data !== undefined;
-              const statusCategory =
-                entry.statusCode != null ? getStatusCodeCategory(entry.statusCode) : null;
-              const summary = buildLogSummary(entry);
-
-              return (
-                <div key={logKey} className={`admin-log-card admin-log-card-${entry.level}`}>
-                  <div className="admin-log-head">
-                    <div className="admin-log-title-row">
-                      <span className={`admin-log-level admin-log-level-${entry.level}`}>
-                        {entry.level === "error" && <AlertCircle size={11} />}
-                        {entry.level === "warn" && <AlertTriangle size={11} />}
-                        {entry.level === "info" && <Info size={11} />}
-                        {entry.level === "debug" && <Bug size={11} />}
-                        {entry.level}
-                      </span>
-                      <strong className="admin-log-message">{summary}</strong>
-                    </div>
-                    <div className="admin-log-head-actions">
-                      <span className="admin-log-timestamp" title={formatDate(entry.timestamp)}>
-                        <Clock size={11} />
-                        {formatElapsed(entry.timestamp) || "just now"}
-                      </span>
-                      {hasDetails && (
-                        <button
-                          className={`admin-log-expand-btn ${isExpanded ? "expanded" : ""}`}
-                          type="button"
-                          onClick={() => toggleLogExpanded(logKey)}
-                          aria-expanded={isExpanded}
-                        >
-                          <ChevronDown size={13} />
-                          {isExpanded ? "Less" : "Details"}
-                        </button>
-                      )}
-                      <button
-                        className={`admin-log-copy-btn ${isCopied ? "copied" : ""}`}
-                        type="button"
-                        onClick={() => void copyLogEntry(entry, logKey)}
-                        title="Copy readable log entry"
-                        aria-label="Copy log entry"
-                      >
-                        {isCopied ? <Check size={13} /> : <Copy size={13} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="admin-log-meta-row">
-                    <div className="admin-pill admin-log-context-pill">{entry.context}</div>
-                    {isHttp && (
-                      <div className="admin-pill admin-log-http-pill">
-                        <Globe size={11} />
-                        {entry.method}
-                      </div>
-                    )}
-                    {entry.path ? (
-                      <div className="admin-pill admin-log-path-pill" title={entry.path}>
-                        {entry.path.length > 60 ? `${entry.path.slice(0, 60)}…` : entry.path}
-                      </div>
-                    ) : null}
-                    {entry.statusCode != null ? (
-                      <div className={`admin-log-status admin-log-status-${statusCategory}`}>
-                        {entry.statusCode}
-                      </div>
-                    ) : null}
-                    {entry.durationMs != null ? (
-                      <div className="admin-log-duration">
-                        <Clock size={10} />
-                        {formatDurationMs(entry.durationMs)}
-                      </div>
-                    ) : null}
-                    {entry.userId ? (
-                      <div className="admin-pill">
-                        <Users size={11} />
-                        {entry.userId}
-                      </div>
-                    ) : null}
-                    {entry.requestId ? (
-                      <div className="admin-pill admin-log-reqid-pill" title={`Request ID: ${entry.requestId}`}>
-                        {entry.requestId.slice(0, 8)}…
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {isExpanded && hasDetails && (
-                    <div className="admin-log-details">
-                      {entry.error ? (
-                        <div className="admin-log-error-block">
-                          <div className="admin-log-error-header">
-                            <AlertCircle size={13} />
-                            <span className="admin-log-error-name">{entry.error.name}</span>
-                            <span className="admin-log-error-message">{entry.error.message}</span>
-                          </div>
-                          {entry.error.stack ? (
-                            <pre className="admin-log-stack">
-                              {entry.error.stack
-                                .replace(`${entry.error.name}: ${entry.error.message}\n`, "")
-                                .trim()}
-                            </pre>
-                          ) : null}
-                        </div>
-                      ) : null}
-                      {entry.data !== undefined ? (
-                        <pre className="admin-log-block">{formatJsonBlock(entry.data)}</pre>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-              );
-            })
+            <List>{logsData.entries.map(renderEntry)}</List>
           ) : (
-            <div className="admin-empty-state">
+            <EmptyState icon={FileText} title="No log entries">
               {logsData
-                ? "No log entries matched the current filters. Try widening your level selection or clearing the search."
-                : "Select the Logs tab to load entries."}
-            </div>
+                ? "Nothing matched the current filters. Try another level or clear the search."
+                : "Logs could not be loaded. Try refreshing."}
+            </EmptyState>
           )}
         </div>
 
-        <div className="admin-logs-pagination">
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={logsLoading || (logsData?.page ?? logsPage) <= 1}
-            onClick={() => setLogsPage((current) => Math.max(1, current - 1))}
-          >
-            <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} />
-            Previous
-          </button>
-          <span className="admin-logs-page-info">
-            Page {logsData?.page ?? logsPage} of {logsData?.totalPages ?? 1}
-            {logsData && <small> · {logsData.totalMatching} entries</small>}
-          </span>
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={logsLoading || (logsData?.page ?? logsPage) >= (logsData?.totalPages ?? 1)}
-            onClick={() => setLogsPage((current) => current + 1)}
-          >
-            Next
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      </div>
+        {logsData && totalPages > 1 && (
+          <div className="as-panel-body as-logs-pager">
+            <div className="as-logs-pager-row">
+              <Button
+                icon={ChevronLeft}
+                disabled={logsLoading || currentPage <= 1}
+                onClick={() => setLogsPage((current) => Math.max(1, current - 1))}
+              >
+                Previous
+              </Button>
+              <span className="as-logs-page-info">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                disabled={logsLoading || currentPage >= totalPages}
+                onClick={() => setLogsPage((current) => current + 1)}
+              >
+                Next
+                <ChevronRight size={16} aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </Panel>
 
       <ConfirmDialog
         open={pendingConfirm !== null}
@@ -451,6 +408,6 @@ export default function LogsTab() {
           current.onConfirm();
         }}
       />
-    </div>
+    </Stack>
   );
 }

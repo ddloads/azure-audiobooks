@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, Headphones, RefreshCw } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Headphones, RefreshCw } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
+import { coverUrl } from "../../../utils/covers";
 import type { AdminUser, AdminSession, AdminSessionsResponse } from "../types";
 import { formatDate, formatListenTime, getErrorMessage } from "../helpers";
+import { Badge, Button, EmptyState, List, ListItem, Panel, Toolbar } from "../ui";
+import "./SessionsTab.css";
 
 const PAGE_SIZE = 25;
 
@@ -54,119 +57,91 @@ export default function SessionsTab({ users }: SessionsTabProps) {
     setPage(1);
   };
 
-  const formatEnded = (session: AdminSession) => {
-    if (!session.endedAt)
-      return <span className="sessions-badge sessions-badge-active">Active</span>;
-    return <span>{formatDate(session.endedAt)}</span>;
-  };
+  const describeWhen = (session: AdminSession) =>
+    session.endedAt
+      ? `${formatDate(session.startedAt)} → ${new Date(session.endedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+      : `Started ${formatDate(session.startedAt)}`;
 
   return (
-    <div className="admin-panel-stack">
-      <div className="card admin-section-card">
-        <div className="admin-section-head admin-sessions-head">
-          <div className="admin-logs-explorer-title">
-            <Headphones size={16} />
-            <h3>Listening Sessions</h3>
-            {data && (
-              <span className="admin-logs-page-info">
-                · {data.total.toLocaleString()} total
-              </span>
-            )}
-          </div>
-          <div className="admin-sessions-head-actions">
-            <select
-              className="input input-sm"
-              value={userFilter}
-              onChange={(e) => handleFilterChange(e.target.value)}
-            >
-              <option value="">All Users</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.username}
-                </option>
-              ))}
-            </select>
-            <button
-              className="btn btn-secondary btn-sm"
-              type="button"
-              title="Refresh"
-              disabled={loading}
-              onClick={() => setRefreshKey((k) => k + 1)}
-            >
-              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
-            </button>
-          </div>
-        </div>
+    <Panel
+      title="History"
+      icon={Headphones}
+      description={data ? `${data.total.toLocaleString()} ${data.total === 1 ? "session" : "sessions"}${userFilter ? " for this user" : " in total"}` : "Loading…"}
+      flush
+    >
+      <div className="as-panel-body as-sessions-filters">
+        <Toolbar>
+          <select
+            className="form-control"
+            aria-label="Filter by user"
+            value={userFilter}
+            onChange={(e) => handleFilterChange(e.target.value)}
+          >
+            <option value="">All users</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.username}
+              </option>
+            ))}
+          </select>
+          <Button icon={RefreshCw} loading={loading} onClick={() => setRefreshKey((k) => k + 1)}>
+            Refresh
+          </Button>
+        </Toolbar>
+      </div>
 
+      <div className="as-sessions-body">
         {loading && !data ? (
-          <div className="admin-settings-loading">
+          <div className="as-loading">
             <div className="app-loading-spinner" />
           </div>
         ) : !data || data.sessions.length === 0 ? (
-          <p className="admin-empty-text">No sessions found.</p>
+          <EmptyState icon={Headphones} title="No sessions found">
+            {userFilter ? "This user hasn't listened to anything yet." : "Sessions appear here once someone starts listening."}
+          </EmptyState>
         ) : (
-          <div className="admin-sessions-table-wrap">
-            <table className="admin-sessions-table">
-              <thead>
-                <tr>
-                  <th>Book</th>
-                  <th>User</th>
-                  <th>Platform</th>
-                  <th>Listened</th>
-                  <th>Started</th>
-                  <th>Ended</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.sessions.map((s) => (
-                  <tr key={s.id}>
-                    <td>
-                      <div className="sessions-book-cell">
-                        <span className="sessions-book-title">{s.book.title}</span>
-                        <span className="sessions-book-author">{s.book.author.name}</span>
-                      </div>
-                    </td>
-                    <td>{s.user.username}</td>
-                    <td>{s.platform ?? "—"}</td>
-                    <td>
-                      <strong>{formatListenTime(s.secondsListened)}</strong>
-                    </td>
-                    <td className="sessions-date">{formatDate(s.startedAt)}</td>
-                    <td className="sessions-date">{formatEnded(s)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {data && data.totalPages > 1 && (
-          <div className="admin-logs-pagination">
-            <button
-              className="btn btn-secondary btn-sm"
-              type="button"
-              disabled={loading || page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronRight size={14} style={{ transform: "rotate(180deg)" }} />
-              Previous
-            </button>
-            <span className="admin-logs-page-info">
-              Page {data.page} of {data.totalPages}
-              <small> · {data.total.toLocaleString()} sessions</small>
-            </span>
-            <button
-              className="btn btn-secondary btn-sm"
-              type="button"
-              disabled={loading || page >= data.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          <List>
+            {data.sessions.map((s) => (
+              <ListItem
+                key={s.id}
+                leading={
+                  <span className="as-sessions-cover" aria-hidden="true">
+                    {s.book.coverPath ? (
+                      <img src={coverUrl(s.book.coverPath, 80)} alt="" loading="lazy" decoding="async" />
+                    ) : (
+                      <BookOpen size={16} />
+                    )}
+                  </span>
+                }
+                title={s.book.title}
+                subtitle={`${s.user.username} · ${s.platform ?? "Unknown device"}`}
+                meta={`${s.book.author.name} · ${describeWhen(s)}`}
+                trailing={
+                  <span className="as-sessions-duration">
+                    <strong>{formatListenTime(s.secondsListened)}</strong>
+                    {!s.endedAt && <Badge tone="success">Active</Badge>}
+                  </span>
+                }
+              />
+            ))}
+          </List>
         )}
       </div>
-    </div>
+
+      {data && data.totalPages > 1 && (
+        <div className="as-panel-body as-sessions-pager">
+          <Button icon={ChevronLeft} disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Previous
+          </Button>
+          <span className="as-sessions-page-info">
+            Page {data.page} of {data.totalPages}
+          </span>
+          <Button disabled={loading || page >= data.totalPages} onClick={() => setPage((p) => p + 1)}>
+            Next
+            <ChevronRight size={16} aria-hidden="true" />
+          </Button>
+        </div>
+      )}
+    </Panel>
   );
 }

@@ -1,0 +1,75 @@
+/* Logs tab extras — see LogsTab.tsx */
+.as-logs-filters { padding-top: 0; }
+.as-logs-list { border-top: 1px solid var(--as-panel-border); transition: opacity 0.15s; }
+.as-logs-list-loading { opacity: 0.55; }
+
+.as-logs-level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-muted);
+}
+.as-logs-level-error { background: rgba(248, 113, 113, 0.15); color: var(--as-danger); }
+.as-logs-level-warn { background: rgba(251, 191, 36, 0.14); color: var(--as-warning); }
+.as-logs-level-info { background: var(--primary-subtle); color: var(--primary-light); }
+
+.as-logs-summary {
+  min-width: 0;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.as-logs-chevron { color: var(--text-subtle); transition: transform 0.15s; }
+.as-logs-chevron-open { transform: rotate(180deg); }
+
+.as-logs-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.as-logs-error-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--as-danger);
+  overflow-wrap: anywhere;
+}
+.as-logs-error-head span { color: var(--text); min-width: 0; }
+
+.as-logs-pager { border-top: 1px solid var(--as-panel-border); padding-top: 12px; padding-bottom: 12px; }
+.as-logs-pager-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.as-logs-pager-row > .as-btn:last-child { justify-self: end; }
+.as-logs-pager-row > .as-btn:first-child { justify-self: start; }
+.as-logs-page-info {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.as-logs-filters .as-segmented { flex-wrap: wrap; overflow: visible; }
+.as-item:not(.as-item-selected) .as-logs-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+.as-logs-error-line { color: var(--as-danger); }
+.as-item:not(.as-item-selected) .as-logs-error-line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}

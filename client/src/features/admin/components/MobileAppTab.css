@@ -1,0 +1,40 @@
+/* Mobile app tab extras — see MobileAppTab.tsx */
+.as-mobile-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.as-mobile-file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--border-strong);
+  background: var(--as-inset-bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+label.as-mobile-file:hover { border-color: var(--primary-light); background: rgba(56, 189, 248, 0.05); }
+.as-mobile-file-input:focus-visible + .as-mobile-file { outline: 2px solid var(--primary-light); outline-offset: 2px; }
+.as-mobile-file-selected { border-style: solid; border-color: rgba(56, 189, 248, 0.35); cursor: default; }
+.as-mobile-file-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  color: var(--primary-light);
+  background: var(--primary-subtle);
+}
+.as-mobile-file-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.as-mobile-file-text strong { font-size: 0.92rem; overflow-wrap: anywhere; }
+.as-mobile-file-text small { font-size: 0.78rem; color: var(--text-subtle); }
+
+.as-mobile-progress { display: flex; flex-direction: column; gap: 6px; }
+.as-mobile-progress span { font-size: 0.8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }

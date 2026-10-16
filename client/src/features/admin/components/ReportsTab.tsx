@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { CheckCheck, RefreshCw, Trash2, X } from "lucide-react";
+import { CheckCheck, CheckCircle2, Inbox, MessageSquareWarning, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import api from "../../../api/axios";
 import { useToast } from "../../../context/ToastContext";
 import type { AdminBugReport } from "../types";
 import { formatDate, getErrorMessage } from "../helpers";
+import { Actions, Badge, Button, EmptyState, List, ListItem, Panel, Segmented, type Tone } from "../ui";
+import "./ReportsTab.css";
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
   playback: "Playback issue",
@@ -21,11 +23,20 @@ const STATUS_LABELS: Record<string, string> = {
   dismissed: "Dismissed",
 };
 
+const STATUS_TONES: Record<AdminBugReport["status"], Tone> = {
+  open: "warning",
+  fixed: "success",
+  dismissed: "neutral",
+};
+
+type ReportView = "open" | "resolved" | "all";
+
 export default function ReportsTab() {
   const { showToast } = useToast();
   const [bugReports, setBugReports] = useState<AdminBugReport[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [view, setView] = useState<ReportView>("open");
 
   const loadBugReports = async () => {
     setReportsLoading(true);
@@ -51,9 +62,7 @@ export default function ReportsTab() {
     setActionLoading(`${status}-${id}`);
     try {
       await api.patch(`/reports/${id}`, { status });
-      setBugReports((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status } : r)),
-      );
+      setBugReports((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
     } catch (error) {
       showToast({
         title: "Failed to update report",
@@ -83,143 +92,137 @@ export default function ReportsTab() {
 
   const open = bugReports.filter((r) => r.status === "open");
   const resolved = bugReports.filter((r) => r.status !== "open");
+  const visible = view === "open" ? open : view === "resolved" ? resolved : bugReports;
 
-  const renderCard = (report: AdminBugReport) => {
+  const renderReport = (report: AdminBugReport) => {
     const busy = actionLoading !== null;
-    const isResolved = report.status !== "open";
-
     return (
-      <article
-        className={`card admin-section-card admin-report-card${isResolved ? " admin-report-card-resolved" : ""}`}
+      <ListItem
         key={report.id}
+        title={
+          <>
+            <Badge tone={report.status === "open" ? "accent" : "neutral"}>{REPORT_TYPE_LABELS[report.type] ?? report.type}</Badge>
+            {report.status !== "open" && <Badge tone={STATUS_TONES[report.status]}>{STATUS_LABELS[report.status]}</Badge>}
+          </>
+        }
+        subtitle={
+          report.comment ? (
+            <span className="as-reports-comment">{report.comment}</span>
+          ) : (
+            <span className="as-reports-comment as-subtle">No comment provided.</span>
+          )
+        }
+        meta={`${report.username}${report.email ? ` · ${report.email}` : ""} · ${formatDate(report.createdAt)}`}
       >
-        <div className="admin-report-card-head">
-          <div className="admin-report-card-meta">
-            <div className="admin-report-card-title-row">
-              <h3>{REPORT_TYPE_LABELS[report.type] ?? report.type}</h3>
-              {isResolved && (
-                <span className={`admin-report-status-badge admin-report-status-${report.status}`}>
-                  {STATUS_LABELS[report.status]}
-                </span>
-              )}
-            </div>
-            <p className="admin-library-meta-text">
-              {report.username}
-              {report.email ? ` · ${report.email}` : ""}
-              {" · "}
-              {formatDate(report.createdAt)}
+        <div className="as-reports-extra">
+          {report.path && <code className="as-reports-path">{report.path}</code>}
+          {report.userAgent && (
+            <p className="as-reports-ua" title={report.userAgent}>
+              {report.userAgent}
             </p>
-          </div>
-          <div className="admin-report-card-actions">
-            {report.path && (
-              <span className="admin-pill admin-report-path">{report.path}</span>
-            )}
+          )}
+          <Actions align="start">
             {report.status !== "fixed" && (
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                size="sm"
+                icon={CheckCheck}
                 title="Mark as fixed"
                 disabled={busy}
+                loading={actionLoading === `fixed-${report.id}`}
                 onClick={() => void updateStatus(report.id, "fixed")}
               >
-                <CheckCheck size={14} />
                 Fixed
-              </button>
+              </Button>
             )}
             {report.status !== "dismissed" && (
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                size="sm"
+                icon={X}
                 title="Dismiss"
                 disabled={busy}
+                loading={actionLoading === `dismissed-${report.id}`}
                 onClick={() => void updateStatus(report.id, "dismissed")}
               >
-                <X size={14} />
                 Dismiss
-              </button>
+              </Button>
             )}
             {report.status !== "open" && (
-              <button
-                className="btn btn-secondary btn-sm"
+              <Button
+                size="sm"
+                icon={RotateCcw}
                 title="Reopen"
                 disabled={busy}
+                loading={actionLoading === `open-${report.id}`}
                 onClick={() => void updateStatus(report.id, "open")}
               >
                 Reopen
-              </button>
+              </Button>
             )}
-            <button
-              className="btn btn-danger btn-sm"
+            <Button
+              size="sm"
+              variant="danger"
+              icon={Trash2}
               title="Delete report"
               disabled={busy}
+              loading={actionLoading === `delete-${report.id}`}
               onClick={() => void deleteReport(report.id)}
             >
-              <Trash2 size={14} />
-            </button>
-          </div>
+              Delete
+            </Button>
+          </Actions>
         </div>
-
-        {report.comment ? (
-          <p className="admin-report-comment">{report.comment}</p>
-        ) : (
-          <p className="admin-report-comment admin-report-comment-muted">No comment provided.</p>
-        )}
-
-        {report.userAgent && (
-          <div className="admin-report-user-agent" title={report.userAgent}>
-            {report.userAgent}
-          </div>
-        )}
-      </article>
+      </ListItem>
     );
   };
 
   return (
-    <div className="admin-panel-stack">
-      <div className="admin-section-head">
-        <div>
-          <h3>Issue reports</h3>
-          <p className="admin-library-meta-text">
-            Latest reports submitted from the library and mobile menu.
-          </p>
-        </div>
-        <button
-          className="btn btn-secondary"
-          type="button"
-          onClick={() => void loadBugReports()}
-          disabled={reportsLoading}
-        >
-          <RefreshCw size={15} className={reportsLoading ? "animate-spin" : ""} />
+    <Panel
+      title="Issue reports"
+      icon={MessageSquareWarning}
+      description="Submitted from the library and mobile menu."
+      actions={
+        <Button size="sm" icon={RefreshCw} loading={reportsLoading} onClick={() => void loadBugReports()}>
           Refresh
-        </button>
-      </div>
-
-      {reportsLoading && bugReports.length === 0 ? (
-        <div className="admin-empty-state">Loading reports...</div>
-      ) : bugReports.length === 0 ? (
-        <div className="admin-empty-state">No issue reports have been submitted.</div>
-      ) : (
-        <>
-          {open.length > 0 && (
-            <div className="admin-report-list">
-              {open.map(renderCard)}
-            </div>
-          )}
-
-          {open.length === 0 && resolved.length > 0 && (
-            <div className="admin-empty-state">All reports have been resolved.</div>
-          )}
-
-          {resolved.length > 0 && (
-            <details className="admin-report-resolved-section">
-              <summary className="admin-report-resolved-summary">
-                Resolved ({resolved.length})
-              </summary>
-              <div className="admin-report-list admin-report-list-resolved">
-                {resolved.map(renderCard)}
-              </div>
-            </details>
-          )}
-        </>
+        </Button>
+      }
+      flush
+    >
+      {bugReports.length > 0 && (
+        <div className="as-panel-body as-reports-filters">
+          <Segmented<ReportView>
+            label="Report status"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "open", label: "Open", count: open.length },
+              { value: "resolved", label: "Resolved", count: resolved.length },
+              { value: "all", label: "All", count: bugReports.length },
+            ]}
+          />
+        </div>
       )}
-    </div>
+
+      <div className="as-reports-body">
+        {reportsLoading && bugReports.length === 0 ? (
+          <div className="as-loading">
+            <div className="app-loading-spinner" />
+          </div>
+        ) : bugReports.length === 0 ? (
+          <EmptyState icon={Inbox} title="No issue reports yet">
+            When listeners use “Report an issue”, their reports show up here.
+          </EmptyState>
+        ) : visible.length === 0 ? (
+          view === "open" ? (
+            <EmptyState icon={CheckCircle2} title="All caught up" action={<Button size="sm" onClick={() => setView("resolved")}>View resolved ({resolved.length})</Button>}>
+              Every report has been fixed or dismissed.
+            </EmptyState>
+          ) : (
+            <EmptyState icon={Inbox} title="No resolved reports" />
+          )
+        ) : (
+          <List>{visible.map(renderReport)}</List>
+        )}
+      </div>
+    </Panel>
   );
 }
