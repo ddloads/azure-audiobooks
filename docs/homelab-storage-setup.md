@@ -16,6 +16,36 @@ This guide fixes it in layers. Each layer helps on its own, and together they ma
 | 6. Server-side delete guard | A scan of an empty or missing share can never wipe the library (built in) |
 | 7. Network and boot order | Static addressing, a storage link, and the NAS up before the stack |
 
+## Quick setup: one script
+
+Do **section 1** on Unraid first: `fuse_remember`, NFS security, and an `azure` SMB user with Read/Write on `data`. Then run the script on the machine that runs Docker:
+
+```bash
+git clone https://github.com/ddloads/azure-audiobooks.git && cd azure-audiobooks   # or git pull
+sudo ./scripts/setup-library-mount.sh --dry-run    # preview every change
+sudo ./scripts/setup-library-mount.sh              # asks for the Unraid password
+```
+
+It performs sections 2, 3 and 5 for you:
+- test-mounts the share with your credentials before changing anything
+- swaps the fstab entry (and keeps a backup)
+- makes Docker wait for the mount
+- installs the watchdog
+- creates the `.azure-library` sentinel
+- restarts `azure-server` and prints its health and how many entries it sees in `/app/library`
+
+**Not sure if the Docker host is a VM or an LXC?** Run `systemd-detect-virt` on it: `kvm` means VM, `lxc` means container. If it's an LXC, the script stops and tells you to run it on the **Proxmox node** instead, with the container's ID:
+
+```bash
+sudo ./scripts/setup-library-mount.sh --ctid <CTID>
+```
+
+**Options:**
+- `--nfs`: keep NFS (hardened options) instead of SMB.
+- `--nas-ip`, `--share`, `--library`, `--user`, `--container`: change the defaults (`192.168.1.37`, `data`, `media/audiobooks`, `azure`, `azure-server`).
+
+Re-running it is safe.
+
 ---
 
 ## Why it breaks
