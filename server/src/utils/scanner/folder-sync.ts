@@ -20,6 +20,7 @@ import {
 } from "./shared";
 import { parseAsin, parseGenres, parseIsbn, parseYear, pickDescription } from "./folder-metadata";
 import { hasMatchedMetadata } from "./metadataPreservation";
+import { librarySourcesHealthy } from "../libraryHealth";
 
 const deleteBookFolderIfPresent = async (libraryId: string, folderPath: string) => {
   const existingBook = await prisma.book.findFirst({
@@ -33,6 +34,8 @@ const deleteBookFolderIfPresent = async (libraryId: string, folderPath: string) 
     select: { id: true },
   });
   if (!existingBook) return false;
+  // The folder may only look gone because the share dropped.
+  if (!(await librarySourcesHealthy(libraryId, `removing ${folderPath}`))) return false;
   await prisma.book.delete({ where: { id: existingBook.id } });
   return true;
 };

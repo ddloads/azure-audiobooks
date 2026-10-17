@@ -19,6 +19,7 @@ import {
 } from "./middleware/loggingMiddleware";
 import { getAllowedOrigins, isOriginAllowed } from "./utils/securityConfig";
 import prisma from "./lib/prisma";
+import { getLibraryStorageHealth } from "./utils/libraryHealth";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -54,13 +55,23 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/bookmarks", bookmarkRoutes);
 app.use("/api/mobile-app", mobileAppRoutes);
 
+// Reports the database and the library share. A missing share makes the
+// container "unhealthy" in Docker/Portainer instead of silently serving an
+// empty library.
 app.get("/health", async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: "ok" });
   } catch {
-    res.status(503).json({ status: "unavailable" });
+    res.status(503).json({ status: "unavailable", database: "unreachable" });
+    return;
   }
+  const library = await getLibraryStorageHealth().catch(() => []);
+  const unhealthy = library.filter((source) => !source.ok);
+  if (unhealthy.length > 0) {
+    res.status(503).json({ status: "degraded", database: "ok", library });
+    return;
+  }
+  res.json({ status: "ok", database: "ok", library });
 });
 
 app.use(errorLoggingMiddleware);

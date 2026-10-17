@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import prisma from "../../lib/prisma";
 import { normalizeSourcePath } from "../libraryConfig";
+import { allowBulkRemoval, librarySourcesHealthy } from "../libraryHealth";
 import {
   AUDIO_EXTENSIONS,
   type LibraryWithSources,
@@ -90,6 +91,9 @@ export const removeMissingBooks = async (
   discoveredPaths: Set<string>,
   sourceRoots: string[],
 ) => {
+  // A dropped share looks exactly like "every book was deleted".
+  if (!(await librarySourcesHealthy(libraryId, "removing missing books"))) return;
+
   const existingBooks = await prisma.book.findMany({
     where: { libraryId },
     select: { id: true, folderPath: true, coverPath: true },
@@ -108,6 +112,7 @@ export const removeMissingBooks = async (
     .map((book) => book.id);
 
   if (missingBookIds.length > 0) {
+    if (!allowBulkRemoval(libraryId, missingBookIds.length, existingBooks.length)) return;
     await prisma.book.deleteMany({
       where: { id: { in: missingBookIds } },
     });

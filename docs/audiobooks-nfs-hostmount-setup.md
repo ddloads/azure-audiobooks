@@ -1,6 +1,8 @@
 # Audiobooks / Unraid NFS — Host-Mount Setup for the Azure (Docker) Box
 
 **Date:** 2026-06-12
+
+> **Superseded by [homelab-storage-setup.md](homelab-storage-setup.md)** for the mount itself (SMB option, systemd automount, watchdog, health checks). This page is kept for the hardlink background.
 **Goal:** Stop the recurring NFS ESTALE failures on the remote Docker host, keep the
 unified `/data` hardlink pipeline intact, and establish the mount pattern for migrating
 the rest of the containers off Unraid later.
