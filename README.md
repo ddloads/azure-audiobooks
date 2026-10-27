@@ -27,7 +27,7 @@ A modern, self-hosted audiobook streaming platform designed for performance and 
 ### Prerequisites
 
 - Docker and Docker Compose installed.
-- A PostgreSQL database (e.g., Supabase).
+- Nothing else for the database: the stack runs its own PostgreSQL (`azure-db`). An external one such as Supabase also works.
 - An existing Docker volume named `Audiobooks` (if using network storage).
 
 ### Environment Variables
@@ -36,15 +36,16 @@ Create a `.env` file or set these in your container orchestrator (like Portainer
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `DATABASE_URL` | PostgreSQL connection string | Required |
-| `DIRECT_URL` | Direct PostgreSQL connection string | Required |
+| `POSTGRES_PASSWORD` | Password for the stack's `azure-db` database (letters and digits) | Required |
+| `DATABASE_URL` | PostgreSQL connection string; set only to use an external database | The `azure-db` service |
+| `DIRECT_URL` | Direct PostgreSQL connection string; set only to use an external database | The `azure-db` service |
 | `JWT_SECRET` | Secret key for auth tokens | Recommended |
 | `CLIENT_ORIGIN` | Allowed CORS origin (your public domain) | `http://localhost:8080` |
 | `PORT_CLIENT` | External port for the web UI | `8080` |
 | `EXTERNAL_FETCH_TIMEOUT_MS` | Timeout for Audible, Google Books, Goodreads, and cover requests | `20000` |
 | `METADATA_SEARCH_CACHE_TTL_MS` | In-memory metadata result cache lifetime | `300000` |
 
-> **Note for Supabase users:** If using the connection pooler (port 6543), append `&statement_cache_size=0` to your `DATABASE_URL`.
+> **Note for Supabase users:** If using the connection pooler (port 6543), append `&statement_cache_size=0` to your `DATABASE_URL`. To move an existing Supabase database into the stack, see [docs/local-database.md](docs/local-database.md).
 
 ### Deployment
 
