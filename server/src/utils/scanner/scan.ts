@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import prisma from "../../lib/prisma";
-import { generateSmartChapters } from "../chapterizer";
+import { buildChapters } from "./chapter-source";
 import { getConfiguredLibraries, normalizeSourcePath } from "../libraryConfig";
 import { getCoverUrl } from "../covers";
 import {
@@ -155,6 +155,7 @@ export const autoChapterizeBook = async (bookId: string, replaceExisting = true)
     select: {
       id: true,
       title: true,
+      asin: true,
       duration: true,
       audioFiles: {
         select: {
@@ -175,10 +176,17 @@ export const autoChapterizeBook = async (bookId: string, replaceExisting = true)
   }
 
   if (!replaceExisting && book._count.chapters > 0) {
-    return { created: 0, skipped: true };
+    return { created: 0, skipped: true, source: null };
   }
 
-  const chapters = await generateSmartChapters(book.audioFiles, book.duration);
+  // An explicit request: try Audible and pauses regardless of the scan switches.
+  const { chapters, source } = await buildChapters({
+    asin: book.asin,
+    audioFiles: book.audioFiles,
+    totalDuration: book.duration,
+    audible: true,
+    silence: true,
+  });
   await prisma.chapter.deleteMany({ where: { bookId: book.id } });
 
   if (chapters.length > 0) {
@@ -189,7 +197,8 @@ export const autoChapterizeBook = async (bookId: string, replaceExisting = true)
       })),
     });
   }
+  await prisma.book.update({ where: { id: book.id }, data: { chaptersSource: chapters.length > 0 ? source : null } });
 
-  return { created: chapters.length, skipped: false };
+  return { created: chapters.length, skipped: false, source };
 };
 

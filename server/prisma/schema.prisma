@@ -94,6 +94,8 @@ model Book {
   duration         Float       @default(0)
   folderPath       String      @unique
   metadataVersion  Int         @default(0)
+  // Where the chapters came from: "embedded", "audible" or "generated" (files, pauses or even spacing). Null for books chaptered before this was tracked.
+  chaptersSource   String?
   audioFiles       AudioFile[]
   indexedFiles     IndexedAudioFile[]
   chapters         Chapter[]

@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
 import prisma from "../../lib/prisma";
-import { generateSmartChapters, type ChapterInputAudioFile } from "../chapterizer";
+import { type ChapterInputAudioFile } from "../chapterizer";
+import { buildChapters, type ChaptersSource } from "./chapter-source";
 import { extractCover } from "../processor";
 import { queueFastStart } from "../faststart";
 import { getCoverUrl, findCoverInFolder } from "../covers";
@@ -307,13 +308,17 @@ export const upsertBookFolder = async (
       return prisma.audioFile.update({ where: { id: audioFile.id }, data: { path: nextPath } });
     }));
     if (existingBook._count.chapters === 0 && existingBook.audioFiles.length > 0) {
-      const chapters = await generateSmartChapters(
-        existingBook.audioFiles,
-        existingBook.audioFiles.reduce((sum, a) => sum + a.duration, 0),
-        { silence: (await getScanSettingsCached()).silenceChapters },
-      );
+      const settings = await getScanSettingsCached();
+      const { chapters, source } = await buildChapters({
+        asin,
+        audioFiles: existingBook.audioFiles,
+        totalDuration: existingBook.audioFiles.reduce((sum, a) => sum + a.duration, 0),
+        audible: settings.audibleChapters,
+        silence: settings.silenceChapters,
+      });
       if (chapters.length > 0) {
         await prisma.chapter.createMany({ data: chapters.map((chapter) => ({ ...chapter, bookId: book.id })) });
+        await prisma.book.update({ where: { id: book.id }, data: { chaptersSource: source } });
       }
     }
     return;
@@ -359,17 +364,23 @@ export const upsertBookFolder = async (
   await prisma.audioFile.createMany({ data: processedAudioFiles.map((audioFile) => ({ ...audioFile, bookId: book.id })) });
   for (const audioFile of processedAudioFiles) queueFastStart(audioFile.path);
 
+  let chaptersSource: ChaptersSource | null = allChapters.length > 0 ? "embedded" : null;
   if (allChapters.length === 0) {
-    allChapters.push(
-      ...(await generateSmartChapters(processedAudioFiles, totalDuration, {
-        silence: (await getScanSettingsCached()).silenceChapters,
-      })),
-    );
+    const settings = await getScanSettingsCached();
+    const built = await buildChapters({
+      asin,
+      audioFiles: processedAudioFiles,
+      totalDuration,
+      audible: settings.audibleChapters,
+      silence: settings.silenceChapters,
+    });
+    allChapters.push(...built.chapters);
+    if (built.chapters.length > 0) chaptersSource = built.source;
   }
   if (allChapters.length > 0) {
     await prisma.chapter.createMany({ data: allChapters.map((c) => ({ ...c, bookId: book.id })) });
   }
-  await prisma.book.update({ where: { id: book.id }, data: { duration: totalDuration } });
+  await prisma.book.update({ where: { id: book.id }, data: { duration: totalDuration, chaptersSource } });
 };
 
 export const syncLibraryFolder = async (

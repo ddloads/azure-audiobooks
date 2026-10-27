@@ -34,6 +34,19 @@ export interface AdminInvite {
 export interface ScanSettings {
   fastStartEnabled: boolean;
   silenceChapters: boolean;
+  audibleChapters: boolean;
+}
+
+export interface AudibleChapterBackfillStatus {
+  running: boolean;
+  total: number;
+  processed: number;
+  updated: number;
+  notFound: number;
+  mismatched: number;
+  failed: number;
+  startedAt: string | null;
+  finishedAt: string | null;
 }
 
 export interface DashboardStats {

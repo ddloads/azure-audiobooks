@@ -62,7 +62,7 @@ export const getScanSettingsHandler = async (_req: AuthRequest, res: Response) =
   }
 };
 
-const SCAN_BOOL_KEYS: (keyof ScanSettings)[] = ["fastStartEnabled", "silenceChapters"];
+const SCAN_BOOL_KEYS: (keyof ScanSettings)[] = ["fastStartEnabled", "silenceChapters", "audibleChapters"];
 
 export const updateScanSettingsHandler = async (req: AuthRequest, res: Response) => {
   try {
