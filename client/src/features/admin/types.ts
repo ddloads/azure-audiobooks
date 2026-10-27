@@ -16,6 +16,21 @@ export interface AppearanceSettings {
   shelfRecentlyAdded: boolean;
 }
 
+export interface RegistrationSettings {
+  openRegistration: boolean;
+}
+
+export interface AdminInvite {
+  id: string;
+  note: string | null;
+  status: "active" | "used" | "expired";
+  createdAt: string;
+  expiresAt: string;
+  usedAt: string | null;
+  createdBy: string | null;
+  usedBy: string | null;
+}
+
 export interface ScanSettings {
   fastStartEnabled: boolean;
   silenceChapters: boolean;

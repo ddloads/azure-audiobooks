@@ -1,10 +1,11 @@
 import { isAxiosError } from "axios";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import api from "../api/axios";
 import AppLogo from "../components/AppLogo";
 import { useAuth } from "../context/AuthContext";
+import type { RegistrationStatus } from "./Register";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -14,6 +15,15 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  // Hide the sign-up link when registration is invite-only. Invite links go straight to /register.
+  const [canRegister, setCanRegister] = useState(false);
+
+  useEffect(() => {
+    api
+      .get<RegistrationStatus>("/auth/registration")
+      .then((response) => setCanRegister(response.data.open))
+      .catch(() => setCanRegister(true));
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -94,10 +104,12 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="auth-footer">
-          Don't have an account?{" "}
-          <Link to="/register">Create one</Link>
-        </div>
+        {canRegister && (
+          <div className="auth-footer">
+            Don't have an account?{" "}
+            <Link to="/register">Create one</Link>
+          </div>
+        )}
       </div>
     </div>
   );

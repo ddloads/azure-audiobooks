@@ -5,6 +5,7 @@ import { useToast } from "../../../context/ToastContext";
 import ConfirmDialog from "../../../components/ConfirmDialog";
 import type { AdminUser, PendingAdminConfirm } from "../types";
 import { getErrorMessage } from "../helpers";
+import RegistrationPanel from "./users/RegistrationPanel";
 import {
   Actions,
   Avatar,
@@ -118,6 +119,8 @@ export default function UsersTab({ users, onRefresh }: UsersTabProps) {
 
   return (
     <Stack>
+      <RegistrationPanel />
+
       {creating && (
         <Panel
           title="New user"

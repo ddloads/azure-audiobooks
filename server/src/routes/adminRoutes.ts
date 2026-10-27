@@ -68,10 +68,13 @@ import {
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
 import { listBugReports } from "../controllers/reportController";
 import {
+  getRegistrationSettingsHandler,
   getScanSettingsHandler,
   updateAppearanceSettingsHandler,
+  updateRegistrationSettingsHandler,
   updateScanSettingsHandler,
 } from "../controllers/settingsController";
+import { createInviteHandler, listInvites, revokeInvite } from "../controllers/admin/adminInviteController";
 import { listAdminScriptsHandler, runAdminScriptHandler } from "../controllers/scriptController";
 import {
   browseFilesystemTree,
@@ -113,6 +116,11 @@ router.get("/tasks", listAdminTasks);
 router.patch("/settings/appearance", updateAppearanceSettingsHandler);
 router.get("/settings/scan", getScanSettingsHandler);
 router.patch("/settings/scan", updateScanSettingsHandler);
+router.get("/settings/registration", getRegistrationSettingsHandler);
+router.patch("/settings/registration", updateRegistrationSettingsHandler);
+router.get("/invites", listInvites);
+router.post("/invites", createInviteHandler);
+router.delete("/invites/:id", revokeInvite);
 router.get("/scripts", listAdminScriptsHandler);
 router.post("/scripts/run", runAdminScriptHandler);
 router.get("/filesystem", browseLibraryFolders);
