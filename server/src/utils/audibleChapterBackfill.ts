@@ -1,6 +1,7 @@
 import prisma from "../lib/prisma";
 import { createLogger } from "../lib/logger";
 import { fetchAudibleChapters, isAsin } from "./audnexus";
+import { isAsinFinderRunning } from "./asinFinder";
 
 // Upgrades books whose chapters were generated (even spacing, pauses, files)
 // to Audible's chapters, one ASIN lookup at a time. Runs in the background in
@@ -54,24 +55,28 @@ const findCandidates = async () => {
   return books.filter((book) => isAsin(book.asin) && looksGenerated(book));
 };
 
+/** Replaces a book's chapters with Audible's when its runtime matches. Returns the lookup outcome. */
+export const applyAudibleChaptersToBook = async (book: { id: string; asin: string; duration: number }) => {
+  const result = await fetchAudibleChapters(book.asin, book.duration);
+  if (result.status === "ok") {
+    await prisma.$transaction([
+      prisma.chapter.deleteMany({ where: { bookId: book.id } }),
+      prisma.chapter.createMany({ data: result.chapters.map((chapter) => ({ ...chapter, bookId: book.id })) }),
+      prisma.book.update({ where: { id: book.id }, data: { chaptersSource: "audible" } }),
+    ]);
+    return "updated" as const;
+  }
+  return result.status;
+};
+
 const run = async (candidates: Awaited<ReturnType<typeof findCandidates>>) => {
   for (const book of candidates) {
     try {
-      const result = await fetchAudibleChapters(book.asin!, book.duration);
-      if (result.status === "ok") {
-        await prisma.$transaction([
-          prisma.chapter.deleteMany({ where: { bookId: book.id } }),
-          prisma.chapter.createMany({ data: result.chapters.map((chapter) => ({ ...chapter, bookId: book.id })) }),
-          prisma.book.update({ where: { id: book.id }, data: { chaptersSource: "audible" } }),
-        ]);
-        status.updated++;
-      } else if (result.status === "not-found") {
-        status.notFound++;
-      } else if (result.status === "mismatch") {
-        status.mismatched++;
-      } else {
-        status.failed++;
-      }
+      const outcome = await applyAudibleChaptersToBook({ id: book.id, asin: book.asin!, duration: book.duration });
+      if (outcome === "updated") status.updated++;
+      else if (outcome === "not-found") status.notFound++;
+      else if (outcome === "mismatch") status.mismatched++;
+      else status.failed++;
     } catch (error) {
       status.failed++;
       logger.warn("Failed to apply Audible chapters", { bookId: book.id, error: String(error) });
@@ -83,7 +88,8 @@ const run = async (candidates: Awaited<ReturnType<typeof findCandidates>>) => {
 
 /** Starts the backfill unless one is already running. Returns the status either way. */
 export const startAudibleChapterBackfill = async (): Promise<{ started: boolean; status: AudibleChapterBackfillStatus }> => {
-  if (status.running) return { started: false, status: getAudibleChapterBackfillStatus() };
+  // Both jobs rewrite chapters, so only one runs at a time.
+  if (status.running || isAsinFinderRunning()) return { started: false, status: getAudibleChapterBackfillStatus() };
 
   status = { running: true, total: 0, processed: 0, updated: 0, notFound: 0, mismatched: 0, failed: 0, startedAt: new Date().toISOString(), finishedAt: null };
   try {

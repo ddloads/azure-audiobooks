@@ -4,6 +4,7 @@ import { AuthRequest } from "../../middleware/authMiddleware";
 import { requestLibraryScan, requestLibraryFolderScan } from "../../lib/scanJobPool";
 import { autoChapterizeBook, rescanBook } from "../../utils/scanner";
 import { getAudibleChapterBackfillStatus, startAudibleChapterBackfill } from "../../utils/audibleChapterBackfill";
+import { getAsinFinderStatus, startAsinFinder } from "../../utils/asinFinder";
 import { invalidateFilterOptionsCache } from "../libraryController";
 import { invalidateRecommendationCache } from "../../lib/recommendationCache";
 import { getSingleParam } from "./shared";
@@ -184,5 +185,19 @@ export const startAudibleChapterBackfillHandler = async (_req: AuthRequest, res:
   } catch (error) {
     console.error("Audible chapter backfill error:", error);
     res.status(500).json({ error: "Failed to start the Audible chapter lookup" });
+  }
+};
+
+export const getAsinFinderHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  res.json(getAsinFinderStatus());
+};
+
+export const startAsinFinderHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { started, status } = await startAsinFinder();
+    res.status(started ? 202 : 409).json(status);
+  } catch (error) {
+    console.error("ASIN finder error:", error);
+    res.status(500).json({ error: "Failed to start finding ASINs" });
   }
 };
