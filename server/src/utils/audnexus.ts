@@ -6,7 +6,8 @@ import { fetchExternal } from "./externalFetch";
 
 const AUDNEXUS_BASE_URL = "https://api.audnex.us";
 const AUDNEXUS_REGIONS = new Set(["us", "ca", "uk", "au", "fr", "de", "jp", "it", "in", "es"]);
-const AUDNEXUS_REGION = (() => {
+/** Audible store region for chapter and catalog lookups (AUDNEXUS_REGION, default us). */
+export const AUDNEXUS_REGION = (() => {
   const raw = (process.env.AUDNEXUS_REGION || "").toLowerCase().trim();
   return AUDNEXUS_REGIONS.has(raw) ? raw : "us";
 })();

@@ -37,6 +37,18 @@ export interface ScanSettings {
   audibleChapters: boolean;
 }
 
+export interface AsinFinderStatus {
+  running: boolean;
+  total: number;
+  processed: number;
+  found: number;
+  noMatch: number;
+  failed: number;
+  chaptersUpdated: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
 export interface AudibleChapterBackfillStatus {
   running: boolean;
   total: number;
