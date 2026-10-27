@@ -9,6 +9,7 @@ import { getErrorMessage } from "../helpers";
 import { Actions, Button, EmptyState, Field, FormGrid, Panel, Progress, Stack } from "../ui";
 import LibraryCard, { type LibraryDraft } from "./libraries/LibraryCard";
 import SilenceResultsPanel, { type SilenceCheckResults } from "./libraries/SilenceResultsPanel";
+import ScanSettingsPanel from "./libraries/ScanSettingsPanel";
 import type { SourceDraft, SourceFlag } from "./libraries/SourceList";
 import "./LibrariesTab.css";
 
@@ -428,6 +429,8 @@ export default function LibrariesTab({ libraries, onRefresh, onRequestUpload }: 
           )}
         </Stack>
       </Panel>
+
+      <ScanSettingsPanel />
 
       {creating && (
         <Panel title="New library" icon={FolderPlus} description="Add source folders after it's created." tone="accent">

@@ -132,11 +132,6 @@ type SilenceWindow = {
 
 const detectSilences = (audioPath: string, duration: number) =>
   new Promise<SilenceWindow[]>((resolve) => {
-    if (process.env.AUTO_CHAPTERIZE_SILENCE === "0") {
-      resolve([]);
-      return;
-    }
-
     let stderr = "";
     const timeoutMs = Math.min(180_000, Math.max(45_000, Math.round(duration * 35)));
     let settled = false;
@@ -259,6 +254,8 @@ const chapterizeByDuration = (totalDuration: number): GeneratedChapter[] => {
 export const generateSmartChapters = async (
   audioFiles: ChapterInputAudioFile[],
   totalDuration: number,
+  // Silence detection decodes the whole file; scans pass the admin setting.
+  options: { silence?: boolean } = {},
 ): Promise<GeneratedChapter[]> => {
   const validAudioFiles = audioFiles
     .filter((audioFile) => audioFile.duration > 0)
@@ -273,7 +270,7 @@ export const generateSmartChapters = async (
     return fileChapters;
   }
 
-  if (validAudioFiles.length === 1) {
+  if (validAudioFiles.length === 1 && options.silence !== false) {
     const silenceChapters = await chapterizeBySilence(validAudioFiles[0], totalDuration);
     if (silenceChapters.length > 0) {
       return silenceChapters;

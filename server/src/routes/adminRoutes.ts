@@ -67,7 +67,11 @@ import {
 } from "../controllers/admin/adminDashboardController";
 import { clearSystemLogs, listSystemLogs } from "../controllers/logController";
 import { listBugReports } from "../controllers/reportController";
-import { updateAppearanceSettingsHandler } from "../controllers/settingsController";
+import {
+  getScanSettingsHandler,
+  updateAppearanceSettingsHandler,
+  updateScanSettingsHandler,
+} from "../controllers/settingsController";
 import { listAdminScriptsHandler, runAdminScriptHandler } from "../controllers/scriptController";
 import {
   browseFilesystemTree,
@@ -107,6 +111,8 @@ router.use(authenticate, authorizeAdmin);
 router.get("/dashboard", getAdminDashboard);
 router.get("/tasks", listAdminTasks);
 router.patch("/settings/appearance", updateAppearanceSettingsHandler);
+router.get("/settings/scan", getScanSettingsHandler);
+router.patch("/settings/scan", updateScanSettingsHandler);
 router.get("/scripts", listAdminScriptsHandler);
 router.post("/scripts/run", runAdminScriptHandler);
 router.get("/filesystem", browseLibraryFolders);

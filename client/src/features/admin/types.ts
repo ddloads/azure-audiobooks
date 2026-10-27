@@ -16,6 +16,11 @@ export interface AppearanceSettings {
   shelfRecentlyAdded: boolean;
 }
 
+export interface ScanSettings {
+  fastStartEnabled: boolean;
+  silenceChapters: boolean;
+}
+
 export interface DashboardStats {
   users: number;
   admins: number;

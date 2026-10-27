@@ -22,6 +22,7 @@ import { parseAsin, parseGenres, parseIsbn, parseYear, pickDescription } from ".
 import { hasMatchedMetadata } from "./metadataPreservation";
 import { librarySourcesHealthy } from "../libraryHealth";
 import { SCAN_PROBE_CONCURRENCY, mapWithConcurrency } from "./scan-helpers";
+import { getScanSettingsCached } from "../appSettings";
 
 // Folders are scanned in parallel, so two new books by the same author can
 // race on the unique name. The loser's retry finds the row and just updates it.
@@ -306,7 +307,11 @@ export const upsertBookFolder = async (
       return prisma.audioFile.update({ where: { id: audioFile.id }, data: { path: nextPath } });
     }));
     if (existingBook._count.chapters === 0 && existingBook.audioFiles.length > 0) {
-      const chapters = await generateSmartChapters(existingBook.audioFiles, existingBook.audioFiles.reduce((sum, a) => sum + a.duration, 0));
+      const chapters = await generateSmartChapters(
+        existingBook.audioFiles,
+        existingBook.audioFiles.reduce((sum, a) => sum + a.duration, 0),
+        { silence: (await getScanSettingsCached()).silenceChapters },
+      );
       if (chapters.length > 0) {
         await prisma.chapter.createMany({ data: chapters.map((chapter) => ({ ...chapter, bookId: book.id })) });
       }
@@ -355,7 +360,11 @@ export const upsertBookFolder = async (
   for (const audioFile of processedAudioFiles) queueFastStart(audioFile.path);
 
   if (allChapters.length === 0) {
-    allChapters.push(...(await generateSmartChapters(processedAudioFiles, totalDuration)));
+    allChapters.push(
+      ...(await generateSmartChapters(processedAudioFiles, totalDuration, {
+        silence: (await getScanSettingsCached()).silenceChapters,
+      })),
+    );
   }
   if (allChapters.length > 0) {
     await prisma.chapter.createMany({ data: allChapters.map((c) => ({ ...c, bookId: book.id })) });
