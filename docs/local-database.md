@@ -65,5 +65,5 @@ Once you've run on the local database for a while and are happy with it, you can
 
 ## Backups
 
-- The server writes a `pg_dump` to `server/data/backups/` on every start, keeping the last 7. On the Docker host that folder is `/data/compose/<stack id>/server/data/backups`.
+- The server writes a `pg_dump` to `backups/` in its data folder on every start, keeping the last 7. On the Docker host that is `$AZURE_DATA_PATH/backups` (or `/data/compose/<stack id>/server/data/backups` if `AZURE_DATA_PATH` isn't set).
 - The Docker volume itself is not backed up by anything. Copy the backups folder somewhere else on a schedule, for example to the NAS, or include the Docker VM in your Proxmox backup jobs.
