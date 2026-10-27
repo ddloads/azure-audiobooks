@@ -52,7 +52,24 @@ export const cleanTitleForSearch = (title: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-const authorSurname = (author: string) => normalize(author).split(" ").filter(Boolean).pop() ?? "";
+const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "phd", "md"]);
+
+/**
+ * The names in a library author field. It often lists the narrator too
+ * ("Brandon Sanderson, MacLeod Andrews") or several co-authors, so every
+ * name is checked. "Unknown Author" placeholders are dropped.
+ */
+export const splitAuthorNames = (author: string) =>
+  author
+    .split(/\s*(?:,|&|;|\/|\band\b)\s*/i)
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0 && !/^unknown\b/i.test(name));
+
+const authorSurname = (name: string) => {
+  const words = normalize(name).split(" ").filter(Boolean);
+  while (words.length > 1 && NAME_SUFFIXES.has(words[words.length - 1])) words.pop();
+  return words.pop() ?? "";
+};
 
 /** Audible minutes vs the files' seconds: within 2% or 2 minutes, whichever is larger. */
 export const catalogRuntimeMatches = (runtimeMinutes: number, bookSeconds: number) =>
@@ -72,8 +89,9 @@ export const pickCatalogMatch = (
   book: { title: string; author: string; duration: number },
 ): CatalogProduct | null => {
   const searchTitle = cleanTitleForSearch(book.title);
-  const surname = authorSurname(book.author);
-  if (!surname || surname === "author") return null; // "Unknown Author" can't confirm anything
+  // Any name in the field may be the author on Audible; runtime and title still have to match too.
+  const surnames = new Set(splitAuthorNames(book.author).map(authorSurname).filter((surname) => surname.length > 1));
+  if (surnames.size === 0) return null; // "Unknown Author" can't confirm anything
 
   const matches = products
     .filter(
@@ -81,7 +99,9 @@ export const pickCatalogMatch = (
         typeof product.asin === "string" &&
         typeof product.runtime_length_min === "number" &&
         catalogRuntimeMatches(product.runtime_length_min, book.duration) &&
-        (product.authors ?? []).some((author) => normalize(author.name ?? "").split(" ").includes(surname)) &&
+        (product.authors ?? []).some((author) =>
+          normalize(author.name ?? "").split(" ").some((word) => surnames.has(word)),
+        ) &&
         titleOverlap(searchTitle, product.title ?? "") >= 0.5,
     )
     .map((product) => ({
@@ -113,7 +133,9 @@ export const findAsinForBook = async (book: { title: string; author: string; dur
   if (!title || book.duration <= 0) return { status: "no-match", reason: "Missing title or duration" };
 
   try {
-    let match = pickCatalogMatch(await searchCatalog({ title, author: book.author }), book);
+    // Search with the first listed name: usually the author, while later ones are often narrators.
+    const [firstAuthor] = splitAuthorNames(book.author);
+    let match = pickCatalogMatch(await searchCatalog(firstAuthor ? { title, author: firstAuthor } : { title }), book);
     // The author may be spelled differently on Audible ("Octavia E Butler"); the
     // author check above still applies to these results.
     if (!match) match = pickCatalogMatch(await searchCatalog({ title }), book);

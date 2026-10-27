@@ -6,7 +6,7 @@ const test = require('node:test');
 const distDirectory = fs.existsSync(path.join(__dirname, '..', '.test-dist'))
   ? path.join(__dirname, '..', '.test-dist')
   : path.join(__dirname, '..', 'dist');
-const { catalogRuntimeMatches, cleanTitleForSearch, pickCatalogMatch } = require(
+const { catalogRuntimeMatches, cleanTitleForSearch, pickCatalogMatch, splitAuthorNames } = require(
   path.join(distDirectory, 'utils', 'audibleCatalog.js'),
 );
 
@@ -61,4 +61,35 @@ test('author initials and spacing differences still match on surname', () => {
 test('books by "Unknown Author" are never matched', () => {
   const products = [{ asin: 'B000000001', title: 'Mystery', runtime_length_min: 600, authors: [{ name: 'Unknown Author' }] }];
   assert.equal(pickCatalogMatch(products, { title: 'Mystery', author: 'Unknown Author', duration: 600 * 60 }), null);
+});
+
+test('author fields are split into names, dropping "Unknown Author"', () => {
+  assert.deepEqual(splitAuthorNames('Brandon Sanderson, MacLeod Andrews'), ['Brandon Sanderson', 'MacLeod Andrews']);
+  assert.deepEqual(splitAuthorNames('B. V. Larson, David VanDyke, Mark Boyett'), ['B. V. Larson', 'David VanDyke', 'Mark Boyett']);
+  assert.deepEqual(splitAuthorNames('Ilona Andrews & Jeffrey Kafer'), ['Ilona Andrews', 'Jeffrey Kafer']);
+  assert.deepEqual(splitAuthorNames('Douglas Preston and Lincoln Child'), ['Douglas Preston', 'Lincoln Child']);
+  assert.deepEqual(splitAuthorNames('Unknown Author'), []);
+  assert.deepEqual(splitAuthorNames('Kevin Hearne'), ['Kevin Hearne']);
+});
+
+test('a field listing author and narrator matches on the author', () => {
+  const products = [{ asin: 'B00I8CNFOU', title: 'Steelheart', runtime_length_min: 763, authors: [{ name: 'Brandon Sanderson' }] }];
+  assert.equal(
+    pickCatalogMatch(products, { title: 'Steelheart: The Reckoners, Book 1', author: 'Brandon Sanderson, MacLeod Andrews', duration: 763 * 60 })?.asin,
+    'B00I8CNFOU',
+  );
+});
+
+test('a co-author listed second still confirms the match', () => {
+  const products = [{ asin: 'B07FLAGSHP', title: 'Flagship Victory', runtime_length_min: 980, authors: [{ name: 'David VanDyke' }, { name: 'B. V. Larson' }] }];
+  assert.equal(
+    pickCatalogMatch(products, { title: 'Flagship Victory (2018) [Galactic Liberation 3]', author: 'B. V. Larson, David VanDyke, Mark Boyett', duration: 980 * 60 })?.asin,
+    'B07FLAGSHP',
+  );
+});
+
+test('name suffixes like "Jr." are not treated as surnames', () => {
+  const products = [{ asin: 'B000SUFFIX', title: 'The Book', runtime_length_min: 600, authors: [{ name: 'Robert W. Ross' }] }];
+  assert.equal(pickCatalogMatch(products, { title: 'The Book', author: 'Robert W. Ross Jr.', duration: 600 * 60 })?.asin, 'B000SUFFIX');
+  assert.equal(pickCatalogMatch(products, { title: 'The Book', author: 'Somebody Jr.', duration: 600 * 60 }), null);
 });
