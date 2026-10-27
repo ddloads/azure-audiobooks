@@ -4,8 +4,10 @@ import {
   AppearanceSettings,
   ScanSettings,
   getAppearanceSettings,
+  getRegistrationSettings,
   getScanSettings,
   updateAppearanceSettings,
+  updateRegistrationSettings,
   updateScanSettings,
 } from "../utils/appSettings";
 import { invalidateFilterOptionsCache } from "./libraryController";
@@ -83,5 +85,26 @@ export const updateScanSettingsHandler = async (req: AuthRequest, res: Response)
     res.json(await updateScanSettings(updates));
   } catch (error) {
     res.status(500).json({ error: "Failed to update scan settings" });
+  }
+};
+
+export const getRegistrationSettingsHandler = async (_req: AuthRequest, res: Response) => {
+  try {
+    res.json(await getRegistrationSettings());
+  } catch (error) {
+    res.status(500).json({ error: "Failed to load registration settings" });
+  }
+};
+
+export const updateRegistrationSettingsHandler = async (req: AuthRequest, res: Response) => {
+  try {
+    const openRegistration = (req.body as Record<string, unknown>)?.openRegistration;
+    if (typeof openRegistration !== "boolean") {
+      res.status(400).json({ error: "openRegistration must be a boolean" });
+      return;
+    }
+    res.json(await updateRegistrationSettings({ openRegistration }));
+  } catch (error) {
+    res.status(500).json({ error: "Failed to update registration settings" });
   }
 };

@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import {
   register,
+  getRegistrationStatus,
   login,
   logout,
   getMe,
@@ -30,6 +31,14 @@ const registerLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Read on every login/sign-up page load, so it gets its own budget.
+const registrationStatusLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 const pairingRedeemLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -40,6 +49,7 @@ const pairingRedeemLimiter = rateLimit({
 
 const router = Router();
 
+router.get("/registration", registrationStatusLimiter, getRegistrationStatus);
 router.post("/register", registerLimiter, register);
 router.post("/login", loginLimiter, login);
 router.post("/logout", authenticate, logout);

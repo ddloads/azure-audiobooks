@@ -140,3 +140,41 @@ export const updateScanSettings = async (settings: Partial<ScanSettings>): Promi
   scanSettingsCache = { at: Date.now(), settings: next };
   return next;
 };
+
+/* ── Registration ─────────────────────────────────────────────────────────
+   Whether anyone may create an account. Invites and the very first account
+   (which becomes the admin) always work. */
+
+const REGISTRATION_SETTINGS_KEY = "registration";
+
+export interface RegistrationSettings {
+  openRegistration: boolean;
+}
+
+export const getRegistrationSettings = async (): Promise<RegistrationSettings> => {
+  const rows = await prisma.$queryRaw<Array<{ value: string }>>`
+    SELECT "value" FROM "AppSetting" WHERE "key" = ${REGISTRATION_SETTINGS_KEY} LIMIT 1
+  `;
+
+  try {
+    const parsed = rows[0] ? (JSON.parse(rows[0].value) as Partial<RegistrationSettings>) : {};
+    return { openRegistration: typeof parsed.openRegistration === "boolean" ? parsed.openRegistration : true };
+  } catch {
+    return { openRegistration: true };
+  }
+};
+
+export const updateRegistrationSettings = async (
+  settings: Partial<RegistrationSettings>,
+): Promise<RegistrationSettings> => {
+  const next = { ...(await getRegistrationSettings()) };
+  if (typeof settings.openRegistration === "boolean") next.openRegistration = settings.openRegistration;
+
+  await prisma.$executeRaw`
+    INSERT INTO "AppSetting" ("key", "value", "updatedAt")
+    VALUES (${REGISTRATION_SETTINGS_KEY}, ${JSON.stringify(next)}, NOW())
+    ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW()
+  `;
+
+  return next;
+};

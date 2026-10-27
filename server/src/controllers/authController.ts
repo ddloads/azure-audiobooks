@@ -13,6 +13,8 @@ import {
   sanitizeUsername,
 } from "../utils/usernames";
 import { getJwtSecret } from "../utils/securityConfig";
+import { getRegistrationSettings } from "../utils/appSettings";
+import { findUsableInvite } from "../utils/invites";
 
 // In-memory pairing codes for mobile QR connect. Single-use, 5-minute TTL.
 const pairingCodes = new Map<string, { userId: string; expiresAt: number }>();
@@ -78,6 +80,22 @@ const sanitizeAvatarUrl = (value: unknown): string | null => {
   }
 };
 
+class InviteAlreadyUsedError extends Error {}
+
+/** Public: lets the sign-up and login pages show the right state before anyone submits. */
+export const getRegistrationStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const firstUser = (await prisma.user.count()) === 0;
+    const { openRegistration } = await getRegistrationSettings();
+    const inviteToken = req.query.invite;
+    const invite = inviteToken ? ((await findUsableInvite(inviteToken)) ? "valid" : "invalid") : null;
+    res.json({ open: firstUser || openRegistration, firstUser, invite });
+  } catch (error) {
+    console.error("Registration status error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const username = sanitizeUsername(req.body?.username);
@@ -94,6 +112,22 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // The first account becomes the admin and is always allowed. After that,
+    // an invite link works even when open registration is turned off.
+    const isFirstUser = (await prisma.user.count()) === 0;
+    const inviteToken = req.body?.inviteToken;
+    const invite = !isFirstUser && inviteToken ? await findUsableInvite(inviteToken) : null;
+    if (!isFirstUser) {
+      if (inviteToken && !invite) {
+        res.status(403).json({ error: "This invite link is invalid, used or expired. Ask an admin for a new one." });
+        return;
+      }
+      if (!invite && !(await getRegistrationSettings()).openRegistration) {
+        res.status(403).json({ error: "Registration is closed. Ask an admin for an invite link." });
+        return;
+      }
+    }
+
     const existingUser = await findUserByUsernameInsensitive(username);
     if (existingUser) {
       res.status(400).json({ error: "Username already exists" });
@@ -106,19 +140,37 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Check if this is the first user, if so, make them admin
-    const userCount = await prisma.user.count();
-    const role = userCount === 0 ? "ADMIN" : "USER";
+    const role = isFirstUser ? "ADMIN" : "USER";
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        role,
-      },
-    });
+    let user;
+    try {
+      user = await prisma.$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            username,
+            email,
+            password: hashedPassword,
+            role,
+          },
+        });
+        if (invite) {
+          // Claim the invite in the same transaction so one link can't create two accounts.
+          const claimed = await tx.invite.updateMany({
+            where: { id: invite.id, usedAt: null, expiresAt: { gt: new Date() } },
+            data: { usedAt: new Date(), usedById: created.id },
+          });
+          if (claimed.count !== 1) throw new InviteAlreadyUsedError();
+        }
+        return created;
+      });
+    } catch (error) {
+      if (error instanceof InviteAlreadyUsedError) {
+        res.status(403).json({ error: "This invite link was just used. Ask an admin for a new one." });
+        return;
+      }
+      throw error;
+    }
 
     const token = issueAuthToken(user.id, user.tokenVersion);
     setAuthCookie(res, token);

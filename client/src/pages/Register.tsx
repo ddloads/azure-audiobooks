@@ -1,12 +1,21 @@
 import { isAxiosError } from "axios";
-import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import api from "../api/axios";
 import AppLogo from "../components/AppLogo";
 import { useAuth } from "../context/AuthContext";
 
+export interface RegistrationStatus {
+  open: boolean;
+  firstUser: boolean;
+  invite: "valid" | "invalid" | null;
+}
+
 const Register = () => {
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("invite") || undefined;
+  const [status, setStatus] = useState<RegistrationStatus | null>(null);
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,12 +25,20 @@ const Register = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    api
+      .get<RegistrationStatus>("/auth/registration", { params: inviteToken ? { invite: inviteToken } : undefined })
+      // If the check fails, show the form; the server still enforces the rules on submit.
+      .then((response) => setStatus(response.data))
+      .catch(() => setStatus({ open: true, firstUser: false, invite: null }));
+  }, [inviteToken]);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      const res = await api.post("/auth/register", { username, email, password });
+      const res = await api.post("/auth/register", { username, email, password, inviteToken });
       login(res.data.user);
       navigate("/");
     } catch (error) {
@@ -35,13 +52,50 @@ const Register = () => {
     }
   };
 
+  const hasValidInvite = status?.invite === "valid";
+  const blockedMessage = !status
+    ? null
+    : status.invite === "invalid"
+      ? "This invite link is invalid, has already been used, or has expired. Ask an admin for a new one."
+      : !status.open && !hasValidInvite
+        ? "Sign-up is by invitation only. Ask an admin of this server for an invite link."
+        : null;
+
+  if (!status || blockedMessage) {
+    return (
+      <div className="auth-page">
+        <AppLogo className="auth-logo" imageClassName="auth-logo-image" textClassName="auth-logo-text" />
+        <div className="card auth-card">
+          {!status ? (
+            <Loader2 size={20} className="animate-spin" aria-label="Loading" />
+          ) : (
+            <>
+              <h2>Can't create an account</h2>
+              <p className="auth-subtitle">{blockedMessage}</p>
+            </>
+          )}
+          <div className="auth-footer">
+            Already have an account?{" "}
+            <Link to="/login">Sign in</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="auth-page">
       <AppLogo className="auth-logo" imageClassName="auth-logo-image" textClassName="auth-logo-text" />
 
       <div className="card auth-card">
         <h2>Create an account</h2>
-        <p className="auth-subtitle">Start building your audiobook library</p>
+        <p className="auth-subtitle">
+          {status.firstUser
+            ? "This is the first account on this server, so it will be the admin."
+            : hasValidInvite
+              ? "You've been invited to this audiobook server."
+              : "Start building your audiobook library"}
+        </p>
 
         {error && <div className="auth-error">{error}</div>}
 

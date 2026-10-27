@@ -314,3 +314,18 @@ model ListeningSession {
   @@index([bookId])
   @@index([startedAt])
 }
+
+// Single-use sign-up links created by admins. Only a SHA-256 hash of the
+// token is stored; the link itself is shown once when it is created.
+model Invite {
+  id          String    @id @default(uuid())
+  tokenHash   String    @unique
+  note        String?
+  createdById String?
+  usedById    String?
+  usedAt      DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+}
