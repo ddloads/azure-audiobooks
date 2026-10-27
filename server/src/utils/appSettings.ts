@@ -80,11 +80,14 @@ export interface ScanSettings {
   fastStartEnabled: boolean;
   /** Decode single-file books without embedded chapters to place chapters at pauses. */
   silenceChapters: boolean;
+  /** Look up Audible's chapters by ASIN (via Audnexus) for books without embedded chapters. */
+  audibleChapters: boolean;
 }
 
 const defaultScanSettings = (): ScanSettings => ({
   fastStartEnabled: process.env.FAST_START_ENABLED !== "false",
   silenceChapters: process.env.AUTO_CHAPTERIZE_SILENCE !== "0",
+  audibleChapters: true,
 });
 
 const parseScanSettings = (value: string | null | undefined): ScanSettings => {
@@ -96,6 +99,7 @@ const parseScanSettings = (value: string | null | undefined): ScanSettings => {
     return {
       fastStartEnabled: typeof parsed.fastStartEnabled === "boolean" ? parsed.fastStartEnabled : defaults.fastStartEnabled,
       silenceChapters:  typeof parsed.silenceChapters === "boolean"  ? parsed.silenceChapters  : defaults.silenceChapters,
+      audibleChapters:  typeof parsed.audibleChapters === "boolean"  ? parsed.audibleChapters  : defaults.audibleChapters,
     };
   } catch {
     return defaults;

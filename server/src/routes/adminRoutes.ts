@@ -21,6 +21,8 @@ import {
 import {
   applyBookMatch,
   autoChapterizeBookHandler,
+  getAudibleChapterBackfillHandler,
+  startAudibleChapterBackfillHandler,
   deleteBook,
   dismissDuplicateGroupHandler,
   findBookDuplicatesHandler,
@@ -157,6 +159,8 @@ router.post("/books/:bookId/match/apply", applyBookMatch);
 router.patch("/books/:bookId/metadata", updateBookMetadata);
 router.post("/books/:bookId/write-tags", writeBookMetadataToFile);
 router.post("/books/:bookId/auto-chapterize", autoChapterizeBookHandler);
+router.get("/chapters/audible", getAudibleChapterBackfillHandler);
+router.post("/chapters/audible", startAudibleChapterBackfillHandler);
 router.post("/books/:bookId/merge-m4b", mergeBookFiles);
 router.post("/books/:bookId/undo-merge", undoMergeBookFiles);
 router.post("/books/:bookId/cleanup-backup", cleanupMergedBackupsHandler);

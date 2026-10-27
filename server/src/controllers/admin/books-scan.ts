@@ -3,6 +3,7 @@ import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
 import { requestLibraryScan, requestLibraryFolderScan } from "../../lib/scanJobPool";
 import { autoChapterizeBook, rescanBook } from "../../utils/scanner";
+import { getAudibleChapterBackfillStatus, startAudibleChapterBackfill } from "../../utils/audibleChapterBackfill";
 import { invalidateFilterOptionsCache } from "../libraryController";
 import { invalidateRecommendationCache } from "../../lib/recommendationCache";
 import { getSingleParam } from "./shared";
@@ -40,7 +41,9 @@ export const autoChapterizeBookHandler = async (req: AuthRequest, res: Response)
     res.json({
       message: result.skipped
         ? "Book already has chapters"
-        : `Generated ${result.created} ${result.created === 1 ? "chapter" : "chapters"}`,
+        : result.source === "audible"
+          ? `Applied ${result.created} ${result.created === 1 ? "chapter" : "chapters"} from Audible`
+          : `Generated ${result.created} ${result.created === 1 ? "chapter" : "chapters"}`,
       ...result,
     });
   } catch (error) {
@@ -169,3 +172,17 @@ export const rescanSingleLibrary = async (req: AuthRequest, res: Response): Prom
   }
 };
 
+
+export const getAudibleChapterBackfillHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  res.json(getAudibleChapterBackfillStatus());
+};
+
+export const startAudibleChapterBackfillHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { started, status } = await startAudibleChapterBackfill();
+    res.status(started ? 202 : 409).json(status);
+  } catch (error) {
+    console.error("Audible chapter backfill error:", error);
+    res.status(500).json({ error: "Failed to start the Audible chapter lookup" });
+  }
+};
