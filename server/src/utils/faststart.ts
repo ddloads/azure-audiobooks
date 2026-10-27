@@ -3,12 +3,12 @@ import fsp from "fs/promises";
 import path from "path";
 import ffmpeg from "./ffmpeg";
 import { preparePathForTool } from "./libraryConfig";
+import { getScanSettingsCached } from "./appSettings";
 
 // MP4 containers that benefit from a faststart remux. Other formats (mp3,
 // flac, ogg, opus, wav) don't have a moov atom at all.
 const FASTSTART_EXTENSIONS = new Set([".m4b", ".m4a", ".mp4"]);
 
-const FAST_START_ENABLED = process.env.FAST_START_ENABLED !== "false";
 const FAST_START_CONCURRENCY = Math.max(
   1,
   Number.parseInt(process.env.FAST_START_CONCURRENCY || "", 10) || 1,
@@ -194,7 +194,7 @@ const getAvailableBytes = async (targetPath: string): Promise<number | null> => 
 export const ensureFastStart = async (
   filePath: string,
 ): Promise<"skipped" | "already-fast" | "remuxed"> => {
-  if (!FAST_START_ENABLED) return "skipped";
+  if (!(await getScanSettingsCached()).fastStartEnabled) return "skipped";
   if (!isFastStartCandidate(filePath)) return "skipped";
   if (inFlightPaths.has(filePath)) return "skipped";
 
