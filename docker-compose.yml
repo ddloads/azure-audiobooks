@@ -1,13 +1,39 @@
 services:
+  # PostgreSQL next to the server, so queries don't cross the internet. Data
+  # lives in a Docker volume on the host's local disk (never on the NAS share).
+  # See docs/local-database.md for moving an existing Supabase database here.
+  azure-db:
+    image: postgres:17-alpine
+    container_name: azure-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=azure
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the stack environment}
+      - POSTGRES_DB=azure
+    volumes:
+      - azure-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U azure -d azure"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - azure-network
+
   azure-server:
     build:
       context: .
       dockerfile: server/Dockerfile
     container_name: azure-server
     restart: unless-stopped
+    depends_on:
+      azure-db:
+        condition: service_healthy
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - DIRECT_URL=${DIRECT_URL}
+      # Defaults to the azure-db service. Setting DATABASE_URL / DIRECT_URL in
+      # the stack environment overrides this (e.g. an external database).
+      - DATABASE_URL=${DATABASE_URL:-postgresql://azure:${POSTGRES_PASSWORD}@azure-db:5432/azure}
+      - DIRECT_URL=${DIRECT_URL:-postgresql://azure:${POSTGRES_PASSWORD}@azure-db:5432/azure}
       - JWT_SECRET=${JWT_SECRET}
       - CLIENT_ORIGIN=${CLIENT_ORIGIN:-http://localhost:8080}
       - PORT=4000
@@ -46,3 +72,6 @@ services:
 networks:
   azure-network:
     driver: bridge
+
+volumes:
+  azure-db-data:
