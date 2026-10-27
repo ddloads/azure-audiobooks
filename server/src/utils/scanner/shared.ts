@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { spawnSync } from "child_process";
+import { execFile } from "child_process";
 import ffmpeg from "../ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 import { getConfiguredLibraries, normalizeSourcePath, preparePathForTool } from "../libraryConfig";
@@ -147,35 +147,33 @@ export const probeFile = (toolPath: string): Promise<any> =>
       if (!err && metadata) {
         resolve(metadata);
       } else {
-        // Fallback for files that ffprobe might fail on (exit code 1) but still have metadata (like xHE-AAC)
-        try {
-          const result = spawnSync(ffprobeInstaller.path, [
-            "-v",
-            "quiet",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            toolPath,
-          ]);
-
-          if (result.stdout) {
-            const manualMetadata = JSON.parse(result.stdout.toString());
-            if (manualMetadata?.format?.duration != null) {
-              resolve(manualMetadata);
-              return;
+        // Fallback for files that ffprobe might fail on (exit code 1) but still have metadata (like xHE-AAC).
+        // Async so a failing file doesn't block the scan's other probes.
+        execFile(
+          ffprobeInstaller.path,
+          ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", toolPath],
+          { maxBuffer: 64 * 1024 * 1024 },
+          (_fallbackErr, stdout) => {
+            try {
+              const manualMetadata = stdout ? JSON.parse(stdout) : null;
+              if (manualMetadata?.format?.duration != null) {
+                resolve(manualMetadata);
+                return;
+              }
+            } catch {
+              // Ignore fallback error
             }
-          }
-        } catch (fallbackErr) {
-          // Ignore fallback error
-        }
-
-        reject(err || new Error("Metadata extraction failed"));
+            reject(err || new Error("Metadata extraction failed"));
+          },
+        );
       }
     });
   });
 
-export const getAudioMetadata = (filePath: string): Promise<any> =>
-  probeFile(preparePathForTool(filePath, true)).catch(() =>
-    probeFile(preparePathForTool(filePath, false)),
-  );
+export const getAudioMetadata = (filePath: string): Promise<any> => {
+  const forwardSlashPath = preparePathForTool(filePath, true);
+  const nativePath = preparePathForTool(filePath, false);
+  // On Linux both forms are usually identical; don't probe the same file twice.
+  if (forwardSlashPath === nativePath) return probeFile(nativePath);
+  return probeFile(forwardSlashPath).catch(() => probeFile(nativePath));
+};

@@ -21,6 +21,18 @@ import {
 import { parseAsin, parseGenres, parseIsbn, parseYear, pickDescription } from "./folder-metadata";
 import { hasMatchedMetadata } from "./metadataPreservation";
 import { librarySourcesHealthy } from "../libraryHealth";
+import { SCAN_PROBE_CONCURRENCY, mapWithConcurrency } from "./scan-helpers";
+
+// Folders are scanned in parallel, so two new books by the same author can
+// race on the unique name. The loser's retry finds the row and just updates it.
+const upsertByName = async <T>(run: () => Promise<T>): Promise<T> => {
+  try {
+    return await run();
+  } catch (error: any) {
+    if (error?.code === "P2002") return run();
+    throw error;
+  }
+};
 
 const deleteBookFolderIfPresent = async (libraryId: string, folderPath: string) => {
   const existingBook = await prisma.book.findFirst({
@@ -247,10 +259,11 @@ export const upsertBookFolder = async (
   const coverPath = hasCover && existingBook ? getCoverUrl(existingBook.id) : existingCoverPath;
   const author = existingBook && existingBook.author.name === authorName
     ? existingBook.author
-    : await prisma.author.upsert({ where: { name: authorName }, update: {}, create: { name: authorName } });
+    : await upsertByName(() => prisma.author.upsert({ where: { name: authorName }, update: {}, create: { name: authorName } }));
 
   if (!skipMetadata && seriesName) {
-    const series = await prisma.series.upsert({ where: { name: seriesName }, update: {}, create: { name: seriesName } });
+    const name = seriesName;
+    const series = await upsertByName(() => prisma.series.upsert({ where: { name }, update: {}, create: { name } }));
     seriesId = series.id;
     if (seriesSequence !== null) sequence = seriesSequence;
   }
@@ -305,36 +318,41 @@ export const upsertBookFolder = async (
   const allChapters: { title: string; start: number; end: number }[] = [];
   const processedAudioFiles: ChapterInputAudioFile[] = [];
 
-  await prisma.audioFile.deleteMany({ where: { bookId: book.id } });
-  await prisma.chapter.deleteMany({ where: { bookId: book.id } });
+  // Probe in parallel; the first file was already probed for the book's tags.
+  const probes = await mapWithConcurrency(audioFiles, SCAN_PROBE_CONCURRENCY, async (filename, index) => {
+    if (index === 0 && firstAudioMetadata) return firstAudioMetadata;
+    try {
+      return await getAudioMetadata(path.join(folderPath, filename));
+    } catch (error) {
+      console.error(`Error getting duration for ${filename}:`, error);
+      return null;
+    }
+  });
 
   for (let index = 0; index < audioFiles.length; index++) {
     const filename = audioFiles[index];
     const filePath = path.join(folderPath, filename);
-    let duration = 0;
-    let trackTitle: string | null = null;
-    try {
-      const metadata = await getAudioMetadata(filePath);
-      const parsedDuration = parseFloat(metadata?.format?.duration);
-      duration = !isNaN(parsedDuration) ? parsedDuration : 0;
-      trackTitle = metadata?.format?.tags?.title || null;
-      if (metadata.chapters && Array.isArray(metadata.chapters)) {
-        for (const chap of metadata.chapters) {
-          const start = parseFloat(chap.start_time);
-          const end = parseFloat(chap.end_time);
-          if (!isNaN(start) && !isNaN(end)) {
-            allChapters.push({ title: chap.tags?.title || `Chapter ${allChapters.length + 1}`, start: start + totalDuration, end: end + totalDuration });
-          }
+    const metadata = probes[index];
+    const parsedDuration = parseFloat(metadata?.format?.duration);
+    const duration = !isNaN(parsedDuration) ? parsedDuration : 0;
+    const trackTitle: string | null = metadata?.format?.tags?.title || null;
+    if (metadata?.chapters && Array.isArray(metadata.chapters)) {
+      for (const chap of metadata.chapters) {
+        const start = parseFloat(chap.start_time);
+        const end = parseFloat(chap.end_time);
+        if (!isNaN(start) && !isNaN(end)) {
+          allChapters.push({ title: chap.tags?.title || `Chapter ${allChapters.length + 1}`, start: start + totalDuration, end: end + totalDuration });
         }
       }
-    } catch (error) {
-      console.error(`Error getting duration for ${filename}:`, error);
     }
-    await prisma.audioFile.create({ data: { filename, path: filePath, duration, index, title: trackTitle, bookId: book.id } });
-    queueFastStart(filePath);
     processedAudioFiles.push({ filename, path: filePath, duration, index, title: trackTitle });
     totalDuration += duration;
   }
+
+  await prisma.audioFile.deleteMany({ where: { bookId: book.id } });
+  await prisma.chapter.deleteMany({ where: { bookId: book.id } });
+  await prisma.audioFile.createMany({ data: processedAudioFiles.map((audioFile) => ({ ...audioFile, bookId: book.id })) });
+  for (const audioFile of processedAudioFiles) queueFastStart(audioFile.path);
 
   if (allChapters.length === 0) {
     allChapters.push(...(await generateSmartChapters(processedAudioFiles, totalDuration)));
