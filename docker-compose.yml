@@ -40,7 +40,10 @@ services:
     ports:
       - "4000:4000"
     volumes:
-      - ./server/data:/app/data
+      # Backups, logs and Audible profiles. In Portainer, set AZURE_DATA_PATH to
+      # a fixed host folder: the default lives inside the stack's own folder,
+      # which is lost when the stack is deleted or recreated.
+      - ${AZURE_DATA_PATH:-./server/data}:/app/data
       # Bind-mount a subpath of the host-level Unraid /data mount (see
       # docs/homelab-storage-setup.md). Long syntax with create_host_path: false
       # makes the container refuse to start when the share isn't mounted,

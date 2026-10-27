@@ -36,6 +36,8 @@ Create a `.env` file or set these in your container orchestrator (like Portainer
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
+| `AZURE_DATA_PATH` | Host folder for the server's data (backups, logs, Audible profiles). Use a fixed path outside Portainer's stack folder | `./server/data` |
+| `AUDIOBOOKS_PATH` | Host folder of the audiobook library | `/mnt/unraid/data/media/audiobooks` |
 | `POSTGRES_PASSWORD` | Password for the stack's `azure-db` database (letters and digits) | Required |
 | `DATABASE_URL` | PostgreSQL connection string; set only to use an external database | The `azure-db` service |
 | `DIRECT_URL` | Direct PostgreSQL connection string; set only to use an external database | The `azure-db` service |
