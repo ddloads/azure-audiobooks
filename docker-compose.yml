@@ -37,6 +37,17 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - CLIENT_ORIGIN=${CLIENT_ORIGIN:-http://localhost:8080}
       - PORT=4000
+      # Optional tuning. Stack variables only reach the container when listed
+      # here; an empty value means the server's built-in default.
+      - FAST_START_ENABLED=${FAST_START_ENABLED:-}
+      - FAST_START_CONCURRENCY=${FAST_START_CONCURRENCY:-}
+      - SCAN_WORKER_POOL_SIZE=${SCAN_WORKER_POOL_SIZE:-}
+      - SCAN_FOLDER_CONCURRENCY=${SCAN_FOLDER_CONCURRENCY:-}
+      - SCAN_PROBE_CONCURRENCY=${SCAN_PROBE_CONCURRENCY:-}
+      - WATCH_FOLDERS_ENABLED=${WATCH_FOLDERS_ENABLED:-}
+      - WATCH_FOLDER_POLL_INTERVAL_MS=${WATCH_FOLDER_POLL_INTERVAL_MS:-}
+      - REQUIRE_LIBRARY_SENTINEL=${REQUIRE_LIBRARY_SENTINEL:-}
+      - ALLOW_MASS_BOOK_REMOVAL=${ALLOW_MASS_BOOK_REMOVAL:-}
     ports:
       - "4000:4000"
     volumes:
