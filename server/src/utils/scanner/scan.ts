@@ -2,8 +2,11 @@ import fs from "fs";
 import path from "path";
 import prisma from "../../lib/prisma";
 import { generateSmartChapters } from "../chapterizer";
-import { getConfiguredLibraries } from "../libraryConfig";
+import { getConfiguredLibraries, normalizeSourcePath } from "../libraryConfig";
+import { getCoverUrl } from "../covers";
 import {
+  AUDIO_EXTENSIONS,
+  METADATA_VERSION,
   type LibraryWithSources,
   type DiscoveredFolder,
   type ScanRunContext,
@@ -11,6 +14,25 @@ import {
 } from "./shared";
 import { discoverBookFolders, removeMissingBooks } from "./folder-discovery";
 import { upsertBookFolder } from "./folder-sync";
+import { SCAN_FOLDER_CONCURRENCY, isFolderUnchanged, mapWithConcurrency, type KnownBook } from "./scan-helpers";
+
+// Unchanged books finish in microseconds, so only report every Nth of them.
+const SKIPPED_PROGRESS_EVERY = 25;
+
+const loadKnownBooks = async (libraryId: string) => {
+  const books: KnownBook[] = await prisma.book.findMany({
+    where: { libraryId },
+    select: {
+      id: true,
+      folderPath: true,
+      coverPath: true,
+      metadataVersion: true,
+      audioFiles: { select: { filename: true, path: true }, orderBy: { index: "asc" } },
+      _count: { select: { chapters: true } },
+    },
+  });
+  return new Map(books.map((book) => [canonicalizeFolderPath(book.folderPath), book]));
+};
 
 export const scanLibrary = async (libraryId?: string, context: ScanRunContext = {}) => {
   const emitProgress = context.emitProgress ?? (() => {});
@@ -46,28 +68,39 @@ export const scanLibrary = async (libraryId?: string, context: ScanRunContext = 
 
     const discoveredPaths = new Set(folders.map((entry) => canonicalizeFolderPath(entry.folderPath)));
     await removeMissingBooks(library.id, discoveredPaths, sourceRoots);
+    const knownBooks = await loadKnownBooks(library.id);
 
-    for (const folder of folders) {
+    await mapWithConcurrency(folders, SCAN_FOLDER_CONCURRENCY, async (folder) => {
       if (shouldStop()) return;
 
-      try {
-        processedCount++;
-        const progress = totalDiscovered > 0 ? Math.round((processedCount / totalDiscovered) * 100) : 100;
+      const knownBook = knownBooks.get(canonicalizeFolderPath(folder.folderPath));
+      const unchanged =
+        !!knownBook &&
+        isFolderUnchanged({ folderPath: normalizeSourcePath(folder.folderPath), files: folder.files }, knownBook, {
+          metadataVersion: METADATA_VERSION,
+          audioExtensions: AUDIO_EXTENSIONS,
+          coverUrl: getCoverUrl(knownBook.id),
+        });
 
+      processedCount++;
+      if (!unchanged || processedCount % SKIPPED_PROGRESS_EVERY === 0) {
         emitProgress({
           libraryId: library.id,
           status: "scanning",
-          progress,
+          progress: totalDiscovered > 0 ? Math.round((processedCount / totalDiscovered) * 100) : 100,
           currentFolder: folder.folderName,
           totalFolders: totalDiscovered,
           scannedFolders: processedCount,
         });
+      }
+      if (unchanged) return;
 
+      try {
         await upsertBookFolder(folder, shouldStop);
       } catch (error) {
         console.error(`Failed to process folder ${folder.folderPath}:`, error);
       }
-    }
+    });
   }
 
   if (shouldStop()) return;
