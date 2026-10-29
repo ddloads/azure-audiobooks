@@ -12,6 +12,7 @@ import { reapStaleScanJobs, shutdownScanning } from "./lib/scanJobPool";
 import prisma from "./lib/prisma";
 import { reapInterruptedAudibleDownloads } from "./utils/audibleDownloader";
 import { startAudibleAutoSync, stopAudibleAutoSync } from "./utils/audibleAutoSync";
+import { backfillDownloadedAudibleMetadata } from "./utils/audibleDownloadMetadata";
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -50,6 +51,9 @@ const startServer = async () => {
   if (reapedDownloads > 0) {
     logger.info(`Marked ${reapedDownloads} interrupted Audible download(s) as failed`);
   }
+  void backfillDownloadedAudibleMetadata().catch((error) =>
+    logger.warn("Audible metadata backfill failed", { error: String(error) }),
+  );
 
   startLibraryWatchers();
   startAudibleAutoSync();

@@ -8,7 +8,7 @@ import {
   setAudibleTitlesIgnored,
   syncAudibleLibrary,
 } from "../../utils/audibleLibrary";
-import { enqueueAudibleDownloads } from "../../utils/audibleDownloader";
+import { cancelQueuedAudibleDownloads, enqueueAudibleDownloads, getAudibleDownloadQueue } from "../../utils/audibleDownloader";
 import { getAudibleAutoSyncStatus, queueNewAudiblePurchases } from "../../utils/audibleAutoSync";
 import { getAudibleSyncSettings, updateAudibleSyncSettings } from "../../utils/appSettings";
 import { getSingleBodyValue } from "./shared";
@@ -116,5 +116,59 @@ export const updateAudibleSyncSettingsHandler = async (req: AuthRequest, res: Re
   } catch (error) {
     console.error("Update Audible sync settings error:", error);
     res.status(500).json({ error: "Failed to save settings" });
+  }
+};
+
+/** Everything with a download status, plus live progress for the title being processed. */
+export const getAudibleDownloadsHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const items = await prisma.audibleLibraryItem.findMany({
+      where: { downloadStatus: { not: null } },
+      select: {
+        asin: true,
+        profile: true,
+        title: true,
+        author: true,
+        coverUrl: true,
+        downloadStatus: true,
+        downloadError: true,
+        downloadedPath: true,
+        downloadedAt: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json({ ...getAudibleDownloadQueue(), items });
+  } catch (error) {
+    console.error("List Audible downloads error:", error);
+    res.status(500).json({ error: "Failed to load downloads" });
+  }
+};
+
+export const cancelAudibleDownloadsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const asins = getAsins(req.body?.asins);
+    if (!asins.length) {
+      res.status(400).json({ error: "asins are required" });
+      return;
+    }
+    res.json({ cancelled: await cancelQueuedAudibleDownloads(asins) });
+  } catch (error) {
+    console.error("Cancel Audible downloads error:", error);
+    res.status(500).json({ error: "Failed to cancel downloads" });
+  }
+};
+
+/** Drops finished and failed downloads from the Downloads list. */
+export const clearFinishedAudibleDownloadsHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await prisma.audibleLibraryItem.updateMany({
+      where: { downloadStatus: { in: ["done", "failed"] } },
+      data: { downloadStatus: null, downloadError: null },
+    });
+    res.json({ cleared: result.count });
+  } catch (error) {
+    console.error("Clear Audible downloads error:", error);
+    res.status(500).json({ error: "Failed to clear downloads" });
   }
 };

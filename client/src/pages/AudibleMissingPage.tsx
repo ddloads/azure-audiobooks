@@ -22,6 +22,7 @@ import {
   Toolbar,
   type Tone,
 } from "../features/admin/ui";
+import AudibleDownloads from "../features/audible/AudibleDownloads";
 import "./AudibleMissingPage.css";
 
 interface AudibleTitle {
@@ -71,7 +72,7 @@ const SYNC_INTERVALS = [
   { minutes: 1440, label: "Once a day" },
 ];
 
-type View = "missing" | "ignored";
+type View = "missing" | "ignored" | "downloads";
 
 const POLL_MS = 4000;
 const ACTIVE_STATUSES = new Set(["queued", "downloading", "converting", "importing"]);
@@ -154,9 +155,10 @@ export default function AudibleMissingPage() {
   const missing = useMemo(() => notInLibrary.filter((item) => !item.ignored), [notInLibrary]);
   const ignored = useMemo(() => notInLibrary.filter((item) => item.ignored), [notInLibrary]);
   const inLibraryCount = (data?.items.length ?? 0) - notInLibrary.length;
+  const activeDownloadCount = data?.items.filter((item) => item.downloadStatus && ACTIVE_STATUSES.has(item.downloadStatus)).length ?? 0;
 
   const query = search.trim().toLowerCase();
-  const visible = (view === "missing" ? missing : ignored).filter((item) => matchesSearch(item, query));
+  const visible = (view === "missing" ? missing : view === "ignored" ? ignored : []).filter((item) => matchesSearch(item, query));
   const selectedVisible = visible.filter((item) => selected.has(item.asin));
 
   const changeView = (next: View) => {
@@ -415,96 +417,103 @@ export default function AudibleMissingPage() {
             options={[
               { value: "missing", label: "Missing", count: missing.length },
               { value: "ignored", label: "Ignored", count: ignored.length },
+              { value: "downloads", label: "Downloads", count: activeDownloadCount || undefined },
             ]}
           />
 
-          <Toolbar>
-            <SearchInput
-              placeholder="Search title, author, narrator or series"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              aria-label="Search titles"
-            />
-          </Toolbar>
-
-          {visible.length > 0 && (
-            <Actions align="between" className="audible-missing-bulk">
-              <label className="audible-missing-check">
-                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} />
-                <span>{selectedVisible.length ? `${selectedVisible.length} selected` : "Select all"}</span>
-              </label>
-              {selectedVisible.length > 0 && (
-                <div className="audible-missing-bulk-actions">
-                  {view === "missing" ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        icon={Download}
-                        disabled={!canDownload}
-                        title={downloadBlockedReason}
-                        onClick={() => void handleDownload(selectedVisible.map((item) => item.asin))}
-                      >
-                        Download {selectedVisible.length}
-                      </Button>
-                      <Button size="sm" icon={EyeOff} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), true)}>
-                        Ignore {selectedVisible.length}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button size="sm" icon={Eye} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), false)}>
-                      Restore {selectedVisible.length}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </Actions>
-          )}
-
-          {visible.length === 0 ? (
-            <EmptyState icon={view === "missing" ? Library : EyeOff} title={
-              query ? "No titles match your search" :
-              !data?.items.length ? "No Audible titles yet" :
-              view === "missing" ? "Everything on Audible is in the library" : "No ignored titles"
-            }>
-              {!data?.items.length && !query ? "Sync to fetch the titles on this Audible account." : null}
-            </EmptyState>
+          {view === "downloads" ? (
+            <AudibleDownloads libraryId={libraryId} onFinished={() => void load()} />
           ) : (
-            <List className="audible-missing-list">
-              {visible.map((item) => {
-                const series = item.seriesName ? `${item.seriesName}${item.seriesSequence ? ` #${item.seriesSequence}` : ""}` : null;
-                const purchased = item.purchaseDate ? `Purchased ${new Date(item.purchaseDate).toLocaleDateString()}` : null;
-                return (
-                  <ListItem
-                    key={item.asin}
-                    selected={selected.has(item.asin)}
-                    leading={
-                      <span className="audible-missing-leading">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(item.asin)}
-                          onChange={() => toggleSelected(item.asin)}
-                          aria-label={`Select ${item.title}`}
-                        />
-                        {item.coverUrl ? (
-                          <img className="audible-missing-cover" src={item.coverUrl} alt="" loading="lazy" />
-                        ) : (
-                          <span className="audible-missing-cover audible-missing-cover-empty" />
+            <>
+              <Toolbar>
+                <SearchInput
+                  placeholder="Search title, author, narrator or series"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  aria-label="Search titles"
+                />
+              </Toolbar>
+
+              {visible.length > 0 && (
+                <Actions align="between" className="audible-missing-bulk">
+                  <label className="audible-missing-check">
+                    <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} />
+                    <span>{selectedVisible.length ? `${selectedVisible.length} selected` : "Select all"}</span>
+                  </label>
+                  {selectedVisible.length > 0 && (
+                    <div className="audible-missing-bulk-actions">
+                      {view === "missing" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            icon={Download}
+                            disabled={!canDownload}
+                            title={downloadBlockedReason}
+                            onClick={() => void handleDownload(selectedVisible.map((item) => item.asin))}
+                          >
+                            Download {selectedVisible.length}
+                          </Button>
+                          <Button size="sm" icon={EyeOff} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), true)}>
+                            Ignore {selectedVisible.length}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" icon={Eye} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), false)}>
+                          Restore {selectedVisible.length}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </Actions>
+              )}
+
+              {visible.length === 0 ? (
+                <EmptyState icon={view === "missing" ? Library : EyeOff} title={
+                  query ? "No titles match your search" :
+                  !data?.items.length ? "No Audible titles yet" :
+                  view === "missing" ? "Everything on Audible is in the library" : "No ignored titles"
+                }>
+                  {!data?.items.length && !query ? "Sync to fetch the titles on this Audible account." : null}
+                </EmptyState>
+              ) : (
+                <List className="audible-missing-list">
+                  {visible.map((item) => {
+                    const series = item.seriesName ? `${item.seriesName}${item.seriesSequence ? ` #${item.seriesSequence}` : ""}` : null;
+                    const purchased = item.purchaseDate ? `Purchased ${new Date(item.purchaseDate).toLocaleDateString()}` : null;
+                    return (
+                      <ListItem
+                        key={item.asin}
+                        selected={selected.has(item.asin)}
+                        leading={
+                          <span className="audible-missing-leading">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(item.asin)}
+                              onChange={() => toggleSelected(item.asin)}
+                              aria-label={`Select ${item.title}`}
+                            />
+                            {item.coverUrl ? (
+                              <img className="audible-missing-cover" src={item.coverUrl} alt="" loading="lazy" />
+                            ) : (
+                              <span className="audible-missing-cover audible-missing-cover-empty" />
+                            )}
+                          </span>
+                        }
+                        title={item.title}
+                        subtitle={[item.author, item.narrator && `Narrated by ${item.narrator}`].filter(Boolean).join(" · ") || null}
+                        meta={[series, formatRuntime(item.durationSeconds), purchased].filter(Boolean).join(" · ") || null}
+                        trailing={<span className="audible-missing-actions">{renderTrailing(item)}</span>}
+                      >
+                        {item.downloadStatus === "failed" && item.downloadError && (
+                          <p className="audible-missing-error">{item.downloadError}</p>
                         )}
-                      </span>
-                    }
-                    title={item.title}
-                    subtitle={[item.author, item.narrator && `Narrated by ${item.narrator}`].filter(Boolean).join(" · ") || null}
-                    meta={[series, formatRuntime(item.durationSeconds), purchased].filter(Boolean).join(" · ") || null}
-                    trailing={<span className="audible-missing-actions">{renderTrailing(item)}</span>}
-                  >
-                    {item.downloadStatus === "failed" && item.downloadError && (
-                      <p className="audible-missing-error">{item.downloadError}</p>
-                    )}
-                  </ListItem>
-                );
-              })}
-            </List>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+            </>
           )}
         </Stack>
       )}
