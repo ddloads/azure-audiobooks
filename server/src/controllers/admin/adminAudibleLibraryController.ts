@@ -9,6 +9,8 @@ import {
   syncAudibleLibrary,
 } from "../../utils/audibleLibrary";
 import { enqueueAudibleDownloads } from "../../utils/audibleDownloader";
+import { getAudibleAutoSyncStatus, queueNewAudiblePurchases } from "../../utils/audibleAutoSync";
+import { getAudibleSyncSettings, updateAudibleSyncSettings } from "../../utils/appSettings";
 import { getSingleBodyValue } from "./shared";
 
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/;
@@ -24,19 +26,22 @@ const getAsins = (value: unknown): string[] =>
 /** The linked account's Audible titles, each marked with whether it's already in the library. */
 export const getAudibleLibraryHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [result, libraries] = await Promise.all([
+    const [result, libraries, settings] = await Promise.all([
       listAudibleLibrary(getQueryProfile(req.query.profile)),
       prisma.library.findMany({
         where: { isActive: true, sources: { some: { isEnabled: true, isWritable: true } } },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
+      getAudibleSyncSettings(),
     ]);
     res.json({
       ...result,
       profiles: listAudibleCliProfiles().map((profile) => profile.name),
       syncing: isAudibleLibrarySyncing(),
       libraries,
+      settings,
+      autoSync: getAudibleAutoSyncStatus(),
     });
   } catch (error) {
     console.error("List Audible library error:", error);
@@ -47,7 +52,8 @@ export const getAudibleLibraryHandler = async (req: AuthRequest, res: Response):
 export const syncAudibleLibraryHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await syncAudibleLibrary(getSingleBodyValue(req.body?.profile));
-    res.json(result);
+    const queued = await queueNewAudiblePurchases(result.profile).catch(() => 0);
+    res.json({ ...result, queued });
   } catch (error) {
     console.error("Sync Audible library error:", error);
     const message = error instanceof Error ? error.message : "Failed to sync Audible library";
@@ -86,5 +92,29 @@ export const downloadAudibleTitlesHandler = async (req: AuthRequest, res: Respon
     console.error("Download Audible titles error:", error);
     const message = error instanceof Error ? error.message : "Failed to queue downloads";
     res.status(400).json({ error: message });
+  }
+};
+
+export const updateAudibleSyncSettingsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const body = req.body ?? {};
+    const libraryId = typeof body.libraryId === "string" ? body.libraryId : body.libraryId === null ? null : undefined;
+    if (libraryId) {
+      const writable = await prisma.librarySource.findFirst({ where: { libraryId, isEnabled: true, isWritable: true } });
+      if (!writable) {
+        res.status(400).json({ error: "That library has no writable folder." });
+        return;
+      }
+    }
+    const settings = await updateAudibleSyncSettings({
+      autoSync: typeof body.autoSync === "boolean" ? body.autoSync : undefined,
+      intervalMinutes: typeof body.intervalMinutes === "number" ? body.intervalMinutes : undefined,
+      autoDownload: typeof body.autoDownload === "boolean" ? body.autoDownload : undefined,
+      libraryId,
+    });
+    res.json({ settings, autoSync: getAudibleAutoSyncStatus() });
+  } catch (error) {
+    console.error("Update Audible sync settings error:", error);
+    res.status(500).json({ error: "Failed to save settings" });
   }
 };

@@ -18,6 +18,7 @@ import {
   SearchInput,
   Segmented,
   Stack,
+  ToggleRow,
   Toolbar,
   type Tone,
 } from "../features/admin/ui";
@@ -48,7 +49,27 @@ interface AudibleLibraryResponse {
   syncing: boolean;
   items: AudibleTitle[];
   libraries: Array<{ id: string; name: string }>;
+  settings: SyncSettings;
+  autoSync: { running: boolean; lastRunAt: string | null; nextRunAt: string | null; lastError: string | null };
 }
+
+interface SyncSettings {
+  autoSync: boolean;
+  intervalMinutes: number;
+  autoDownload: boolean;
+  libraryId: string | null;
+  autoDownloadSince: string | null;
+}
+
+const SYNC_INTERVALS = [
+  { minutes: 15, label: "Every 15 minutes" },
+  { minutes: 30, label: "Every 30 minutes" },
+  { minutes: 60, label: "Every hour" },
+  { minutes: 180, label: "Every 3 hours" },
+  { minutes: 360, label: "Every 6 hours" },
+  { minutes: 720, label: "Every 12 hours" },
+  { minutes: 1440, label: "Once a day" },
+];
 
 type View = "missing" | "ignored";
 
@@ -86,6 +107,7 @@ export default function AudibleMissingPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [busyAsins, setBusyAsins] = useState<Set<string>>(new Set());
   const pollRef = useRef<number | null>(null);
 
@@ -96,9 +118,12 @@ export default function AudibleMissingPage() {
       });
       setData(response.data);
       setProfile(response.data.profile);
-      setLibraryId((current) =>
-        response.data.libraries.some((library) => library.id === current) ? current : response.data.libraries[0]?.id ?? "",
-      );
+      const { libraries, settings } = response.data;
+      setLibraryId((current) => {
+        if (libraries.some((library) => library.id === current)) return current;
+        if (libraries.some((library) => library.id === settings.libraryId)) return settings.libraryId!;
+        return libraries[0]?.id ?? "";
+      });
       return response.data;
     } catch (error) {
       showToast({ title: "Couldn't load Audible titles", description: getErrorMessage(error, "Try again in a moment."), tone: "error" });
@@ -169,14 +194,32 @@ export default function AudibleMissingPage() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const response = await api.post<{ titles: number; removed: number }>("/admin/audible-library/sync", { profile });
-      showToast({ title: "Audible library synced", description: `${response.data.titles.toLocaleString()} titles on the account.`, tone: "success" });
+      const response = await api.post<{ titles: number; removed: number; queued: number }>("/admin/audible-library/sync", { profile });
+      const queuedText = response.data.queued ? ` ${response.data.queued} new ${response.data.queued === 1 ? "purchase" : "purchases"} queued for download.` : "";
+      showToast({ title: "Audible library synced", description: `${response.data.titles.toLocaleString()} titles on the account.${queuedText}`, tone: "success" });
       await load();
     } catch (error) {
       showToast({ title: "Sync failed", description: getErrorMessage(error, "Couldn't reach Audible."), tone: "error" });
     } finally {
       setSyncing(false);
     }
+  };
+
+  const saveSettings = async (changes: Partial<SyncSettings>) => {
+    setSavingSettings(true);
+    try {
+      const response = await api.put<Pick<AudibleLibraryResponse, "settings" | "autoSync">>("/admin/audible-library/settings", changes);
+      setData((current) => (current ? { ...current, ...response.data } : current));
+    } catch (error) {
+      showToast({ title: "Couldn't save", description: getErrorMessage(error, "Try again in a moment."), tone: "error" });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const changeLibrary = (next: string) => {
+    setLibraryId(next);
+    void saveSettings({ libraryId: next });
   };
 
   const handleIgnore = async (asins: string[], nextIgnored: boolean) => {
@@ -297,7 +340,7 @@ export default function AudibleMissingPage() {
                     id="audible-missing-library"
                     className="form-control"
                     value={libraryId}
-                    onChange={(event) => setLibraryId(event.target.value)}
+                    onChange={(event) => changeLibrary(event.target.value)}
                   >
                     {data.libraries.map((library) => <option key={library.id} value={library.id}>{library.name}</option>)}
                   </select>
@@ -315,6 +358,55 @@ export default function AudibleMissingPage() {
               </p>
             )}
           </Panel>
+
+          {data && (
+            <Panel title="Automatic" description="Sync every linked Audible account on a schedule, and download new purchases without asking.">
+              <Stack gap="sm">
+                <ToggleRow
+                  title="Sync automatically"
+                  description={
+                    data.settings.autoSync
+                      ? data.autoSync.running
+                        ? "Syncing now…"
+                        : data.autoSync.lastRunAt
+                          ? `Last ran ${formatElapsed(data.autoSync.lastRunAt)}.`
+                          : "First sync runs within a minute."
+                      : "Off. Use Sync above to check for new titles."
+                  }
+                  checked={data.settings.autoSync}
+                  disabled={savingSettings}
+                  onChange={(next) => void saveSettings({ autoSync: next })}
+                />
+                {data.settings.autoSync && (
+                  <Field label="How often" htmlFor="audible-missing-interval">
+                    <select
+                      id="audible-missing-interval"
+                      className="form-control"
+                      value={data.settings.intervalMinutes}
+                      disabled={savingSettings}
+                      onChange={(event) => void saveSettings({ intervalMinutes: Number(event.target.value) })}
+                    >
+                      {SYNC_INTERVALS.map((interval) => <option key={interval.minutes} value={interval.minutes}>{interval.label}</option>)}
+                    </select>
+                  </Field>
+                )}
+                <ToggleRow
+                  title="Download new purchases automatically"
+                  description={
+                    !canDownload
+                      ? "Needs a library with a writable folder."
+                      : data.settings.autoDownload && data.settings.autoDownloadSince
+                        ? `Titles bought since ${new Date(data.settings.autoDownloadSince).toLocaleDateString()} download into ${data.libraries.find((library) => library.id === libraryId)?.name ?? "the library"} after each sync. Older missing titles stay here for you to choose.`
+                        : "Titles you buy after turning this on download into the library above after each sync."
+                  }
+                  checked={data.settings.autoDownload}
+                  disabled={savingSettings || (!canDownload && !data.settings.autoDownload)}
+                  onChange={(next) => void saveSettings(next ? { autoDownload: true, libraryId } : { autoDownload: false })}
+                />
+                {data.autoSync.lastError && <Notice tone="danger">Last automatic sync failed: {data.autoSync.lastError}</Notice>}
+              </Stack>
+            </Panel>
+          )}
 
           <Segmented<View>
             label="Titles"

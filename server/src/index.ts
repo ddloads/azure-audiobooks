@@ -11,6 +11,7 @@ import { reapStaleSilenceCheckJobs, shutdownSilenceChecks } from "./lib/silenceC
 import { reapStaleScanJobs, shutdownScanning } from "./lib/scanJobPool";
 import prisma from "./lib/prisma";
 import { reapInterruptedAudibleDownloads } from "./utils/audibleDownloader";
+import { startAudibleAutoSync, stopAudibleAutoSync } from "./utils/audibleAutoSync";
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -51,6 +52,7 @@ const startServer = async () => {
   }
 
   startLibraryWatchers();
+  startAudibleAutoSync();
 };
 
 const shutdown = async (signal: string) => {
@@ -59,6 +61,7 @@ const shutdown = async (signal: string) => {
   logger.info(`Received ${signal}; shutting down`);
 
   if (backupTimer) clearInterval(backupTimer);
+  stopAudibleAutoSync();
   await stopLibraryWatchers();
   await Promise.allSettled([shutdownScanning(), shutdownSilenceChecks()]);
   await new Promise<void>((resolve) => server.close(() => resolve()));

@@ -182,3 +182,70 @@ export const updateRegistrationSettings = async (
 
   return next;
 };
+
+/* ── Audible sync ─────────────────────────────────────────────────────────
+   Background sync of every linked Audible account, and whether titles bought
+   after auto-download was turned on are downloaded without asking. */
+
+const AUDIBLE_SYNC_SETTINGS_KEY = "audibleSync";
+export const AUDIBLE_SYNC_INTERVALS = [15, 30, 60, 180, 360, 720, 1440];
+
+export interface AudibleSyncSettings {
+  autoSync: boolean;
+  intervalMinutes: number;
+  autoDownload: boolean;
+  /** Library that downloads go into, manual or automatic. */
+  libraryId: string | null;
+  /** When auto-download was last turned on; only titles purchased after it download on their own. */
+  autoDownloadSince: string | null;
+}
+
+const defaultAudibleSyncSettings = (): AudibleSyncSettings => ({
+  autoSync: false,
+  intervalMinutes: 30,
+  autoDownload: false,
+  libraryId: null,
+  autoDownloadSince: null,
+});
+
+export const getAudibleSyncSettings = async (): Promise<AudibleSyncSettings> => {
+  const rows = await prisma.$queryRaw<Array<{ value: string }>>`
+    SELECT "value" FROM "AppSetting" WHERE "key" = ${AUDIBLE_SYNC_SETTINGS_KEY} LIMIT 1
+  `;
+  const defaults = defaultAudibleSyncSettings();
+  try {
+    const parsed = rows[0] ? (JSON.parse(rows[0].value) as Partial<AudibleSyncSettings>) : {};
+    return {
+      autoSync: typeof parsed.autoSync === "boolean" ? parsed.autoSync : defaults.autoSync,
+      intervalMinutes: AUDIBLE_SYNC_INTERVALS.includes(parsed.intervalMinutes ?? -1) ? parsed.intervalMinutes! : defaults.intervalMinutes,
+      autoDownload: typeof parsed.autoDownload === "boolean" ? parsed.autoDownload : defaults.autoDownload,
+      libraryId: typeof parsed.libraryId === "string" ? parsed.libraryId : defaults.libraryId,
+      autoDownloadSince: typeof parsed.autoDownloadSince === "string" ? parsed.autoDownloadSince : defaults.autoDownloadSince,
+    };
+  } catch {
+    return defaults;
+  }
+};
+
+export const updateAudibleSyncSettings = async (
+  settings: Partial<Omit<AudibleSyncSettings, "autoDownloadSince">>,
+): Promise<AudibleSyncSettings> => {
+  const current = await getAudibleSyncSettings();
+  const next = { ...current };
+  if (typeof settings.autoSync === "boolean") next.autoSync = settings.autoSync;
+  if (typeof settings.intervalMinutes === "number" && AUDIBLE_SYNC_INTERVALS.includes(settings.intervalMinutes)) {
+    next.intervalMinutes = settings.intervalMinutes;
+  }
+  if (typeof settings.autoDownload === "boolean") next.autoDownload = settings.autoDownload;
+  if (typeof settings.libraryId === "string" || settings.libraryId === null) next.libraryId = settings.libraryId;
+  // Turning auto-download on doesn't reach back into the existing backlog.
+  if (next.autoDownload && !current.autoDownload) next.autoDownloadSince = new Date().toISOString();
+
+  await prisma.$executeRaw`
+    INSERT INTO "AppSetting" ("key", "value", "updatedAt")
+    VALUES (${AUDIBLE_SYNC_SETTINGS_KEY}, ${JSON.stringify(next)}, NOW())
+    ON CONFLICT ("key") DO UPDATE SET "value" = EXCLUDED."value", "updatedAt" = NOW()
+  `;
+
+  return next;
+};

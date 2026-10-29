@@ -68,6 +68,7 @@ import {
   getAudibleLibraryHandler,
   setAudibleTitlesIgnoredHandler,
   syncAudibleLibraryHandler,
+  updateAudibleSyncSettingsHandler,
 } from "../controllers/admin/adminAudibleLibraryController";
 import {
   createBackup,
@@ -203,6 +204,7 @@ router.get("/audible-library", getAudibleLibraryHandler);
 router.post("/audible-library/sync", syncAudibleLibraryHandler);
 router.post("/audible-library/ignore", setAudibleTitlesIgnoredHandler);
 router.post("/audible-library/download", downloadAudibleTitlesHandler);
+router.put("/audible-library/settings", updateAudibleSyncSettingsHandler);
 
 router.get("/backups", listBackups);
 router.post("/backups", createBackup);
