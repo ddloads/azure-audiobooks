@@ -37,7 +37,7 @@ export const queueNewAudiblePurchases = async (profile: string) => {
     .map((item) => item.asin);
   if (!asins.length) return 0;
 
-  const queued = await enqueueAudibleDownloads(profile, asins, settings.libraryId);
+  const queued = await enqueueAudibleDownloads(profile, asins, settings.libraryId, "auto");
   logger.info("Queued new Audible purchases", { profile, queued });
   return queued;
 };

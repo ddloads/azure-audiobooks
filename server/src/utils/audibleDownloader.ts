@@ -29,7 +29,8 @@ const SCAN_WAIT_MS = 30 * 60 * 1000;
 const BOOK_WAIT_MS = 2 * 60 * 1000;
 const PROGRESS_POLL_MS = 1500;
 
-type DownloadJob = { itemId: string; libraryId: string; asin: string; title: string };
+export type DownloadTrigger = "manual" | "auto";
+type DownloadJob = { itemId: string; libraryId: string; asin: string; title: string; trigger: DownloadTrigger };
 
 export interface AudibleDownloadProgress {
   asin: string;
@@ -244,6 +245,42 @@ const downloadFromAudible = async (asin: string, profile: string, workDir: strin
 
 // ─── The job ──────────────────────────────────────────────────────────────
 
+type LoggedTitle = { profile: string; asin: string; title: string; author: string | null; coverUrl: string | null };
+
+/** Adds an entry to the download history. History is best effort and never fails a download. */
+const logDownload = (
+  title: LoggedTitle,
+  entry: {
+    status: "done" | "failed" | "cancelled";
+    trigger: DownloadTrigger;
+    error?: string | null;
+    libraryId?: string | null;
+    folderPath?: string | null;
+    bookId?: string | null;
+    sizeBytes?: number | null;
+    startedAt?: Date | null;
+  },
+) =>
+  prisma.audibleDownloadLog
+    .create({
+      data: {
+        profile: title.profile,
+        asin: title.asin,
+        title: title.title,
+        author: title.author,
+        coverUrl: title.coverUrl,
+        status: entry.status,
+        trigger: entry.trigger,
+        error: entry.error ?? null,
+        libraryId: entry.libraryId ?? null,
+        folderPath: entry.folderPath ?? null,
+        bookId: entry.bookId ?? null,
+        sizeBytes: entry.sizeBytes != null ? BigInt(entry.sizeBytes) : null,
+        startedAt: entry.startedAt ?? null,
+      },
+    })
+    .catch((error) => logger.warn("Couldn't record download history", { asin: title.asin, error: String(error) }));
+
 const setPhase = (phase: AudibleDownloadProgress["phase"]) => {
   if (current) Object.assign(current, { phase, percent: null, bytes: null, totalBytes: null });
 };
@@ -258,7 +295,7 @@ const waitForBook = async (folderPath: string) => {
   return null;
 };
 
-const processJob = async ({ itemId, libraryId }: DownloadJob) => {
+const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
   const item = await prisma.audibleLibraryItem.findUnique({ where: { id: itemId } });
   if (!item) return;
 
@@ -271,6 +308,7 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     totalBytes: null,
     startedAt: new Date().toISOString(),
   };
+  const startedAt = new Date();
   const workDir = path.join(WORK_ROOT, item.asin);
   let stopWatching: (() => void) | null = null;
   try {
@@ -332,7 +370,9 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     if (!isInside(source.resolvedPath, targetDir)) throw new Error("The book's folder would be outside the library.");
 
     await fsp.mkdir(targetDir, { recursive: true });
-    await moveFile(outputPath, path.join(targetDir, outputName));
+    const finalPath = path.join(targetDir, outputName);
+    await moveFile(outputPath, finalPath);
+    const sizeBytes = (await fsp.stat(finalPath)).size;
     if (cover) await moveFile(path.join(workDir, cover), path.join(targetDir, "cover.jpg"));
 
     const scan = await requestLibraryFolderScan(libraryId, targetDir, "audible-download", { dedupe: true });
@@ -349,11 +389,13 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     }
 
     await setStatus(itemId, { downloadStatus: "done", downloadError: null, downloadedPath: targetDir, downloadedAt: new Date() });
+    await logDownload(item, { status: "done", trigger, libraryId, folderPath: targetDir, bookId: book?.id ?? null, sizeBytes, startedAt });
     logger.info("Audible title downloaded", { asin: item.asin, title: item.title, folder: targetDir });
   } catch (error) {
     const message = describeError(error);
     logger.warn("Audible download failed", { asin: item.asin, title: item.title, error: message });
     await setStatus(itemId, { downloadStatus: "failed", downloadError: message }).catch(() => undefined);
+    await logDownload(item, { status: "failed", trigger, libraryId, error: message, startedAt });
   } finally {
     stopWatching?.();
     current = null;
@@ -374,7 +416,12 @@ const work = async () => {
 };
 
 /** Queues titles for download into the library. Titles already queued or downloading are skipped. */
-export const enqueueAudibleDownloads = async (profile: string, asins: string[], libraryId: string) => {
+export const enqueueAudibleDownloads = async (
+  profile: string,
+  asins: string[],
+  libraryId: string,
+  trigger: DownloadTrigger = "manual",
+) => {
   const source = await resolveWritableLibrarySource(libraryId);
   if (!source) throw new Error("That library has no writable folder. Mark one of its folders as writable first.");
 
@@ -392,7 +439,7 @@ export const enqueueAudibleDownloads = async (profile: string, asins: string[], 
     where: { id: { in: items.map((item) => item.id) } },
     data: { downloadStatus: "queued", downloadError: null },
   });
-  queue.push(...items.map((item) => ({ itemId: item.id, libraryId, asin: item.asin, title: item.title })));
+  queue.push(...items.map((item) => ({ itemId: item.id, libraryId, asin: item.asin, title: item.title, trigger })));
   void work();
   return items.length;
 };
@@ -408,15 +455,27 @@ export const cancelQueuedAudibleDownloads = async (asins: string[]) => {
       where: { id: { in: removed.map((job) => job.itemId) }, downloadStatus: "queued" },
       data: { downloadStatus: null, downloadError: null },
     });
+    const items = await prisma.audibleLibraryItem.findMany({ where: { id: { in: removed.map((job) => job.itemId) } } });
+    for (const item of items) {
+      const job = removed.find((entry) => entry.itemId === item.id)!;
+      await logDownload(item, { status: "cancelled", trigger: job.trigger, libraryId: job.libraryId });
+    }
   }
   return removed.length;
 };
 
 /** The queue lives in memory, so downloads cut short by a restart are marked failed. */
 export const reapInterruptedAudibleDownloads = async () => {
-  const result = await prisma.audibleLibraryItem.updateMany({
-    where: { downloadStatus: { in: ACTIVE_DOWNLOAD_STATUSES } },
-    data: { downloadStatus: "failed", downloadError: "Interrupted when the server restarted. Download it again to retry." },
+  const error = "Interrupted when the server restarted. Download it again to retry.";
+  const interrupted = await prisma.audibleLibraryItem.findMany({ where: { downloadStatus: { in: ACTIVE_DOWNLOAD_STATUSES } } });
+  if (!interrupted.length) return 0;
+  await prisma.audibleLibraryItem.updateMany({
+    where: { id: { in: interrupted.map((item) => item.id) } },
+    data: { downloadStatus: "failed", downloadError: error },
   });
-  return result.count;
+  // Only titles that had started count as attempts; queued ones never ran.
+  for (const item of interrupted.filter((entry) => entry.downloadStatus !== "queued")) {
+    await logDownload(item, { status: "failed", trigger: "manual", error });
+  }
+  return interrupted.length;
 };

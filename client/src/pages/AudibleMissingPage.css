@@ -50,3 +50,9 @@
   .audible-missing-list .as-item-main { flex-basis: calc(100% - 120px); }
   .audible-missing-list .as-item-trailing { width: 100%; justify-content: flex-end; }
 }
+
+.audible-missing-path {
+  margin: 0;
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}

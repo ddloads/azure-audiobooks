@@ -364,3 +364,28 @@ model AudibleLibraryItem {
   @@index([profile, ignoredAt])
   @@index([downloadStatus])
 }
+
+// One row per finished Audible download attempt, kept after the queue and
+// the Missing page have moved on.
+model AudibleDownloadLog {
+  id         String   @id @default(uuid())
+  profile    String
+  asin       String
+  title      String
+  author     String?
+  coverUrl   String?
+  // done, failed or cancelled
+  status     String
+  error      String?
+  // manual or auto
+  trigger    String   @default("manual")
+  libraryId  String?
+  folderPath String?
+  bookId     String?
+  sizeBytes  BigInt?
+  startedAt  DateTime?
+  finishedAt DateTime @default(now())
+
+  @@index([finishedAt])
+  @@index([asin])
+}

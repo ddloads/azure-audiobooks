@@ -23,6 +23,7 @@ import {
   type Tone,
 } from "../features/admin/ui";
 import AudibleDownloads from "../features/audible/AudibleDownloads";
+import AudibleDownloadHistory from "../features/audible/AudibleDownloadHistory";
 import "./AudibleMissingPage.css";
 
 interface AudibleTitle {
@@ -72,7 +73,7 @@ const SYNC_INTERVALS = [
   { minutes: 1440, label: "Once a day" },
 ];
 
-type View = "missing" | "ignored" | "downloads";
+type View = "missing" | "ignored" | "downloads" | "history";
 
 const POLL_MS = 4000;
 const ACTIVE_STATUSES = new Set(["queued", "downloading", "converting", "importing"]);
@@ -418,11 +419,14 @@ export default function AudibleMissingPage() {
               { value: "missing", label: "Missing", count: missing.length },
               { value: "ignored", label: "Ignored", count: ignored.length },
               { value: "downloads", label: "Downloads", count: activeDownloadCount || undefined },
+              { value: "history", label: "History" },
             ]}
           />
 
           {view === "downloads" ? (
             <AudibleDownloads libraryId={libraryId} onFinished={() => void load()} />
+          ) : view === "history" ? (
+            <AudibleDownloadHistory />
           ) : (
             <>
               <Toolbar>

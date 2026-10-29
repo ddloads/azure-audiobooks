@@ -172,3 +172,46 @@ export const clearFinishedAudibleDownloadsHandler = async (_req: AuthRequest, re
     res.status(500).json({ error: "Failed to clear downloads" });
   }
 };
+
+const HISTORY_PAGE_SIZE = 50;
+
+/** Past download attempts, newest first. Pages with ?before=<id>; ?q= searches title, author and ASIN. */
+export const getAudibleDownloadHistoryHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const before = typeof req.query.before === "string" ? req.query.before : null;
+    const rows = await prisma.audibleDownloadLog.findMany({
+      where: query
+        ? {
+            OR: [
+              { title: { contains: query, mode: "insensitive" } },
+              { author: { contains: query, mode: "insensitive" } },
+              { asin: { equals: query.toUpperCase() } },
+            ],
+          }
+        : undefined,
+      orderBy: [{ finishedAt: "desc" }, { id: "desc" }],
+      take: HISTORY_PAGE_SIZE + 1,
+      ...(before ? { cursor: { id: before }, skip: 1 } : {}),
+    });
+
+    // Link only to books that still exist.
+    const bookIds = rows.map((row) => row.bookId).filter((id): id is string => Boolean(id));
+    const existing = new Set(
+      (await prisma.book.findMany({ where: { id: { in: bookIds } }, select: { id: true } })).map((book) => book.id),
+    );
+
+    const page = rows.slice(0, HISTORY_PAGE_SIZE);
+    res.json({
+      entries: page.map((row) => ({
+        ...row,
+        sizeBytes: row.sizeBytes !== null ? Number(row.sizeBytes) : null,
+        bookId: row.bookId && existing.has(row.bookId) ? row.bookId : null,
+      })),
+      nextCursor: rows.length > HISTORY_PAGE_SIZE ? page[page.length - 1].id : null,
+    });
+  } catch (error) {
+    console.error("List Audible download history error:", error);
+    res.status(500).json({ error: "Failed to load download history" });
+  }
+};

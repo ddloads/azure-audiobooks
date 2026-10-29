@@ -67,6 +67,7 @@ import {
   cancelAudibleDownloadsHandler,
   clearFinishedAudibleDownloadsHandler,
   downloadAudibleTitlesHandler,
+  getAudibleDownloadHistoryHandler,
   getAudibleDownloadsHandler,
   getAudibleLibraryHandler,
   setAudibleTitlesIgnoredHandler,
@@ -211,6 +212,7 @@ router.put("/audible-library/settings", updateAudibleSyncSettingsHandler);
 router.get("/audible-library/downloads", getAudibleDownloadsHandler);
 router.post("/audible-library/downloads/cancel", cancelAudibleDownloadsHandler);
 router.post("/audible-library/downloads/clear", clearFinishedAudibleDownloadsHandler);
+router.get("/audible-library/history", getAudibleDownloadHistoryHandler);
 
 router.get("/backups", listBackups);
 router.post("/backups", createBackup);
