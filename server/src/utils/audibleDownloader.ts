@@ -12,7 +12,7 @@ import { ACTIVE_DOWNLOAD_STATUSES } from "./audibleLibrary";
 import { resolveWritableLibrarySource } from "./libraryConfig";
 
 // Downloads titles from Audible one at a time: audible-cli fetches the
-// encrypted AAXC (or AAX) into a temp folder under data/, ffmpeg decrypts it
+// encrypted AAXC (or AAX when AAXC is refused) into a temp folder under data/, ffmpeg decrypts it
 // to M4B without re-encoding, and only the finished file (plus cover) moves to
 // the library's writable folder as Author/Series/Book N - Title, where a folder scan
 // imports it.
@@ -117,11 +117,44 @@ const waitForScanJob = async (jobId: string) => {
   return null;
 };
 
+// audible-cli ends with a generic "1 job(s) failed" summary; the line that names
+// the cause ("download_aaxc failed for … : LicenseDenied: …") comes earlier.
 const describeError = (error: unknown) => {
-  const err = error as { stderr?: string; message?: string; killed?: boolean };
+  const err = error as { stdout?: string; stderr?: string; message?: string; killed?: boolean };
   if (err.killed) return "Timed out.";
-  const stderr = err.stderr?.trim().split("\n").filter(Boolean).slice(-3).join(" ");
-  return (stderr || err.message || String(error)).slice(0, 500);
+  const lines = `${err.stderr ?? ""}\n${err.stdout ?? ""}`.split("\n").map((line) => line.trim()).filter(Boolean);
+  const causes = lines.filter((line) => /failed for|denied|not found|no voucher|error/i.test(line) && !/job\(s\) failed/i.test(line));
+  const detail = (causes.length ? causes : lines.slice(-3)).join(" ");
+  return (detail || err.message || String(error)).slice(0, 800);
+};
+
+const downloadArgs = (asin: string, workDir: string, format: "--aaxc" | "--aax") => [
+  "download",
+  "--asin", asin,
+  format,
+  "--quality", "best",
+  "--cover", "--cover-size", "1215",
+  "--output-dir", workDir,
+  "--filename-mode", "asin_ascii",
+  "--no-confirm",
+  "--no-progress",
+  "--timeout", "0",
+];
+
+/** Tries AAXC first and falls back to AAX, which some titles still need. */
+const downloadFromAudible = async (asin: string, profile: string, workDir: string) => {
+  try {
+    await runAudible(downloadArgs(asin, workDir, "--aaxc"), profile, DOWNLOAD_TIMEOUT_MS);
+    return;
+  } catch (aaxcError) {
+    const aaxcReason = describeError(aaxcError);
+    logger.warn("AAXC download failed, trying AAX", { asin, error: aaxcReason });
+    try {
+      await runAudible(downloadArgs(asin, workDir, "--aax"), profile, DOWNLOAD_TIMEOUT_MS);
+    } catch (aaxError) {
+      throw new Error(`AAXC: ${aaxcReason} · AAX: ${describeError(aaxError)}`);
+    }
+  }
 };
 
 // ─── The job ──────────────────────────────────────────────────────────────
@@ -139,22 +172,7 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     await fsp.mkdir(workDir, { recursive: true });
 
     await setStatus(itemId, { downloadStatus: "downloading", downloadError: null });
-    await runAudible(
-      [
-        "download",
-        "--asin", item.asin,
-        "--aaxc",
-        "--quality", "best",
-        "--cover", "--cover-size", "1215",
-        "--output-dir", workDir,
-        "--filename-mode", "asin_ascii",
-        "--no-confirm",
-        "--no-progress",
-        "--timeout", "0",
-      ],
-      item.profile,
-      DOWNLOAD_TIMEOUT_MS,
-    );
+    await downloadFromAudible(item.asin, item.profile, workDir);
 
     const files = await fsp.readdir(workDir);
     const audio = files.find((name) => /\.(aaxc|aax|mp3)$/i.test(name));
