@@ -240,7 +240,11 @@ const resolveAudibleExe = async (): Promise<string> => {
 
 // ─── CLI runner ────────────────────────────────────────────────────────────
 
-const runAudible = async (args: string[], profileName?: string | null): Promise<string> => {
+export const runAudible = async (
+  args: string[],
+  profileName?: string | null,
+  timeoutMs: number = CLI_TIMEOUT_MS,
+): Promise<string> => {
   const exe = await resolveAudibleExe();
   const profile = resolveAudibleProfile(profileName);
   syncAudibleCliRuntimeConfig();
@@ -254,15 +258,15 @@ const runAudible = async (args: string[], profileName?: string | null): Promise<
       ...process.env,
       AUDIBLE_CONFIG_DIR: getAudibleConfigDir(),
     },
-    timeout: CLI_TIMEOUT_MS,
-    maxBuffer: 10 * 1024 * 1024,
+    timeout: timeoutMs,
+    maxBuffer: 64 * 1024 * 1024,
     windowsHide: true,
   });
 
   return stdout;
 };
 
-const buildApiArgs = (
+export const buildApiArgs = (
   endpoint: string,
   params: Record<string, string> = {},
 ): string[] => {

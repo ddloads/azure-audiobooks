@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   BookOpen,
   Boxes,
+  CloudDownload,
   Copy,
   FolderOpen,
   Headphones,
@@ -34,6 +35,7 @@ const ADMIN_ITEMS: NavItem[] = [
   { path: "/settings",   icon: <Settings size={18} />,   label: "Settings",     adminOnly: true },
   { path: "/files",      icon: <FolderOpen size={18} />, label: "File Manager", adminOnly: true },
   { path: "/duplicates", icon: <Copy size={18} />,       label: "Duplicates",   adminOnly: true },
+  { path: "/missing",    icon: <CloudDownload size={18} />, label: "Missing",   adminOnly: true },
 ];
 
 export default function Sidebar({ collapsed }: SidebarProps) {

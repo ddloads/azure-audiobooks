@@ -331,3 +331,36 @@ model Invite {
 
   @@index([expiresAt])
 }
+
+// Titles owned in a linked Audible account, copied in by "Sync" on the Missing
+// page. Whether a title is already in the library is worked out when the list
+// is read, so this only stores what Audible said plus the admin's choices.
+model AudibleLibraryItem {
+  id              String    @id @default(uuid())
+  // audible-cli profile the title came from
+  profile         String
+  asin            String
+  title           String
+  subtitle        String?
+  author          String?
+  narrator        String?
+  seriesName      String?
+  seriesSequence  String?
+  durationSeconds Int?
+  coverUrl        String?
+  releaseDate     String?
+  purchaseDate    DateTime?
+  ignoredAt       DateTime?
+  // queued, downloading, converting, importing, done or failed. Null until a download is requested.
+  downloadStatus  String?
+  downloadError   String?
+  downloadedPath  String?
+  downloadedAt    DateTime?
+  syncedAt        DateTime
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([profile, asin])
+  @@index([profile, ignoredAt])
+  @@index([downloadStatus])
+}

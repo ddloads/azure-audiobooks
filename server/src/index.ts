@@ -10,6 +10,7 @@ import { startLibraryWatchers, stopLibraryWatchers } from "./lib/libraryWatcher"
 import { reapStaleSilenceCheckJobs, shutdownSilenceChecks } from "./lib/silenceCheckPool";
 import { reapStaleScanJobs, shutdownScanning } from "./lib/scanJobPool";
 import prisma from "./lib/prisma";
+import { reapInterruptedAudibleDownloads } from "./utils/audibleDownloader";
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || "0.0.0.0";
@@ -43,6 +44,10 @@ const startServer = async () => {
   const reapedScans = await reapStaleScanJobs();
   if (reapedScans > 0) {
     logger.info(`Reaped ${reapedScans} stale scan job(s) from previous run`);
+  }
+  const reapedDownloads = await reapInterruptedAudibleDownloads().catch(() => 0);
+  if (reapedDownloads > 0) {
+    logger.info(`Marked ${reapedDownloads} interrupted Audible download(s) as failed`);
   }
 
   startLibraryWatchers();

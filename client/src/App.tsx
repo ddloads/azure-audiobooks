@@ -13,6 +13,7 @@ const Register = lazy(() => import("./pages/Register"));
 const Home = lazy(() => import("./pages/Home"));
 const Library = lazy(() => import("./pages/Library"));
 const DuplicatesPage = lazy(() => import("./pages/DuplicatesPage"));
+const AudibleMissingPage = lazy(() => import("./pages/AudibleMissingPage"));
 const BookDetailsPage = lazy(() => import("./pages/BookDetailsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/AdminSettingsPage"));
 const AdminFileManagerPage = lazy(() => import("./pages/AdminFileManagerPage"));
@@ -73,6 +74,7 @@ function AppRoutes() {
           <Route path="/settings/:section"   element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
           <Route path="/files"               element={<AdminRoute><AdminFileManagerPage /></AdminRoute>} />
           <Route path="/duplicates"          element={<AdminRoute><DuplicatesPage /></AdminRoute>} />
+          <Route path="/missing"             element={<AdminRoute><AudibleMissingPage /></AdminRoute>} />
         </Route>
       </Routes>
     </Suspense>

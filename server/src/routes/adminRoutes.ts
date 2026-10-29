@@ -64,6 +64,12 @@ import {
   startAudibleCliAuth,
 } from "../controllers/admin/adminAudibleController";
 import {
+  downloadAudibleTitlesHandler,
+  getAudibleLibraryHandler,
+  setAudibleTitlesIgnoredHandler,
+  syncAudibleLibraryHandler,
+} from "../controllers/admin/adminAudibleLibraryController";
+import {
   createBackup,
   getAdminDashboard,
   listAdminTasks,
@@ -193,6 +199,10 @@ router.post("/audible-cli/auth/complete", completeAudibleCliAuth);
 router.post("/audible-cli/active-profile", setActiveAudibleCliProfileHandler);
 router.patch("/audible-cli/profiles/:profileName", renameAudibleCliProfileHandler);
 router.delete("/audible-cli/profiles/:profileName", deleteAudibleCliProfileHandler);
+router.get("/audible-library", getAudibleLibraryHandler);
+router.post("/audible-library/sync", syncAudibleLibraryHandler);
+router.post("/audible-library/ignore", setAudibleTitlesIgnoredHandler);
+router.post("/audible-library/download", downloadAudibleTitlesHandler);
 
 router.get("/backups", listBackups);
 router.post("/backups", createBackup);
