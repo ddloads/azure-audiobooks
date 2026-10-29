@@ -470,7 +470,7 @@ const mapProduct = (product: AudibleApiProduct): AudibleMatchCandidate => {
 
 // ─── API calls ─────────────────────────────────────────────────────────────
 
-const fetchByAsin = async (
+export const fetchAudibleProductByAsin = async (
   asin: string,
   profileName?: string | null,
 ): Promise<AudibleMatchCandidate | null> => {
@@ -510,7 +510,7 @@ const searchProducts = async (
     // so description and high-resolution cover art are consistently present.
     const hydrated = await Promise.all(
       baseProducts.map(async (product) => {
-        const detailed = await fetchByAsin(product.asin, profileName);
+        const detailed = await fetchAudibleProductByAsin(product.asin, profileName);
         return detailed ?? mapProduct(product);
       }),
     );
@@ -570,7 +570,7 @@ export const searchAudibleCli = async (
 
   const asinMatch = /\b([A-Z0-9]{10})\b/i.exec(query);
   if (asinMatch) {
-    const direct = await fetchByAsin(asinMatch[1].toUpperCase(), profileName);
+    const direct = await fetchAudibleProductByAsin(asinMatch[1].toUpperCase(), profileName);
     if (direct && !seen.has(direct.id)) {
       seen.add(direct.id);
       results.push(direct);

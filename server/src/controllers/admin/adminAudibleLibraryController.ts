@@ -8,7 +8,9 @@ import {
   setAudibleTitlesIgnored,
   syncAudibleLibrary,
 } from "../../utils/audibleLibrary";
-import { enqueueAudibleDownloads } from "../../utils/audibleDownloader";
+import { cancelQueuedAudibleDownloads, enqueueAudibleDownloads, getAudibleDownloadQueue } from "../../utils/audibleDownloader";
+import { getAudibleAutoSyncStatus, queueNewAudiblePurchases } from "../../utils/audibleAutoSync";
+import { getAudibleSyncSettings, updateAudibleSyncSettings } from "../../utils/appSettings";
 import { getSingleBodyValue } from "./shared";
 
 const ASIN_PATTERN = /^[A-Z0-9]{10}$/;
@@ -24,19 +26,22 @@ const getAsins = (value: unknown): string[] =>
 /** The linked account's Audible titles, each marked with whether it's already in the library. */
 export const getAudibleLibraryHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [result, libraries] = await Promise.all([
+    const [result, libraries, settings] = await Promise.all([
       listAudibleLibrary(getQueryProfile(req.query.profile)),
       prisma.library.findMany({
         where: { isActive: true, sources: { some: { isEnabled: true, isWritable: true } } },
         select: { id: true, name: true },
         orderBy: { name: "asc" },
       }),
+      getAudibleSyncSettings(),
     ]);
     res.json({
       ...result,
       profiles: listAudibleCliProfiles().map((profile) => profile.name),
       syncing: isAudibleLibrarySyncing(),
       libraries,
+      settings,
+      autoSync: getAudibleAutoSyncStatus(),
     });
   } catch (error) {
     console.error("List Audible library error:", error);
@@ -47,7 +52,8 @@ export const getAudibleLibraryHandler = async (req: AuthRequest, res: Response):
 export const syncAudibleLibraryHandler = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await syncAudibleLibrary(getSingleBodyValue(req.body?.profile));
-    res.json(result);
+    const queued = await queueNewAudiblePurchases(result.profile).catch(() => 0);
+    res.json({ ...result, queued });
   } catch (error) {
     console.error("Sync Audible library error:", error);
     const message = error instanceof Error ? error.message : "Failed to sync Audible library";
@@ -86,5 +92,126 @@ export const downloadAudibleTitlesHandler = async (req: AuthRequest, res: Respon
     console.error("Download Audible titles error:", error);
     const message = error instanceof Error ? error.message : "Failed to queue downloads";
     res.status(400).json({ error: message });
+  }
+};
+
+export const updateAudibleSyncSettingsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const body = req.body ?? {};
+    const libraryId = typeof body.libraryId === "string" ? body.libraryId : body.libraryId === null ? null : undefined;
+    if (libraryId) {
+      const writable = await prisma.librarySource.findFirst({ where: { libraryId, isEnabled: true, isWritable: true } });
+      if (!writable) {
+        res.status(400).json({ error: "That library has no writable folder." });
+        return;
+      }
+    }
+    const settings = await updateAudibleSyncSettings({
+      autoSync: typeof body.autoSync === "boolean" ? body.autoSync : undefined,
+      intervalMinutes: typeof body.intervalMinutes === "number" ? body.intervalMinutes : undefined,
+      autoDownload: typeof body.autoDownload === "boolean" ? body.autoDownload : undefined,
+      libraryId,
+    });
+    res.json({ settings, autoSync: getAudibleAutoSyncStatus() });
+  } catch (error) {
+    console.error("Update Audible sync settings error:", error);
+    res.status(500).json({ error: "Failed to save settings" });
+  }
+};
+
+/** Everything with a download status, plus live progress for the title being processed. */
+export const getAudibleDownloadsHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const items = await prisma.audibleLibraryItem.findMany({
+      where: { downloadStatus: { not: null } },
+      select: {
+        asin: true,
+        profile: true,
+        title: true,
+        author: true,
+        coverUrl: true,
+        downloadStatus: true,
+        downloadError: true,
+        downloadedPath: true,
+        downloadedAt: true,
+        updatedAt: true,
+      },
+      orderBy: { updatedAt: "desc" },
+    });
+    res.json({ ...getAudibleDownloadQueue(), items });
+  } catch (error) {
+    console.error("List Audible downloads error:", error);
+    res.status(500).json({ error: "Failed to load downloads" });
+  }
+};
+
+export const cancelAudibleDownloadsHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const asins = getAsins(req.body?.asins);
+    if (!asins.length) {
+      res.status(400).json({ error: "asins are required" });
+      return;
+    }
+    res.json({ cancelled: await cancelQueuedAudibleDownloads(asins) });
+  } catch (error) {
+    console.error("Cancel Audible downloads error:", error);
+    res.status(500).json({ error: "Failed to cancel downloads" });
+  }
+};
+
+/** Drops finished and failed downloads from the Downloads list. */
+export const clearFinishedAudibleDownloadsHandler = async (_req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const result = await prisma.audibleLibraryItem.updateMany({
+      where: { downloadStatus: { in: ["done", "failed"] } },
+      data: { downloadStatus: null, downloadError: null },
+    });
+    res.json({ cleared: result.count });
+  } catch (error) {
+    console.error("Clear Audible downloads error:", error);
+    res.status(500).json({ error: "Failed to clear downloads" });
+  }
+};
+
+const HISTORY_PAGE_SIZE = 50;
+
+/** Past download attempts, newest first. Pages with ?before=<id>; ?q= searches title, author and ASIN. */
+export const getAudibleDownloadHistoryHandler = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const query = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const before = typeof req.query.before === "string" ? req.query.before : null;
+    const rows = await prisma.audibleDownloadLog.findMany({
+      where: query
+        ? {
+            OR: [
+              { title: { contains: query, mode: "insensitive" } },
+              { author: { contains: query, mode: "insensitive" } },
+              { asin: { equals: query.toUpperCase() } },
+            ],
+          }
+        : undefined,
+      orderBy: [{ finishedAt: "desc" }, { id: "desc" }],
+      take: HISTORY_PAGE_SIZE + 1,
+      ...(before ? { cursor: { id: before }, skip: 1 } : {}),
+    });
+
+    // Link only to books that still exist.
+    const bookIds = rows.map((row) => row.bookId).filter((id): id is string => Boolean(id));
+    const existing = new Set(
+      (await prisma.book.findMany({ where: { id: { in: bookIds } }, select: { id: true } })).map((book) => book.id),
+    );
+
+    const page = rows.slice(0, HISTORY_PAGE_SIZE);
+    res.json({
+      entries: page.map((row) => ({
+        ...row,
+        sizeBytes: row.sizeBytes !== null ? Number(row.sizeBytes) : null,
+        bookId: row.bookId && existing.has(row.bookId) ? row.bookId : null,
+      })),
+      nextCursor: rows.length > HISTORY_PAGE_SIZE ? page[page.length - 1].id : null,
+    });
+  } catch (error) {
+    console.error("List Audible download history error:", error);
+    res.status(500).json({ error: "Failed to load download history" });
   }
 };

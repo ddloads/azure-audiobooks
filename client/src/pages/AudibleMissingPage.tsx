@@ -18,9 +18,12 @@ import {
   SearchInput,
   Segmented,
   Stack,
+  ToggleRow,
   Toolbar,
   type Tone,
 } from "../features/admin/ui";
+import AudibleDownloads from "../features/audible/AudibleDownloads";
+import AudibleDownloadHistory from "../features/audible/AudibleDownloadHistory";
 import "./AudibleMissingPage.css";
 
 interface AudibleTitle {
@@ -48,9 +51,29 @@ interface AudibleLibraryResponse {
   syncing: boolean;
   items: AudibleTitle[];
   libraries: Array<{ id: string; name: string }>;
+  settings: SyncSettings;
+  autoSync: { running: boolean; lastRunAt: string | null; nextRunAt: string | null; lastError: string | null };
 }
 
-type View = "missing" | "ignored";
+interface SyncSettings {
+  autoSync: boolean;
+  intervalMinutes: number;
+  autoDownload: boolean;
+  libraryId: string | null;
+  autoDownloadSince: string | null;
+}
+
+const SYNC_INTERVALS = [
+  { minutes: 15, label: "Every 15 minutes" },
+  { minutes: 30, label: "Every 30 minutes" },
+  { minutes: 60, label: "Every hour" },
+  { minutes: 180, label: "Every 3 hours" },
+  { minutes: 360, label: "Every 6 hours" },
+  { minutes: 720, label: "Every 12 hours" },
+  { minutes: 1440, label: "Once a day" },
+];
+
+type View = "missing" | "ignored" | "downloads" | "history";
 
 const POLL_MS = 4000;
 const ACTIVE_STATUSES = new Set(["queued", "downloading", "converting", "importing"]);
@@ -86,6 +109,7 @@ export default function AudibleMissingPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
   const [busyAsins, setBusyAsins] = useState<Set<string>>(new Set());
   const pollRef = useRef<number | null>(null);
 
@@ -96,9 +120,12 @@ export default function AudibleMissingPage() {
       });
       setData(response.data);
       setProfile(response.data.profile);
-      setLibraryId((current) =>
-        response.data.libraries.some((library) => library.id === current) ? current : response.data.libraries[0]?.id ?? "",
-      );
+      const { libraries, settings } = response.data;
+      setLibraryId((current) => {
+        if (libraries.some((library) => library.id === current)) return current;
+        if (libraries.some((library) => library.id === settings.libraryId)) return settings.libraryId!;
+        return libraries[0]?.id ?? "";
+      });
       return response.data;
     } catch (error) {
       showToast({ title: "Couldn't load Audible titles", description: getErrorMessage(error, "Try again in a moment."), tone: "error" });
@@ -129,9 +156,10 @@ export default function AudibleMissingPage() {
   const missing = useMemo(() => notInLibrary.filter((item) => !item.ignored), [notInLibrary]);
   const ignored = useMemo(() => notInLibrary.filter((item) => item.ignored), [notInLibrary]);
   const inLibraryCount = (data?.items.length ?? 0) - notInLibrary.length;
+  const activeDownloadCount = data?.items.filter((item) => item.downloadStatus && ACTIVE_STATUSES.has(item.downloadStatus)).length ?? 0;
 
   const query = search.trim().toLowerCase();
-  const visible = (view === "missing" ? missing : ignored).filter((item) => matchesSearch(item, query));
+  const visible = (view === "missing" ? missing : view === "ignored" ? ignored : []).filter((item) => matchesSearch(item, query));
   const selectedVisible = visible.filter((item) => selected.has(item.asin));
 
   const changeView = (next: View) => {
@@ -169,14 +197,32 @@ export default function AudibleMissingPage() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const response = await api.post<{ titles: number; removed: number }>("/admin/audible-library/sync", { profile });
-      showToast({ title: "Audible library synced", description: `${response.data.titles.toLocaleString()} titles on the account.`, tone: "success" });
+      const response = await api.post<{ titles: number; removed: number; queued: number }>("/admin/audible-library/sync", { profile });
+      const queuedText = response.data.queued ? ` ${response.data.queued} new ${response.data.queued === 1 ? "purchase" : "purchases"} queued for download.` : "";
+      showToast({ title: "Audible library synced", description: `${response.data.titles.toLocaleString()} titles on the account.${queuedText}`, tone: "success" });
       await load();
     } catch (error) {
       showToast({ title: "Sync failed", description: getErrorMessage(error, "Couldn't reach Audible."), tone: "error" });
     } finally {
       setSyncing(false);
     }
+  };
+
+  const saveSettings = async (changes: Partial<SyncSettings>) => {
+    setSavingSettings(true);
+    try {
+      const response = await api.put<Pick<AudibleLibraryResponse, "settings" | "autoSync">>("/admin/audible-library/settings", changes);
+      setData((current) => (current ? { ...current, ...response.data } : current));
+    } catch (error) {
+      showToast({ title: "Couldn't save", description: getErrorMessage(error, "Try again in a moment."), tone: "error" });
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const changeLibrary = (next: string) => {
+    setLibraryId(next);
+    void saveSettings({ libraryId: next });
   };
 
   const handleIgnore = async (asins: string[], nextIgnored: boolean) => {
@@ -297,7 +343,7 @@ export default function AudibleMissingPage() {
                     id="audible-missing-library"
                     className="form-control"
                     value={libraryId}
-                    onChange={(event) => setLibraryId(event.target.value)}
+                    onChange={(event) => changeLibrary(event.target.value)}
                   >
                     {data.libraries.map((library) => <option key={library.id} value={library.id}>{library.name}</option>)}
                   </select>
@@ -316,6 +362,55 @@ export default function AudibleMissingPage() {
             )}
           </Panel>
 
+          {data && (
+            <Panel title="Automatic" description="Sync every linked Audible account on a schedule, and download new purchases without asking.">
+              <Stack gap="sm">
+                <ToggleRow
+                  title="Sync automatically"
+                  description={
+                    data.settings.autoSync
+                      ? data.autoSync.running
+                        ? "Syncing now…"
+                        : data.autoSync.lastRunAt
+                          ? `Last ran ${formatElapsed(data.autoSync.lastRunAt)}.`
+                          : "First sync runs within a minute."
+                      : "Off. Use Sync above to check for new titles."
+                  }
+                  checked={data.settings.autoSync}
+                  disabled={savingSettings}
+                  onChange={(next) => void saveSettings({ autoSync: next })}
+                />
+                {data.settings.autoSync && (
+                  <Field label="How often" htmlFor="audible-missing-interval">
+                    <select
+                      id="audible-missing-interval"
+                      className="form-control"
+                      value={data.settings.intervalMinutes}
+                      disabled={savingSettings}
+                      onChange={(event) => void saveSettings({ intervalMinutes: Number(event.target.value) })}
+                    >
+                      {SYNC_INTERVALS.map((interval) => <option key={interval.minutes} value={interval.minutes}>{interval.label}</option>)}
+                    </select>
+                  </Field>
+                )}
+                <ToggleRow
+                  title="Download new purchases automatically"
+                  description={
+                    !canDownload
+                      ? "Needs a library with a writable folder."
+                      : data.settings.autoDownload && data.settings.autoDownloadSince
+                        ? `Titles bought since ${new Date(data.settings.autoDownloadSince).toLocaleDateString()} download into ${data.libraries.find((library) => library.id === libraryId)?.name ?? "the library"} after each sync. Older missing titles stay here for you to choose.`
+                        : "Titles you buy after turning this on download into the library above after each sync."
+                  }
+                  checked={data.settings.autoDownload}
+                  disabled={savingSettings || (!canDownload && !data.settings.autoDownload)}
+                  onChange={(next) => void saveSettings(next ? { autoDownload: true, libraryId } : { autoDownload: false })}
+                />
+                {data.autoSync.lastError && <Notice tone="danger">Last automatic sync failed: {data.autoSync.lastError}</Notice>}
+              </Stack>
+            </Panel>
+          )}
+
           <Segmented<View>
             label="Titles"
             value={view}
@@ -323,96 +418,106 @@ export default function AudibleMissingPage() {
             options={[
               { value: "missing", label: "Missing", count: missing.length },
               { value: "ignored", label: "Ignored", count: ignored.length },
+              { value: "downloads", label: "Downloads", count: activeDownloadCount || undefined },
+              { value: "history", label: "History" },
             ]}
           />
 
-          <Toolbar>
-            <SearchInput
-              placeholder="Search title, author, narrator or series"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              aria-label="Search titles"
-            />
-          </Toolbar>
-
-          {visible.length > 0 && (
-            <Actions align="between" className="audible-missing-bulk">
-              <label className="audible-missing-check">
-                <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} />
-                <span>{selectedVisible.length ? `${selectedVisible.length} selected` : "Select all"}</span>
-              </label>
-              {selectedVisible.length > 0 && (
-                <div className="audible-missing-bulk-actions">
-                  {view === "missing" ? (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        icon={Download}
-                        disabled={!canDownload}
-                        title={downloadBlockedReason}
-                        onClick={() => void handleDownload(selectedVisible.map((item) => item.asin))}
-                      >
-                        Download {selectedVisible.length}
-                      </Button>
-                      <Button size="sm" icon={EyeOff} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), true)}>
-                        Ignore {selectedVisible.length}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button size="sm" icon={Eye} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), false)}>
-                      Restore {selectedVisible.length}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </Actions>
-          )}
-
-          {visible.length === 0 ? (
-            <EmptyState icon={view === "missing" ? Library : EyeOff} title={
-              query ? "No titles match your search" :
-              !data?.items.length ? "No Audible titles yet" :
-              view === "missing" ? "Everything on Audible is in the library" : "No ignored titles"
-            }>
-              {!data?.items.length && !query ? "Sync to fetch the titles on this Audible account." : null}
-            </EmptyState>
+          {view === "downloads" ? (
+            <AudibleDownloads libraryId={libraryId} onFinished={() => void load()} />
+          ) : view === "history" ? (
+            <AudibleDownloadHistory />
           ) : (
-            <List className="audible-missing-list">
-              {visible.map((item) => {
-                const series = item.seriesName ? `${item.seriesName}${item.seriesSequence ? ` #${item.seriesSequence}` : ""}` : null;
-                const purchased = item.purchaseDate ? `Purchased ${new Date(item.purchaseDate).toLocaleDateString()}` : null;
-                return (
-                  <ListItem
-                    key={item.asin}
-                    selected={selected.has(item.asin)}
-                    leading={
-                      <span className="audible-missing-leading">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(item.asin)}
-                          onChange={() => toggleSelected(item.asin)}
-                          aria-label={`Select ${item.title}`}
-                        />
-                        {item.coverUrl ? (
-                          <img className="audible-missing-cover" src={item.coverUrl} alt="" loading="lazy" />
-                        ) : (
-                          <span className="audible-missing-cover audible-missing-cover-empty" />
+            <>
+              <Toolbar>
+                <SearchInput
+                  placeholder="Search title, author, narrator or series"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  aria-label="Search titles"
+                />
+              </Toolbar>
+
+              {visible.length > 0 && (
+                <Actions align="between" className="audible-missing-bulk">
+                  <label className="audible-missing-check">
+                    <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} />
+                    <span>{selectedVisible.length ? `${selectedVisible.length} selected` : "Select all"}</span>
+                  </label>
+                  {selectedVisible.length > 0 && (
+                    <div className="audible-missing-bulk-actions">
+                      {view === "missing" ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            icon={Download}
+                            disabled={!canDownload}
+                            title={downloadBlockedReason}
+                            onClick={() => void handleDownload(selectedVisible.map((item) => item.asin))}
+                          >
+                            Download {selectedVisible.length}
+                          </Button>
+                          <Button size="sm" icon={EyeOff} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), true)}>
+                            Ignore {selectedVisible.length}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button size="sm" icon={Eye} onClick={() => void handleIgnore(selectedVisible.map((item) => item.asin), false)}>
+                          Restore {selectedVisible.length}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </Actions>
+              )}
+
+              {visible.length === 0 ? (
+                <EmptyState icon={view === "missing" ? Library : EyeOff} title={
+                  query ? "No titles match your search" :
+                  !data?.items.length ? "No Audible titles yet" :
+                  view === "missing" ? "Everything on Audible is in the library" : "No ignored titles"
+                }>
+                  {!data?.items.length && !query ? "Sync to fetch the titles on this Audible account." : null}
+                </EmptyState>
+              ) : (
+                <List className="audible-missing-list">
+                  {visible.map((item) => {
+                    const series = item.seriesName ? `${item.seriesName}${item.seriesSequence ? ` #${item.seriesSequence}` : ""}` : null;
+                    const purchased = item.purchaseDate ? `Purchased ${new Date(item.purchaseDate).toLocaleDateString()}` : null;
+                    return (
+                      <ListItem
+                        key={item.asin}
+                        selected={selected.has(item.asin)}
+                        leading={
+                          <span className="audible-missing-leading">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(item.asin)}
+                              onChange={() => toggleSelected(item.asin)}
+                              aria-label={`Select ${item.title}`}
+                            />
+                            {item.coverUrl ? (
+                              <img className="audible-missing-cover" src={item.coverUrl} alt="" loading="lazy" />
+                            ) : (
+                              <span className="audible-missing-cover audible-missing-cover-empty" />
+                            )}
+                          </span>
+                        }
+                        title={item.title}
+                        subtitle={[item.author, item.narrator && `Narrated by ${item.narrator}`].filter(Boolean).join(" · ") || null}
+                        meta={[series, formatRuntime(item.durationSeconds), purchased].filter(Boolean).join(" · ") || null}
+                        trailing={<span className="audible-missing-actions">{renderTrailing(item)}</span>}
+                      >
+                        {item.downloadStatus === "failed" && item.downloadError && (
+                          <p className="audible-missing-error">{item.downloadError}</p>
                         )}
-                      </span>
-                    }
-                    title={item.title}
-                    subtitle={[item.author, item.narrator && `Narrated by ${item.narrator}`].filter(Boolean).join(" · ") || null}
-                    meta={[series, formatRuntime(item.durationSeconds), purchased].filter(Boolean).join(" · ") || null}
-                    trailing={<span className="audible-missing-actions">{renderTrailing(item)}</span>}
-                  >
-                    {item.downloadStatus === "failed" && item.downloadError && (
-                      <p className="audible-missing-error">{item.downloadError}</p>
-                    )}
-                  </ListItem>
-                );
-              })}
-            </List>
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              )}
+            </>
           )}
         </Stack>
       )}

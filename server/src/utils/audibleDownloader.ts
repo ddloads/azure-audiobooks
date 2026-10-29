@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { execFile, spawn } from "child_process";
 import { promisify } from "util";
 import fs from "fs";
 import fsp from "fs/promises";
@@ -10,12 +10,13 @@ import { requestLibraryFolderScan } from "../lib/scanJobPool";
 import { runAudible } from "./audibleCli";
 import { ACTIVE_DOWNLOAD_STATUSES } from "./audibleLibrary";
 import { resolveWritableLibrarySource } from "./libraryConfig";
+import { applyAudibleMetadataToBook } from "./audibleDownloadMetadata";
 
 // Downloads titles from Audible one at a time: audible-cli fetches the
 // encrypted AAXC (or AAX when AAXC is refused) into a temp folder under data/, ffmpeg decrypts it
 // to M4B without re-encoding, and only the finished file (plus cover) moves to
 // the library's writable folder as Author/Series/Book N - Title, where a folder scan
-// imports it.
+// imports it and Audible's metadata is applied.
 
 const execFileAsync = promisify(execFile);
 const logger = createLogger("audible-download");
@@ -25,11 +26,32 @@ const DOWNLOAD_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 const CONVERT_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const SCAN_POLL_MS = 3000;
 const SCAN_WAIT_MS = 30 * 60 * 1000;
+const BOOK_WAIT_MS = 2 * 60 * 1000;
+const PROGRESS_POLL_MS = 1500;
 
-type DownloadJob = { itemId: string; libraryId: string };
+export type DownloadTrigger = "manual" | "auto";
+type DownloadJob = { itemId: string; libraryId: string; asin: string; title: string; trigger: DownloadTrigger };
+
+export interface AudibleDownloadProgress {
+  asin: string;
+  title: string;
+  phase: "downloading" | "converting" | "importing";
+  /** 0–100, or null while it can't be worked out. */
+  percent: number | null;
+  bytes: number | null;
+  totalBytes: number | null;
+  startedAt: string;
+}
 
 const queue: DownloadJob[] = [];
 let working = false;
+let current: AudibleDownloadProgress | null = null;
+
+/** The title being processed (with its progress) and the titles waiting behind it, in order. */
+export const getAudibleDownloadQueue = () => ({
+  current: current ? { ...current } : null,
+  queued: queue.map(({ asin, title }) => ({ asin, title })),
+});
 
 const setStatus = (itemId: string, data: { downloadStatus: string; downloadError?: string | null; downloadedPath?: string; downloadedAt?: Date }) =>
   prisma.audibleLibraryItem.update({ where: { id: itemId }, data });
@@ -48,6 +70,68 @@ const resolveFfmpeg = async () => {
     resolvedFfmpeg = ffmpegInstaller.path;
   }
   return resolvedFfmpeg;
+};
+
+/** Runs ffmpeg, reporting how far into the audio it has got (in seconds). */
+const runFfmpeg = async (args: string[], onProgress: (seconds: number) => void) => {
+  const child = spawn(await resolveFfmpeg(), ["-progress", "pipe:1", "-nostats", ...args], { windowsHide: true });
+  let stderr = "";
+  let buffered = "";
+  child.stdout.on("data", (chunk: Buffer) => {
+    buffered += chunk.toString();
+    const lines = buffered.split("\n");
+    buffered = lines.pop() ?? "";
+    for (const line of lines) {
+      const match = /^out_time_(?:us|ms)=(\d+)/.exec(line.trim());
+      if (match) onProgress(Number(match[1]) / 1_000_000);
+    }
+  });
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr = (stderr + chunk.toString()).slice(-8000);
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => child.kill(), CONVERT_TIMEOUT_MS);
+    child.on("error", (error) => {
+      clearTimeout(timeout);
+      reject(error);
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timeout);
+      if (code === 0) resolve();
+      else reject(Object.assign(new Error(`ffmpeg exited with ${code ?? signal}`), { stderr, killed: signal !== null }));
+    });
+  });
+};
+
+/** Watches the partial download grow; the voucher written first says how big the file will be. */
+const watchDownloadProgress = (workDir: string) => {
+  const timer = setInterval(() => {
+    void (async () => {
+      if (!current || current.phase !== "downloading") return;
+      try {
+        const files = await fsp.readdir(workDir);
+        if (current.totalBytes === null) {
+          const voucher = files.find((name) => name.endsWith(".voucher"));
+          if (voucher) {
+            const parsed = JSON.parse(await fsp.readFile(path.join(workDir, voucher), "utf-8")) as {
+              content_license?: { content_metadata?: { content_reference?: { content_size_in_bytes?: number } } };
+            };
+            current.totalBytes = parsed.content_license?.content_metadata?.content_reference?.content_size_in_bytes ?? null;
+          }
+        }
+        let bytes = 0;
+        for (const name of files.filter((file) => /\.(tmp|aaxc|aax|mp3)$/i.test(file))) {
+          bytes = Math.max(bytes, (await fsp.stat(path.join(workDir, name))).size);
+        }
+        current.bytes = bytes;
+        current.percent = current.totalBytes ? Math.min(100, (bytes / current.totalBytes) * 100) : null;
+      } catch {
+        // The folder changes under us while audible-cli renames files.
+      }
+    })();
+  }, PROGRESS_POLL_MS);
+  return () => clearInterval(timer);
 };
 
 const getActivationBytes = async (profile: string) => {
@@ -149,6 +233,8 @@ const downloadFromAudible = async (asin: string, profile: string, workDir: strin
   } catch (aaxcError) {
     const aaxcReason = describeError(aaxcError);
     logger.warn("AAXC download failed, trying AAX", { asin, error: aaxcReason });
+    for (const name of await fsp.readdir(workDir)) await fsp.rm(path.join(workDir, name), { force: true, recursive: true });
+    if (current) Object.assign(current, { bytes: null, totalBytes: null, percent: null });
     try {
       await runAudible(downloadArgs(asin, workDir, "--aax"), profile, DOWNLOAD_TIMEOUT_MS);
     } catch (aaxError) {
@@ -159,11 +245,72 @@ const downloadFromAudible = async (asin: string, profile: string, workDir: strin
 
 // ─── The job ──────────────────────────────────────────────────────────────
 
-const processJob = async ({ itemId, libraryId }: DownloadJob) => {
+type LoggedTitle = { profile: string; asin: string; title: string; author: string | null; coverUrl: string | null };
+
+/** Adds an entry to the download history. History is best effort and never fails a download. */
+const logDownload = (
+  title: LoggedTitle,
+  entry: {
+    status: "done" | "failed" | "cancelled";
+    trigger: DownloadTrigger;
+    error?: string | null;
+    libraryId?: string | null;
+    folderPath?: string | null;
+    bookId?: string | null;
+    sizeBytes?: number | null;
+    startedAt?: Date | null;
+  },
+) =>
+  prisma.audibleDownloadLog
+    .create({
+      data: {
+        profile: title.profile,
+        asin: title.asin,
+        title: title.title,
+        author: title.author,
+        coverUrl: title.coverUrl,
+        status: entry.status,
+        trigger: entry.trigger,
+        error: entry.error ?? null,
+        libraryId: entry.libraryId ?? null,
+        folderPath: entry.folderPath ?? null,
+        bookId: entry.bookId ?? null,
+        sizeBytes: entry.sizeBytes != null ? BigInt(entry.sizeBytes) : null,
+        startedAt: entry.startedAt ?? null,
+      },
+    })
+    .catch((error) => logger.warn("Couldn't record download history", { asin: title.asin, error: String(error) }));
+
+const setPhase = (phase: AudibleDownloadProgress["phase"]) => {
+  if (current) Object.assign(current, { phase, percent: null, bytes: null, totalBytes: null });
+};
+
+const waitForBook = async (folderPath: string) => {
+  const deadline = Date.now() + BOOK_WAIT_MS;
+  while (Date.now() < deadline) {
+    const book = await prisma.book.findFirst({ where: { folderPath: { equals: folderPath, mode: "insensitive" } }, select: { id: true } });
+    if (book) return book;
+    await new Promise((resolve) => setTimeout(resolve, SCAN_POLL_MS));
+  }
+  return null;
+};
+
+const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
   const item = await prisma.audibleLibraryItem.findUnique({ where: { id: itemId } });
   if (!item) return;
 
+  current = {
+    asin: item.asin,
+    title: item.title,
+    phase: "downloading",
+    percent: null,
+    bytes: null,
+    totalBytes: null,
+    startedAt: new Date().toISOString(),
+  };
+  const startedAt = new Date();
   const workDir = path.join(WORK_ROOT, item.asin);
+  let stopWatching: (() => void) | null = null;
   try {
     const source = await resolveWritableLibrarySource(libraryId);
     if (!source) throw new Error("The library has no writable folder.");
@@ -172,7 +319,9 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     await fsp.mkdir(workDir, { recursive: true });
 
     await setStatus(itemId, { downloadStatus: "downloading", downloadError: null });
+    stopWatching = watchDownloadProgress(workDir);
     await downloadFromAudible(item.asin, item.profile, workDir);
+    stopWatching();
 
     const files = await fsp.readdir(workDir);
     const audio = files.find((name) => /\.(aaxc|aax|mp3)$/i.test(name));
@@ -182,6 +331,7 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     const extension = path.extname(audio).toLowerCase();
 
     await setStatus(itemId, { downloadStatus: "converting" });
+    setPhase("converting");
     const outputName = `${buildBookName(item)}${extension === ".mp3" ? ".mp3" : ".m4b"}`;
     const outputPath = path.join(workDir, `converted-${outputName}`);
     if (extension === ".mp3") {
@@ -191,8 +341,7 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
         extension === ".aaxc"
           ? await readVoucherKeys(audioPath.replace(/\.aaxc$/i, ".voucher")).then(({ key, iv }) => ["-audible_key", key, "-audible_iv", iv])
           : ["-activation_bytes", await getActivationBytes(item.profile)];
-      await execFileAsync(
-        await resolveFfmpeg(),
+      await runFfmpeg(
         [
           "-hide_banner", "-loglevel", "error", "-y",
           ...decryptArgs,
@@ -204,11 +353,14 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
           "-movflags", "+faststart",
           outputPath,
         ],
-        { timeout: CONVERT_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024, windowsHide: true },
+        (seconds) => {
+          if (current && item.durationSeconds) current.percent = Math.min(100, (seconds / item.durationSeconds) * 100);
+        },
       );
     }
 
     await setStatus(itemId, { downloadStatus: "importing" });
+    setPhase("importing");
     const segments = buildRelativeFolder(item);
     let targetDir = path.join(source.resolvedPath, ...segments);
     if (fs.existsSync(targetDir) && (await fsp.readdir(targetDir)).length > 0) {
@@ -218,25 +370,35 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     if (!isInside(source.resolvedPath, targetDir)) throw new Error("The book's folder would be outside the library.");
 
     await fsp.mkdir(targetDir, { recursive: true });
-    await moveFile(outputPath, path.join(targetDir, outputName));
+    const finalPath = path.join(targetDir, outputName);
+    await moveFile(outputPath, finalPath);
+    const sizeBytes = (await fsp.stat(finalPath)).size;
     if (cover) await moveFile(path.join(workDir, cover), path.join(targetDir, "cover.jpg"));
 
     const scan = await requestLibraryFolderScan(libraryId, targetDir, "audible-download", { dedupe: true });
     if (scan.jobId) await waitForScanJob(scan.jobId);
 
-    // Files from Audible don't always carry the ASIN in a tag the scanner reads.
-    await prisma.book.updateMany({
-      where: { folderPath: { equals: targetDir, mode: "insensitive" }, asin: null },
-      data: { asin: item.asin },
-    });
+    // The scan only reads the file's few tags; fill in the rest from Audible.
+    const book = await waitForBook(targetDir);
+    if (book) {
+      await applyAudibleMetadataToBook(book.id, item).catch((error) =>
+        logger.warn("Applying Audible metadata failed", { asin: item.asin, error: String(error) }),
+      );
+    } else {
+      logger.warn("Downloaded book didn't show up after the scan", { asin: item.asin, folder: targetDir });
+    }
 
     await setStatus(itemId, { downloadStatus: "done", downloadError: null, downloadedPath: targetDir, downloadedAt: new Date() });
+    await logDownload(item, { status: "done", trigger, libraryId, folderPath: targetDir, bookId: book?.id ?? null, sizeBytes, startedAt });
     logger.info("Audible title downloaded", { asin: item.asin, title: item.title, folder: targetDir });
   } catch (error) {
     const message = describeError(error);
     logger.warn("Audible download failed", { asin: item.asin, title: item.title, error: message });
     await setStatus(itemId, { downloadStatus: "failed", downloadError: message }).catch(() => undefined);
+    await logDownload(item, { status: "failed", trigger, libraryId, error: message, startedAt });
   } finally {
+    stopWatching?.();
+    current = null;
     await fsp.rm(workDir, { recursive: true, force: true }).catch(() => undefined);
   }
 };
@@ -254,7 +416,12 @@ const work = async () => {
 };
 
 /** Queues titles for download into the library. Titles already queued or downloading are skipped. */
-export const enqueueAudibleDownloads = async (profile: string, asins: string[], libraryId: string) => {
+export const enqueueAudibleDownloads = async (
+  profile: string,
+  asins: string[],
+  libraryId: string,
+  trigger: DownloadTrigger = "manual",
+) => {
   const source = await resolveWritableLibrarySource(libraryId);
   if (!source) throw new Error("That library has no writable folder. Mark one of its folders as writable first.");
 
@@ -264,7 +431,7 @@ export const enqueueAudibleDownloads = async (profile: string, asins: string[], 
       asin: { in: asins },
       OR: [{ downloadStatus: null }, { downloadStatus: { notIn: ACTIVE_DOWNLOAD_STATUSES } }],
     },
-    select: { id: true },
+    select: { id: true, asin: true, title: true },
   });
   if (!items.length) return 0;
 
@@ -272,16 +439,43 @@ export const enqueueAudibleDownloads = async (profile: string, asins: string[], 
     where: { id: { in: items.map((item) => item.id) } },
     data: { downloadStatus: "queued", downloadError: null },
   });
-  queue.push(...items.map((item) => ({ itemId: item.id, libraryId })));
+  queue.push(...items.map((item) => ({ itemId: item.id, libraryId, asin: item.asin, title: item.title, trigger })));
   void work();
   return items.length;
 };
 
+/** Takes titles that haven't started yet out of the queue. */
+export const cancelQueuedAudibleDownloads = async (asins: string[]) => {
+  const removed: DownloadJob[] = [];
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (asins.includes(queue[i].asin)) removed.push(...queue.splice(i, 1));
+  }
+  if (removed.length) {
+    await prisma.audibleLibraryItem.updateMany({
+      where: { id: { in: removed.map((job) => job.itemId) }, downloadStatus: "queued" },
+      data: { downloadStatus: null, downloadError: null },
+    });
+    const items = await prisma.audibleLibraryItem.findMany({ where: { id: { in: removed.map((job) => job.itemId) } } });
+    for (const item of items) {
+      const job = removed.find((entry) => entry.itemId === item.id)!;
+      await logDownload(item, { status: "cancelled", trigger: job.trigger, libraryId: job.libraryId });
+    }
+  }
+  return removed.length;
+};
+
 /** The queue lives in memory, so downloads cut short by a restart are marked failed. */
 export const reapInterruptedAudibleDownloads = async () => {
-  const result = await prisma.audibleLibraryItem.updateMany({
-    where: { downloadStatus: { in: ACTIVE_DOWNLOAD_STATUSES } },
-    data: { downloadStatus: "failed", downloadError: "Interrupted when the server restarted. Download it again to retry." },
+  const error = "Interrupted when the server restarted. Download it again to retry.";
+  const interrupted = await prisma.audibleLibraryItem.findMany({ where: { downloadStatus: { in: ACTIVE_DOWNLOAD_STATUSES } } });
+  if (!interrupted.length) return 0;
+  await prisma.audibleLibraryItem.updateMany({
+    where: { id: { in: interrupted.map((item) => item.id) } },
+    data: { downloadStatus: "failed", downloadError: error },
   });
-  return result.count;
+  // Only titles that had started count as attempts; queued ones never ran.
+  for (const item of interrupted.filter((entry) => entry.downloadStatus !== "queued")) {
+    await logDownload(item, { status: "failed", trigger: "manual", error });
+  }
+  return interrupted.length;
 };

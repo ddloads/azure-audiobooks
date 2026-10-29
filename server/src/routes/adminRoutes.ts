@@ -64,10 +64,15 @@ import {
   startAudibleCliAuth,
 } from "../controllers/admin/adminAudibleController";
 import {
+  cancelAudibleDownloadsHandler,
+  clearFinishedAudibleDownloadsHandler,
   downloadAudibleTitlesHandler,
+  getAudibleDownloadHistoryHandler,
+  getAudibleDownloadsHandler,
   getAudibleLibraryHandler,
   setAudibleTitlesIgnoredHandler,
   syncAudibleLibraryHandler,
+  updateAudibleSyncSettingsHandler,
 } from "../controllers/admin/adminAudibleLibraryController";
 import {
   createBackup,
@@ -203,6 +208,11 @@ router.get("/audible-library", getAudibleLibraryHandler);
 router.post("/audible-library/sync", syncAudibleLibraryHandler);
 router.post("/audible-library/ignore", setAudibleTitlesIgnoredHandler);
 router.post("/audible-library/download", downloadAudibleTitlesHandler);
+router.put("/audible-library/settings", updateAudibleSyncSettingsHandler);
+router.get("/audible-library/downloads", getAudibleDownloadsHandler);
+router.post("/audible-library/downloads/cancel", cancelAudibleDownloadsHandler);
+router.post("/audible-library/downloads/clear", clearFinishedAudibleDownloadsHandler);
+router.get("/audible-library/history", getAudibleDownloadHistoryHandler);
 
 router.get("/backups", listBackups);
 router.post("/backups", createBackup);
