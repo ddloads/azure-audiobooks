@@ -189,6 +189,7 @@ export const updateRegistrationSettings = async (
 
 const AUDIBLE_SYNC_SETTINGS_KEY = "audibleSync";
 export const AUDIBLE_SYNC_INTERVALS = [15, 30, 60, 180, 360, 720, 1440];
+export const MAX_PARALLEL_AUDIBLE_DOWNLOADS = 5;
 
 export interface AudibleSyncSettings {
   autoSync: boolean;
@@ -198,7 +199,12 @@ export interface AudibleSyncSettings {
   libraryId: string | null;
   /** When auto-download was last turned on; only titles purchased after it download on their own. */
   autoDownloadSince: string | null;
+  /** How many titles download at the same time. */
+  maxConcurrentDownloads: number;
 }
+
+const isConcurrencyValue = (value: unknown): value is number =>
+  typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_PARALLEL_AUDIBLE_DOWNLOADS;
 
 const defaultAudibleSyncSettings = (): AudibleSyncSettings => ({
   autoSync: false,
@@ -206,6 +212,7 @@ const defaultAudibleSyncSettings = (): AudibleSyncSettings => ({
   autoDownload: false,
   libraryId: null,
   autoDownloadSince: null,
+  maxConcurrentDownloads: 2,
 });
 
 export const getAudibleSyncSettings = async (): Promise<AudibleSyncSettings> => {
@@ -221,6 +228,7 @@ export const getAudibleSyncSettings = async (): Promise<AudibleSyncSettings> => 
       autoDownload: typeof parsed.autoDownload === "boolean" ? parsed.autoDownload : defaults.autoDownload,
       libraryId: typeof parsed.libraryId === "string" ? parsed.libraryId : defaults.libraryId,
       autoDownloadSince: typeof parsed.autoDownloadSince === "string" ? parsed.autoDownloadSince : defaults.autoDownloadSince,
+      maxConcurrentDownloads: isConcurrencyValue(parsed.maxConcurrentDownloads) ? parsed.maxConcurrentDownloads : defaults.maxConcurrentDownloads,
     };
   } catch {
     return defaults;
@@ -237,6 +245,7 @@ export const updateAudibleSyncSettings = async (
     next.intervalMinutes = settings.intervalMinutes;
   }
   if (typeof settings.autoDownload === "boolean") next.autoDownload = settings.autoDownload;
+  if (isConcurrencyValue(settings.maxConcurrentDownloads)) next.maxConcurrentDownloads = settings.maxConcurrentDownloads;
   if (typeof settings.libraryId === "string" || settings.libraryId === null) next.libraryId = settings.libraryId;
   // Turning auto-download on doesn't reach back into the existing backlog.
   if (next.autoDownload && !current.autoDownload) next.autoDownloadSince = new Date().toISOString();

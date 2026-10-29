@@ -29,7 +29,7 @@ interface DownloadItem {
 }
 
 interface DownloadsResponse {
-  current: DownloadProgress | null;
+  active: DownloadProgress[];
   queued: Array<{ asin: string; title: string }>;
   items: DownloadItem[];
 }
@@ -70,7 +70,7 @@ interface Props {
   onFinished: () => void;
 }
 
-/** The download queue: the title being processed with live progress, what's waiting, and recent results. */
+/** The download queue: the titles being processed with live progress, what's waiting, and recent results. */
 export default function AudibleDownloads({ libraryId, onFinished }: Props) {
   const { showToast } = useToast();
   const [data, setData] = useState<DownloadsResponse | null>(null);
@@ -80,7 +80,7 @@ export default function AudibleDownloads({ libraryId, onFinished }: Props) {
   const load = async () => {
     try {
       const response = await api.get<DownloadsResponse>("/admin/audible-library/downloads");
-      const active = (response.data.current ? 1 : 0) + response.data.queued.length;
+      const active = response.data.active.length + response.data.queued.length;
       if (activeCountRef.current !== null && active < activeCountRef.current) onFinished();
       activeCountRef.current = active;
       setData(response.data);
@@ -89,7 +89,7 @@ export default function AudibleDownloads({ libraryId, onFinished }: Props) {
     }
   };
 
-  const isActive = Boolean(data?.current || data?.queued.length);
+  const isActive = Boolean(data?.active.length || data?.queued.length);
   useEffect(() => {
     if (!data) {
       void load();
@@ -129,11 +129,11 @@ export default function AudibleDownloads({ libraryId, onFinished }: Props) {
 
   if (!data) return <div className="as-loading" aria-live="polite"><div className="app-loading-spinner" /></div>;
 
-  const { current, queued } = data;
+  const { active, queued } = data;
   const byAsin = new Map(data.items.map((item) => [item.asin, item]));
   const finished = data.items.filter((item) => item.downloadStatus === "done" || item.downloadStatus === "failed");
 
-  if (!current && !queued.length && !finished.length) {
+  if (!active.length && !queued.length && !finished.length) {
     return (
       <EmptyState icon={Download} title="No downloads">
         Titles you download from the Missing tab show up here with their progress.
@@ -143,22 +143,23 @@ export default function AudibleDownloads({ libraryId, onFinished }: Props) {
 
   return (
     <Stack gap="md">
-      {(current || queued.length > 0) && (
+      {(active.length > 0 || queued.length > 0) && (
         <List className="audible-missing-list">
-          {current && (
+          {active.map((progress) => (
             <ListItem
-              leading={<Cover url={byAsin.get(current.asin)?.coverUrl ?? null} />}
-              title={current.title}
-              subtitle={byAsin.get(current.asin)?.author ?? null}
-              meta={`${describeProgress(current)} · started ${formatElapsed(current.startedAt)}`}
+              key={progress.asin}
+              leading={<Cover url={byAsin.get(progress.asin)?.coverUrl ?? null} />}
+              title={progress.title}
+              subtitle={byAsin.get(progress.asin)?.author ?? null}
+              meta={`${describeProgress(progress)} · started ${formatElapsed(progress.startedAt)}`}
             >
-              <Progress
-                value={current.percent ?? 0}
-                tone="accent"
-                label={`${current.title} progress`}
-              />
+              {progress.percent !== null ? (
+                <Progress value={progress.percent} tone="accent" label={`${progress.title} progress`} />
+              ) : (
+                <div className="audible-missing-indeterminate" role="progressbar" aria-label={`${progress.title} progress`} />
+              )}
             </ListItem>
-          )}
+          ))}
           {queued.map((entry, index) => {
             const item = byAsin.get(entry.asin);
             return (

@@ -11,8 +11,9 @@ import { runAudible } from "./audibleCli";
 import { ACTIVE_DOWNLOAD_STATUSES } from "./audibleLibrary";
 import { resolveWritableLibrarySource } from "./libraryConfig";
 import { applyAudibleMetadataToBook } from "./audibleDownloadMetadata";
+import { getAudibleSyncSettings } from "./appSettings";
 
-// Downloads titles from Audible one at a time: audible-cli fetches the
+// Downloads titles from Audible, a few at a time (set on the Missing page): audible-cli fetches the
 // encrypted AAXC (or AAX when AAXC is refused) into a temp folder under data/, ffmpeg decrypts it
 // to M4B without re-encoding, and only the finished file (plus cover) moves to
 // the library's writable folder as Author/Series/Book N - Title, where a folder scan
@@ -44,12 +45,12 @@ export interface AudibleDownloadProgress {
 }
 
 const queue: DownloadJob[] = [];
-let working = false;
-let current: AudibleDownloadProgress | null = null;
+/** Titles being processed right now, keyed by item id, with their progress. */
+const active = new Map<string, AudibleDownloadProgress>();
 
-/** The title being processed (with its progress) and the titles waiting behind it, in order. */
+/** The titles being processed (with their progress) and the titles waiting behind them, in order. */
 export const getAudibleDownloadQueue = () => ({
-  current: current ? { ...current } : null,
+  active: [...active.values()].map((progress) => ({ ...progress })),
   queued: queue.map(({ asin, title }) => ({ asin, title })),
 });
 
@@ -104,28 +105,36 @@ const runFfmpeg = async (args: string[], onProgress: (seconds: number) => void) 
   });
 };
 
+/** Finds the first numeric "content_size_in_bytes" anywhere in the voucher; its nesting varies. */
+const findContentSize = (value: unknown): number | null => {
+  if (!value || typeof value !== "object") return null;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "content_size_in_bytes" && Number(child) > 0) return Number(child);
+    const nested = findContentSize(child);
+    if (nested) return nested;
+  }
+  return null;
+};
+
 /** Watches the partial download grow; the voucher written first says how big the file will be. */
-const watchDownloadProgress = (workDir: string) => {
+const watchDownloadProgress = (workDir: string, progress: AudibleDownloadProgress) => {
+  let voucherRead = false;
   const timer = setInterval(() => {
     void (async () => {
-      if (!current || current.phase !== "downloading") return;
+      if (progress.phase !== "downloading") return;
       try {
         const files = await fsp.readdir(workDir);
-        if (current.totalBytes === null) {
-          const voucher = files.find((name) => name.endsWith(".voucher"));
-          if (voucher) {
-            const parsed = JSON.parse(await fsp.readFile(path.join(workDir, voucher), "utf-8")) as {
-              content_license?: { content_metadata?: { content_reference?: { content_size_in_bytes?: number } } };
-            };
-            current.totalBytes = parsed.content_license?.content_metadata?.content_reference?.content_size_in_bytes ?? null;
-          }
+        const voucher = files.find((name) => name.endsWith(".voucher"));
+        if (voucher && !voucherRead) {
+          voucherRead = true;
+          progress.totalBytes = findContentSize(JSON.parse(await fsp.readFile(path.join(workDir, voucher), "utf-8")));
         }
         let bytes = 0;
         for (const name of files.filter((file) => /\.(tmp|aaxc|aax|mp3)$/i.test(file))) {
           bytes = Math.max(bytes, (await fsp.stat(path.join(workDir, name))).size);
         }
-        current.bytes = bytes;
-        current.percent = current.totalBytes ? Math.min(100, (bytes / current.totalBytes) * 100) : null;
+        progress.bytes = bytes;
+        progress.percent = progress.totalBytes ? Math.min(100, (bytes / progress.totalBytes) * 100) : null;
       } catch {
         // The folder changes under us while audible-cli renames files.
       }
@@ -226,7 +235,7 @@ const downloadArgs = (asin: string, workDir: string, format: "--aaxc" | "--aax")
 ];
 
 /** Tries AAXC first and falls back to AAX, which some titles still need. */
-const downloadFromAudible = async (asin: string, profile: string, workDir: string) => {
+const downloadFromAudible = async (asin: string, profile: string, workDir: string, progress: AudibleDownloadProgress) => {
   try {
     await runAudible(downloadArgs(asin, workDir, "--aaxc"), profile, DOWNLOAD_TIMEOUT_MS);
     return;
@@ -234,7 +243,7 @@ const downloadFromAudible = async (asin: string, profile: string, workDir: strin
     const aaxcReason = describeError(aaxcError);
     logger.warn("AAXC download failed, trying AAX", { asin, error: aaxcReason });
     for (const name of await fsp.readdir(workDir)) await fsp.rm(path.join(workDir, name), { force: true, recursive: true });
-    if (current) Object.assign(current, { bytes: null, totalBytes: null, percent: null });
+    Object.assign(progress, { bytes: null, totalBytes: null, percent: null });
     try {
       await runAudible(downloadArgs(asin, workDir, "--aax"), profile, DOWNLOAD_TIMEOUT_MS);
     } catch (aaxError) {
@@ -281,8 +290,8 @@ const logDownload = (
     })
     .catch((error) => logger.warn("Couldn't record download history", { asin: title.asin, error: String(error) }));
 
-const setPhase = (phase: AudibleDownloadProgress["phase"]) => {
-  if (current) Object.assign(current, { phase, percent: null, bytes: null, totalBytes: null });
+const setPhase = (progress: AudibleDownloadProgress, phase: AudibleDownloadProgress["phase"]) => {
+  Object.assign(progress, { phase, percent: null, bytes: null, totalBytes: null });
 };
 
 const waitForBook = async (folderPath: string) => {
@@ -299,7 +308,7 @@ const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
   const item = await prisma.audibleLibraryItem.findUnique({ where: { id: itemId } });
   if (!item) return;
 
-  current = {
+  const progress: AudibleDownloadProgress = {
     asin: item.asin,
     title: item.title,
     phase: "downloading",
@@ -308,8 +317,9 @@ const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
     totalBytes: null,
     startedAt: new Date().toISOString(),
   };
+  active.set(itemId, progress);
   const startedAt = new Date();
-  const workDir = path.join(WORK_ROOT, item.asin);
+  const workDir = path.join(WORK_ROOT, `${item.asin}-${item.id}`);
   let stopWatching: (() => void) | null = null;
   try {
     const source = await resolveWritableLibrarySource(libraryId);
@@ -319,8 +329,8 @@ const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
     await fsp.mkdir(workDir, { recursive: true });
 
     await setStatus(itemId, { downloadStatus: "downloading", downloadError: null });
-    stopWatching = watchDownloadProgress(workDir);
-    await downloadFromAudible(item.asin, item.profile, workDir);
+    stopWatching = watchDownloadProgress(workDir, progress);
+    await downloadFromAudible(item.asin, item.profile, workDir, progress);
     stopWatching();
 
     const files = await fsp.readdir(workDir);
@@ -331,7 +341,7 @@ const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
     const extension = path.extname(audio).toLowerCase();
 
     await setStatus(itemId, { downloadStatus: "converting" });
-    setPhase("converting");
+    setPhase(progress, "converting");
     const outputName = `${buildBookName(item)}${extension === ".mp3" ? ".mp3" : ".m4b"}`;
     const outputPath = path.join(workDir, `converted-${outputName}`);
     if (extension === ".mp3") {
@@ -354,13 +364,13 @@ const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
           outputPath,
         ],
         (seconds) => {
-          if (current && item.durationSeconds) current.percent = Math.min(100, (seconds / item.durationSeconds) * 100);
+          if (item.durationSeconds) progress.percent = Math.min(100, (seconds / item.durationSeconds) * 100);
         },
       );
     }
 
     await setStatus(itemId, { downloadStatus: "importing" });
-    setPhase("importing");
+    setPhase(progress, "importing");
     const segments = buildRelativeFolder(item);
     let targetDir = path.join(source.resolvedPath, ...segments);
     if (fs.existsSync(targetDir) && (await fsp.readdir(targetDir)).length > 0) {
@@ -398,22 +408,35 @@ const processJob = async ({ itemId, libraryId, trigger }: DownloadJob) => {
     await logDownload(item, { status: "failed", trigger, libraryId, error: message, startedAt });
   } finally {
     stopWatching?.();
-    current = null;
+    active.delete(itemId);
     await fsp.rm(workDir, { recursive: true, force: true }).catch(() => undefined);
   }
 };
 
+/** Starts queued titles until the parallel-download limit is reached; called again as each one finishes. */
 const work = async () => {
-  if (working) return;
-  working = true;
-  try {
-    for (let job = queue.shift(); job; job = queue.shift()) {
-      await processJob(job);
-    }
-  } finally {
-    working = false;
+  const { maxConcurrentDownloads } = await getAudibleSyncSettings().catch(() => ({ maxConcurrentDownloads: 1 }));
+  while (active.size < maxConcurrentDownloads && queue.length) {
+    const job = queue.shift()!;
+    // Reserve the slot before the first await so overlapping calls can't overshoot the limit.
+    active.set(job.itemId, {
+      asin: job.asin,
+      title: job.title,
+      phase: "downloading",
+      percent: null,
+      bytes: null,
+      totalBytes: null,
+      startedAt: new Date().toISOString(),
+    });
+    void processJob(job).finally(() => {
+      active.delete(job.itemId);
+      void work();
+    });
   }
 };
+
+/** Starts more queued titles after the parallel-download limit is raised. */
+export const resumeAudibleDownloads = () => void work();
 
 /** Queues titles for download into the library. Titles already queued or downloading are skipped. */
 export const enqueueAudibleDownloads = async (

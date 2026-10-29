@@ -61,6 +61,7 @@ interface SyncSettings {
   autoDownload: boolean;
   libraryId: string | null;
   autoDownloadSince: string | null;
+  maxConcurrentDownloads: number;
 }
 
 const SYNC_INTERVALS = [
@@ -111,9 +112,12 @@ export default function AudibleMissingPage() {
   const [syncing, setSyncing] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [busyAsins, setBusyAsins] = useState<Set<string>>(new Set());
-  const pollRef = useRef<number | null>(null);
+  const loadingRef = useRef(false);
 
-  const load = async (nextProfile = profile) => {
+  /** Background refreshes are silent: a missed one is retried on the next tick and the last list stays up. */
+  const load = async (nextProfile = profile, { silent = false } = {}) => {
+    if (silent && loadingRef.current) return null;
+    loadingRef.current = true;
     try {
       const response = await api.get<AudibleLibraryResponse>("/admin/audible-library", {
         params: nextProfile ? { profile: nextProfile } : undefined,
@@ -128,29 +132,25 @@ export default function AudibleMissingPage() {
       });
       return response.data;
     } catch (error) {
-      showToast({ title: "Couldn't load Audible titles", description: getErrorMessage(error, "Try again in a moment."), tone: "error" });
+      if (!silent) showToast({ title: "Couldn't load Audible titles", description: getErrorMessage(error, "Try again in a moment."), tone: "error" });
       return null;
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
-    return () => {
-      if (pollRef.current !== null) window.clearTimeout(pollRef.current);
-    };
   }, []);
 
   // Keep refreshing while downloads are in flight so their status moves along.
   const hasActiveDownloads = data?.items.some((item) => item.downloadStatus && ACTIVE_STATUSES.has(item.downloadStatus)) ?? false;
   useEffect(() => {
     if (!hasActiveDownloads) return;
-    pollRef.current = window.setTimeout(() => void load(), POLL_MS);
-    return () => {
-      if (pollRef.current !== null) window.clearTimeout(pollRef.current);
-    };
-  }, [data, hasActiveDownloads]);
+    const timer = window.setInterval(() => void load(profile, { silent: true }), POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [hasActiveDownloads, profile]);
 
   const notInLibrary = useMemo(() => data?.items.filter((item) => !item.bookId) ?? [], [data]);
   const missing = useMemo(() => notInLibrary.filter((item) => !item.ignored), [notInLibrary]);
@@ -353,6 +353,21 @@ export default function AudibleMissingPage() {
                   </span>
                 )}
               </Field>
+              {data && (
+                <Field label="Download at once" htmlFor="audible-missing-parallel" hint="More at once finishes a long queue sooner but uses more bandwidth and disk space.">
+                  <select
+                    id="audible-missing-parallel"
+                    className="form-control"
+                    value={data.settings.maxConcurrentDownloads}
+                    disabled={savingSettings}
+                    onChange={(event) => void saveSettings({ maxConcurrentDownloads: Number(event.target.value) })}
+                  >
+                    {[1, 2, 3, 4, 5].map((count) => (
+                      <option key={count} value={count}>{count === 1 ? "1 title" : `${count} titles`}</option>
+                    ))}
+                  </select>
+                </Field>
+              )}
             </FormGrid>
             {data && data.items.length > 0 && (
               <p className="as-subtle audible-missing-summary">
@@ -424,7 +439,7 @@ export default function AudibleMissingPage() {
           />
 
           {view === "downloads" ? (
-            <AudibleDownloads libraryId={libraryId} onFinished={() => void load()} />
+            <AudibleDownloads libraryId={libraryId} onFinished={() => void load(profile, { silent: true })} />
           ) : view === "history" ? (
             <AudibleDownloadHistory />
           ) : (
