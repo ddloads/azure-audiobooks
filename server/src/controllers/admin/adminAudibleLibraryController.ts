@@ -8,7 +8,12 @@ import {
   setAudibleTitlesIgnored,
   syncAudibleLibrary,
 } from "../../utils/audibleLibrary";
-import { cancelQueuedAudibleDownloads, enqueueAudibleDownloads, getAudibleDownloadQueue } from "../../utils/audibleDownloader";
+import {
+  cancelQueuedAudibleDownloads,
+  enqueueAudibleDownloads,
+  getAudibleDownloadQueue,
+  resumeAudibleDownloads,
+} from "../../utils/audibleDownloader";
 import { getAudibleAutoSyncStatus, queueNewAudiblePurchases } from "../../utils/audibleAutoSync";
 import { getAudibleSyncSettings, updateAudibleSyncSettings } from "../../utils/appSettings";
 import { getSingleBodyValue } from "./shared";
@@ -111,7 +116,9 @@ export const updateAudibleSyncSettingsHandler = async (req: AuthRequest, res: Re
       intervalMinutes: typeof body.intervalMinutes === "number" ? body.intervalMinutes : undefined,
       autoDownload: typeof body.autoDownload === "boolean" ? body.autoDownload : undefined,
       libraryId,
+      maxConcurrentDownloads: typeof body.maxConcurrentDownloads === "number" ? body.maxConcurrentDownloads : undefined,
     });
+    resumeAudibleDownloads();
     res.json({ settings, autoSync: getAudibleAutoSyncStatus() });
   } catch (error) {
     console.error("Update Audible sync settings error:", error);

@@ -150,7 +150,11 @@ export const syncAudibleCliRuntimeConfig = (): void => {
     lines.push(`country_code = "${getProfileCountryCode(profile.filePath)}"`);
   }
 
-  fs.writeFileSync(getAudibleRuntimeConfigPath(), `${lines.join("\n")}\n`, "utf-8");
+  // Parallel downloads each rewrite this file; write-then-rename so none reads it half written.
+  const configPath = getAudibleRuntimeConfigPath();
+  const tempPath = `${configPath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
+  fs.writeFileSync(tempPath, `${lines.join("\n")}\n`, "utf-8");
+  fs.renameSync(tempPath, configPath);
 };
 
 export const getStoredActiveAudibleProfile = (): string | null => {
