@@ -291,7 +291,7 @@ export default function AudibleMissingPage() {
                   </select>
                 </Field>
               )}
-              <Field label="Download into" htmlFor="audible-missing-library" hint="Books go into the library's writable folder as Author/Series/Title, or Author/Title when not in a series.">
+              <Field label="Download into" htmlFor="audible-missing-library" hint="Books go into the library's writable folder as Author/Series/Book N - Title, or Author/Title when not in a series.">
                 {data?.libraries.length ? (
                   <select
                     id="audible-missing-library"

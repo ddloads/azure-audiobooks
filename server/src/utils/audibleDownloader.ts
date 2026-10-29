@@ -14,7 +14,7 @@ import { resolveWritableLibrarySource } from "./libraryConfig";
 // Downloads titles from Audible one at a time: audible-cli fetches the
 // encrypted AAXC (or AAX) into a temp folder under data/, ffmpeg decrypts it
 // to M4B without re-encoding, and only the finished file (plus cover) moves to
-// the library's writable folder as Author/Series/Title, where a folder scan
+// the library's writable folder as Author/Series/Book N - Title, where a folder scan
 // imports it.
 
 const execFileAsync = promisify(execFile);
@@ -75,12 +75,21 @@ const safeSegment = (value: string) =>
     .slice(0, 120)
     .trim();
 
-/** Author/Series/Title, or Author/Title for a book that isn't in a series. */
-const buildRelativeFolder = (item: { title: string; author: string | null; seriesName: string | null }) =>
+type NamingItem = { title: string; author: string | null; seriesName: string | null; seriesSequence: string | null };
+
+/** "Book 2 - Title" for a numbered book in a series, otherwise just the title. */
+const buildBookName = (item: NamingItem) => {
+  const title = safeSegment(item.title) || "Untitled";
+  const sequence = item.seriesName ? safeSegment((item.seriesSequence ?? "").replace(/^book\s*/i, "")) : "";
+  return sequence ? `Book ${sequence} - ${title}` : title;
+};
+
+/** Author/Series/Book N - Title, or Author/Title for a book that isn't in a series. */
+const buildRelativeFolder = (item: NamingItem) =>
   [
     safeSegment(item.author?.split(",")[0] ?? "") || "Unknown Author",
     safeSegment(item.seriesName ?? ""),
-    safeSegment(item.title) || "Untitled",
+    buildBookName(item),
   ].filter(Boolean);
 
 const isInside = (root: string, target: string) => {
@@ -155,7 +164,7 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     const extension = path.extname(audio).toLowerCase();
 
     await setStatus(itemId, { downloadStatus: "converting" });
-    const outputName = `${safeSegment(item.title) || item.asin}${extension === ".mp3" ? ".mp3" : ".m4b"}`;
+    const outputName = `${buildBookName(item)}${extension === ".mp3" ? ".mp3" : ".m4b"}`;
     const outputPath = path.join(workDir, `converted-${outputName}`);
     if (extension === ".mp3") {
       await fsp.rename(audioPath, outputPath);
