@@ -12,8 +12,10 @@ import { ACTIVE_DOWNLOAD_STATUSES } from "./audibleLibrary";
 import { resolveWritableLibrarySource } from "./libraryConfig";
 
 // Downloads titles from Audible one at a time: audible-cli fetches the
-// encrypted AAXC (or AAX), ffmpeg decrypts it to M4B without re-encoding, the
-// file goes into the library's writable folder, and a folder scan imports it.
+// encrypted AAXC (or AAX) into a temp folder under data/, ffmpeg decrypts it
+// to M4B without re-encoding, and only the finished file (plus cover) moves to
+// the library's writable folder as Author/Series/Title, where a folder scan
+// imports it.
 
 const execFileAsync = promisify(execFile);
 const logger = createLogger("audible-download");
@@ -23,7 +25,6 @@ const DOWNLOAD_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 const CONVERT_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 const SCAN_POLL_MS = 3000;
 const SCAN_WAIT_MS = 30 * 60 * 1000;
-const DEFAULT_FOLDER_PATTERN = "{author}/{title}";
 
 type DownloadJob = { itemId: string; libraryId: string };
 
@@ -74,22 +75,13 @@ const safeSegment = (value: string) =>
     .slice(0, 120)
     .trim();
 
-/** The book's folder relative to the library root, following the library's folder pattern. */
-const buildRelativeFolder = (
-  pattern: string | null,
-  item: { title: string; author: string | null; seriesName: string | null },
-) => {
-  const values: Record<string, string> = {
-    author: safeSegment(item.author?.split(",")[0] ?? "") || "Unknown Author",
-    title: safeSegment(item.title) || "Untitled",
-    series: safeSegment(item.seriesName ?? ""),
-  };
-  return (pattern || DEFAULT_FOLDER_PATTERN)
-    .replace(/\\/g, "/")
-    .split("/")
-    .map((segment) => safeSegment(segment.replace(/\{(\w+)\}/g, (_, token: string) => values[token.toLowerCase()] ?? "")))
-    .filter(Boolean);
-};
+/** Author/Series/Title, or Author/Title for a book that isn't in a series. */
+const buildRelativeFolder = (item: { title: string; author: string | null; seriesName: string | null }) =>
+  [
+    safeSegment(item.author?.split(",")[0] ?? "") || "Unknown Author",
+    safeSegment(item.seriesName ?? ""),
+    safeSegment(item.title) || "Untitled",
+  ].filter(Boolean);
 
 const isInside = (root: string, target: string) => {
   const relative = path.relative(path.resolve(root), path.resolve(target));
@@ -131,9 +123,8 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
 
   const workDir = path.join(WORK_ROOT, item.asin);
   try {
-    const library = await prisma.library.findUnique({ where: { id: libraryId }, select: { folderPattern: true } });
     const source = await resolveWritableLibrarySource(libraryId);
-    if (!library || !source) throw new Error("The library has no writable folder.");
+    if (!source) throw new Error("The library has no writable folder.");
 
     await fsp.rm(workDir, { recursive: true, force: true });
     await fsp.mkdir(workDir, { recursive: true });
@@ -191,7 +182,7 @@ const processJob = async ({ itemId, libraryId }: DownloadJob) => {
     }
 
     await setStatus(itemId, { downloadStatus: "importing" });
-    const segments = buildRelativeFolder(library.folderPattern, item);
+    const segments = buildRelativeFolder(item);
     let targetDir = path.join(source.resolvedPath, ...segments);
     if (fs.existsSync(targetDir) && (await fsp.readdir(targetDir)).length > 0) {
       targetDir = `${targetDir} [${item.asin}]`;
