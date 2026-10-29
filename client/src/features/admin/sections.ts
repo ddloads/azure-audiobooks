@@ -1,5 +1,6 @@
 import {
   Bug,
+  CloudDownload,
   Copy,
   Database,
   FileText,
@@ -48,6 +49,7 @@ export const SECTION_GROUPS: SectionGroup[] = [
     links: [
       { label: "File Manager", icon: FolderOpen, to: "/files", description: "Browse and organise files on disk." },
       { label: "Duplicates", icon: Copy, to: "/duplicates", description: "Find and merge duplicate books." },
+      { label: "Missing", icon: CloudDownload, to: "/missing", description: "Audible titles you own that aren't in the library." },
     ],
   },
   {

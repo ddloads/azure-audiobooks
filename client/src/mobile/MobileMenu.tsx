@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Boxes, Bug, FolderOpen, Headphones, IdCard, LogOut, RefreshCw, Settings, Smartphone, Upload, UserCog, Users } from 'lucide-react';
+import { Boxes, Bug, CloudDownload, FolderOpen, Headphones, IdCard, LogOut, RefreshCw, Settings, Smartphone, Upload, UserCog, Users } from 'lucide-react';
 import { lazy, Suspense, useState } from 'react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -108,6 +108,10 @@ const MobileMenu = () => {
           <button className="mobile-menu-item" onClick={() => navigate('/files', { state: { from: '/' } })}>
             <FolderOpen size={18} className="mobile-menu-item-icon" />
             File Manager
+          </button>
+          <button className="mobile-menu-item" onClick={() => navigate('/missing')}>
+            <CloudDownload size={18} className="mobile-menu-item-icon" />
+            Missing from Library
           </button>
           <button className="mobile-menu-item" onClick={() => navigate('/settings', { state: { from: '/' } })}>
             <Settings size={18} className="mobile-menu-item-icon" />

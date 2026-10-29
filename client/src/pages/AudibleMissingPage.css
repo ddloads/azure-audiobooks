@@ -1,0 +1,52 @@
+/* Missing-from-library page extras. Everything else comes from styles/admin.css. */
+
+.audible-missing-summary { margin: 12px 0 0; font-size: 0.82rem; }
+
+.audible-missing-leading { display: inline-flex; align-items: center; gap: 12px; }
+
+.audible-missing-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.audible-missing input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent, #38bdf8);
+  cursor: pointer;
+}
+
+.audible-missing-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.audible-missing-actions,
+.audible-missing-bulk-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.audible-missing-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--as-danger);
+  overflow-wrap: anywhere;
+}
+
+/* Phones: actions drop under the title so long titles keep their room. */
+@media (max-width: 600px) {
+  .audible-missing-list .as-item-row { flex-wrap: wrap; }
+  .audible-missing-list .as-item-main { flex-basis: calc(100% - 120px); }
+  .audible-missing-list .as-item-trailing { width: 100%; justify-content: flex-end; }
+}
