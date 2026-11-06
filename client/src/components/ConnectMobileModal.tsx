@@ -13,6 +13,7 @@ interface ConnectMobileModalProps {
 type MobileAppRelease = {
   appName: string;
   version: string;
+  versionCode?: number | null;
   fileName: string;
   size: number;
   updatedAt: string;
@@ -128,7 +129,7 @@ export default function ConnectMobileModal({ onClose }: ConnectMobileModalProps)
             </a>
             <p className="connect-mobile-download-meta">
               {mobileRelease
-                ? `Version ${mobileRelease.version} - ${formatSize(mobileRelease.size)}`
+                ? `Version ${mobileRelease.version}${mobileRelease.versionCode ? ` (build ${mobileRelease.versionCode})` : ""} - ${formatSize(mobileRelease.size)}`
                 : releaseError ?? "Checking latest APK..."}
             </p>
           </div>

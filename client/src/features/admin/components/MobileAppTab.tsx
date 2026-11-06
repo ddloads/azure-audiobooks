@@ -9,6 +9,7 @@ import "./MobileAppTab.css";
 type MobileAppRelease = {
   appName: string;
   version: string;
+  versionCode?: number | null;
   fileName: string;
   size: number;
   updatedAt: string;
@@ -102,7 +103,7 @@ export default function MobileAppTab() {
           <Stack gap="md">
             <KeyValues
               items={[
-                { label: "Version", value: release.version, mono: true },
+                { label: "Version", value: release.versionCode ? `${release.version} (build ${release.versionCode})` : release.version, mono: true },
                 { label: "File", value: release.fileName, mono: true },
                 { label: "Size", value: formatBytes(release.size) },
                 { label: "Uploaded", value: formatDate(release.updatedAt) },

@@ -11,6 +11,9 @@ const VERSION_REGEX = /v?(\d+\.\d+\.\d+(?:[-.][A-Za-z0-9]+)?)/;
 type MobileAppManifest = {
   appName: string;
   version: string;
+  // Android versionCode ("build number"). The app compares this with its own
+  // to offer in-app updates; null for APKs uploaded without one.
+  versionCode: number | null;
   fileName: string;
   size: number;
   updatedAt: string;
@@ -51,6 +54,7 @@ export const getLatestMobileApp = async (_req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-cache, must-revalidate");
   res.json({
     ...manifest,
+    versionCode: manifest.versionCode ?? null,
     downloadUrl: "/api/mobile-app/latest.apk",
   });
 };
@@ -103,10 +107,14 @@ export const publishMobileApp = async (req: Request, res: Response) => {
     const version =
       requestedVersion || parseVersionFromName(file.originalname) || "unknown";
 
+    const rawVersionCode = Number.parseInt(String(req.body?.versionCode ?? ""), 10);
+    const versionCode = Number.isFinite(rawVersionCode) && rawVersionCode > 0 ? rawVersionCode : null;
+
     const stat = await fsp.stat(targetApk);
     const manifest: MobileAppManifest = {
       appName: "Azure Player",
       version,
+      versionCode,
       fileName: file.originalname,
       size: stat.size,
       updatedAt: new Date().toISOString(),
