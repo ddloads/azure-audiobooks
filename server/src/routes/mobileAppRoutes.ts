@@ -7,6 +7,8 @@ import {
   getLatestMobileApp,
   publishMobileApp,
 } from "../controllers/mobileAppController";
+import crypto from "crypto";
+import type { NextFunction, Request, Response } from "express";
 import { authenticate, authorizeAdmin } from "../middleware/authMiddleware";
 
 const router = Router();
@@ -30,12 +32,31 @@ const upload = multer({
   },
 });
 
+// CI (GitHub Actions) publishes with `X-Publish-Key: $MOBILE_APP_PUBLISH_KEY`
+// instead of an admin login. Without the env var set, only admins can upload.
+const publishKeyMatches = (provided: string | undefined) => {
+  const expected = process.env.MOBILE_APP_PUBLISH_KEY?.trim();
+  if (!expected || !provided) return false;
+  const a = crypto.createHash("sha256").update(provided).digest();
+  const b = crypto.createHash("sha256").update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+};
+
+const authorizePublisher = (req: Request, res: Response, next: NextFunction) => {
+  const key = req.header("x-publish-key");
+  if (key !== undefined) {
+    if (publishKeyMatches(key)) return next();
+    res.status(401).json({ error: "Invalid publish key" });
+    return;
+  }
+  authenticate(req, res, () => authorizeAdmin(req, res, next));
+};
+
 router.get("/latest", getLatestMobileApp);
 router.get("/latest.apk", downloadLatestMobileApp);
 router.post(
   "/upload",
-  authenticate,
-  authorizeAdmin,
+  authorizePublisher,
   upload.single("apk"),
   publishMobileApp,
 );

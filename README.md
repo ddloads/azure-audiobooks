@@ -42,6 +42,7 @@ Create a `.env` file or set these in your container orchestrator (like Portainer
 | `DATABASE_URL` | PostgreSQL connection string; set only to use an external database | The `azure-db` service |
 | `DIRECT_URL` | Direct PostgreSQL connection string; set only to use an external database | The `azure-db` service |
 | `JWT_SECRET` | Secret key for auth tokens | Recommended |
+| `MOBILE_APP_PUBLISH_KEY` | Shared secret the AzurePlayer CI uses to upload new APKs (`X-Publish-Key` header) | Unset (admin upload only) |
 | `CLIENT_ORIGIN` | Allowed CORS origin (your public domain) | `http://localhost:8080` |
 | `PORT_CLIENT` | External port for the web UI | `8080` |
 | `EXTERNAL_FETCH_TIMEOUT_MS` | Timeout for Audible, Google Books, Goodreads, and cover requests | `20000` |

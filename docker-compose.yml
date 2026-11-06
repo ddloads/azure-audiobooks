@@ -37,6 +37,8 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - CLIENT_ORIGIN=${CLIENT_ORIGIN:-http://localhost:8080}
       - PORT=4000
+      # Lets the AzurePlayer GitHub Actions workflow publish new APKs.
+      - MOBILE_APP_PUBLISH_KEY=${MOBILE_APP_PUBLISH_KEY:-}
       # Optional tuning. Stack variables only reach the container when listed
       # here; an empty value means the server's built-in default.
       - FAST_START_ENABLED=${FAST_START_ENABLED:-}
