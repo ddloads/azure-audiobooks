@@ -768,6 +768,15 @@ export const getCover = async (req: Request, res: Response) => {
         return;
       }
     }
+    // Native image caches (the Android app's expo-image/Glide) ignore
+    // Cache-Control and would keep a blank 1x1 forever, hiding a cover that
+    // appears later (e.g. extracted on the next scan). Clients that opt in
+    // with ?missing=404 get an uncacheable 404 instead.
+    if (req.query.missing === "404") {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(404).send("No cover");
+      return;
+    }
     res.setHeader("Cache-Control", "public, max-age=300");
     res.setHeader("Content-Type", "image/png");
     res.end(TRANSPARENT_PNG_1X1);

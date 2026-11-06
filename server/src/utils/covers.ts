@@ -27,15 +27,26 @@ export const findCoverInFolder = (folderPath: string): string | null => {
   return null;
 };
 
+const COVER_FILE_NAMES = [".jpg", ".jpeg", ".png", ".webp"].map((ext) => `cover${ext}`);
+
 export const findCoverInFolderAsync = async (folderPath: string): Promise<string | null> => {
-  for (const ext of [".jpg", ".jpeg", ".png", ".webp"]) {
-    const p = path.join(folderPath, `cover${ext}`);
+  for (const name of COVER_FILE_NAMES) {
+    const p = path.join(folderPath, name);
     try {
       await fsp.access(p);
       return p;
     } catch {
       // continue to the next extension
     }
+  }
+  // Case-insensitive fallback: "Cover.JPG" / "COVER.png" on a case-sensitive
+  // (Linux/NFS) share, typically one the scanner couldn't write cover.jpg into.
+  try {
+    const entries = await fsp.readdir(folderPath);
+    const match = entries.find((entry) => COVER_FILE_NAMES.includes(entry.toLowerCase()));
+    if (match) return path.join(folderPath, match);
+  } catch {
+    // folder unreadable; caller decides how to report it
   }
   return null;
 };
