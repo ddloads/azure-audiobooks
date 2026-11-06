@@ -1,4 +1,3 @@
-import fs from "fs";
 import path from "path";
 import { Response } from "express";
 import { AuthRequest } from "../../middleware/authMiddleware";
@@ -6,7 +5,7 @@ import prisma from "../../lib/prisma";
 import type { AudibleMatchCandidate } from "../../utils/audible";
 import { GoogleBooksSearchError } from "../../utils/googleBooks";
 import { GoodreadsSearchError } from "../../utils/goodreads";
-import { downloadCover, findCoverInFolder, getCoverUrl } from "../../utils/covers";
+import { downloadCover, getCoverUrl } from "../../utils/covers";
 import { invalidateFilterOptionsCache } from "../libraryController";
 import { invalidateRecommendationCache } from "../../lib/recommendationCache";
 import { setLogTitle } from "../../middleware/loggingMiddleware";
@@ -269,10 +268,8 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
     if (selectedFields.imageUrl) {
       const imageUrl = toNullableString(sourceFields.imageUrl);
       if (imageUrl) {
-        // Delete old cover from book folder before downloading new one
-        const oldCoverFile = findCoverInFolder(book.folderPath);
-        if (oldCoverFile) fs.rmSync(oldCoverFile, { force: true });
-
+        // downloadCover replaces the old cover only after a successful
+        // download; a cover failure must not block saving the other fields.
         const downloaded = await downloadCover(imageUrl, book.folderPath);
         if (downloaded) {
           updateData.coverPath = getCoverUrl(book.id);

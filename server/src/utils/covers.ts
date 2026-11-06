@@ -59,9 +59,27 @@ export const downloadCover = async (url: string, folderPath: string): Promise<bo
     if (contentType?.includes("image/png")) ext = ".png";
     if (contentType?.includes("image/webp")) ext = ".webp";
 
-    const filePath = path.join(folderPath, `cover${ext}`);
     const buffer = Buffer.from(await response.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    if (buffer.length === 0) {
+      console.error(`Downloaded cover from ${url} was empty`);
+      return false;
+    }
+
+    // Write to a temp file first so a failed download/write never destroys
+    // the existing cover, then swap it in.
+    const filePath = path.join(folderPath, `cover${ext}`);
+    const tempPath = path.join(folderPath, `.cover-download${ext}.tmp`);
+    try {
+      fs.writeFileSync(tempPath, buffer);
+      for (const oldExt of [".jpg", ".jpeg", ".png", ".webp"]) {
+        const oldPath = path.join(folderPath, `cover${oldExt}`);
+        if (oldPath !== filePath) fs.rmSync(oldPath, { force: true });
+      }
+      fs.renameSync(tempPath, filePath);
+    } catch (error) {
+      fs.rmSync(tempPath, { force: true });
+      throw error;
+    }
 
     return true;
   } catch (error) {
