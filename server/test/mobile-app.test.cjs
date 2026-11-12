@@ -11,11 +11,11 @@ test('APK publication is monotonic, atomic, idempotent, and never cached', async
   process.chdir(root);
   const controller = require(path.join(__dirname, '../.test-dist/controllers/mobileAppController.js'));
   const response = () => ({ code: 200, headers: {}, setHeader(k,v) { this.headers[k]=v; }, status(n) {this.code=n; return this;}, json(v) {this.body=v;}, download(...args) {this.downloadArgs=args;} });
-  const publish = async (code, bytes, version='1.0.12', extra={}) => {
+  const publish = async (code, bytes, version='1.0.12', extra={}, filename='untrusted.apk') => {
     const temp = path.join(root, crypto.randomUUID());
     await fs.writeFile(temp, bytes);
     const res = response();
-    await controller.publishMobileApp({file:{path:temp,originalname:'untrusted.apk'},body:{version,versionCode:code,...extra}},res);
+    await controller.publishMobileApp({file:{path:temp,originalname:filename},body:{version,versionCode:code,...extra}},res);
     await assert.rejects(fs.access(temp));
     return res;
   };
@@ -51,6 +51,7 @@ test('APK publication is monotonic, atomic, idempotent, and never cached', async
     const download=response(); await controller.downloadLatestMobileApp({query:{}},download);
     const hash=crypto.createHash('sha256').update(await fs.readFile(download.downloadArgs[0])).digest('hex');
     assert.equal(after.body.sha256,hash);
+    assert.equal((await publish(undefined,'manual','1.0.12',{},'AzurePlayer-v1.0.12-build18.apk')).code,200);
     // A corrupt manifest fails closed, preserving all published bytes.
     await fs.writeFile(path.join(root,'data/mobile/azure-player-latest.json'),'{broken');
     assert.equal((await publish('18','bad')).code,500);

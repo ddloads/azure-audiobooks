@@ -84,7 +84,8 @@ export const publishMobileApp = async (req: Request, res: Response) => {
   let locked = false;
   try {
     const version: string = typeof req.body?.version === "string" ? req.body.version.trim() : "";
-    const rawCode = String(req.body?.versionCode ?? "");
+    // Manual uploads of CI artifacts retain the build encoded in their filename.
+    const rawCode = String(req.body?.versionCode ?? file.originalname.match(/-build(\d+)\.apk$/i)?.[1] ?? "");
     const versionCode = Number(rawCode);
     if (!/^\d+\.\d+\.\d+$/.test(version) || !/^\d+$/.test(rawCode) ||
         !Number.isSafeInteger(versionCode) || versionCode < 1 || versionCode > 2100000000) {
