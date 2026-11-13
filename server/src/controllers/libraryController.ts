@@ -2,13 +2,11 @@ import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import fsp from "fs/promises";
-import crypto from "crypto";
-import sharp from "sharp";
 import { Prisma } from "@prisma/client";
 import prisma from "../lib/prisma";
 import { requestLibraryScan, stopScanning } from "../lib/scanJobPool";
 import { normalizeCoverPath, findCoverInFolder, findCoverInFolderAsync } from "../utils/covers";
-import { scheduleCoverThumbnailCacheCleanup } from "../utils/coverThumbnailCache";
+import { coverThumbnails, CoverLibraryUnavailableError } from "../lib/coverThumbnails";
 import { AuthRequest } from "../middleware/authMiddleware";
 import { setLogTitle } from "../middleware/loggingMiddleware";
 import {
@@ -39,7 +37,6 @@ const warnLibraryUnreachable = (folderPath: string, err: unknown) => {
       "If every cover is missing, the library mount is probably stale — see docs/audiobooks-nfs-hostmount-setup.md.",
   );
 };
-const COVER_THUMB_CACHE_DIR = path.join(process.cwd(), "data", "cache", "covers");
 
 const normalizeBookCover = <T extends { coverPath?: string | null }>(book: T) => ({
   ...book,
@@ -711,29 +708,74 @@ export const stopScan = async (_req: Request, res: Response) => {
   }
 };
 
+// Book ids (and the file names of old covers in data/covers) are plain
+// tokens. Anything with a path separator or ".." is refused, so the id can
+// never point the legacy lookup below at another file on the server.
+const isSafeCoverId = (value: string) =>
+  /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) && !value.includes("..");
+
+const sendCoverFile = (res: Response, filePath: string, cacheControl: string, contentType?: string) => {
+  res.setHeader("Cache-Control", cacheControl);
+  if (contentType) res.setHeader("Content-Type", contentType);
+  res.sendFile(filePath, (error) => {
+    if (error && !res.headersSent) {
+      res.setHeader("Cache-Control", "no-store");
+      res.status(503).send("Cover temporarily unavailable");
+    }
+  });
+};
+
 export const getCover = async (req: Request, res: Response) => {
   const param = getSingleParam(req.params.name);
-  if (!param) {
+  let bookId: string | null = null;
+  try {
+    bookId = param ? decodeURIComponent(param) : null;
+  } catch {
+    bookId = null;
+  }
+  if (!bookId || !isSafeCoverId(bookId)) {
     res.status(400).send("Invalid cover id");
     return;
   }
 
-  const bookId = decodeURIComponent(param);
   const widthParam = getQueryNumber(req.query.w);
   const requestedWidth =
     widthParam !== undefined
       ? Math.min(Math.max(Math.floor(widthParam), 32), 1200)
       : null;
 
-  let filePath: string | null = null;
-
   const book = await prisma.book.findUnique({
     where: { id: bookId },
-    select: { folderPath: true },
+    select: { folderPath: true, coverPath: true },
   });
-  if (book) {
-    const coverFile = await findCoverInFolderAsync(book.folderPath);
-    if (coverFile) filePath = coverFile;
+
+  // Fast path: resized covers come from the server's own cache, without
+  // waiting on the library share (see lib/coverThumbnails.ts).
+  let knownMissing = false;
+  if (book && requestedWidth) {
+    try {
+      const result = await coverThumbnails.get(bookId, book.folderPath, requestedWidth);
+      if (result.kind === "thumbnail") {
+        sendCoverFile(res, result.path, "public, max-age=604800, immutable", "image/jpeg");
+        return;
+      }
+      knownMissing = true;
+    } catch (err) {
+      if (err instanceof CoverLibraryUnavailableError) {
+        // Uncacheable, so browsers and the app retry once the library is back
+        // instead of keeping an empty cover.
+        warnLibraryUnreachable(book.folderPath, err.cause);
+        res.setHeader("Cache-Control", "no-store");
+        res.status(503).send("Library folder unavailable");
+        return;
+      }
+      // Couldn't resize (e.g. a damaged image): fall back to the original below.
+    }
+  }
+
+  let filePath: string | null = null;
+  if (book && !knownMissing) {
+    filePath = await findCoverInFolderAsync(book.folderPath);
   }
 
   if (!filePath) {
@@ -753,15 +795,13 @@ export const getCover = async (req: Request, res: Response) => {
     // is reachable — a NAS blip shouldn't wipe coverPaths library-wide.
     if (book) {
       try {
-        await fsp.access(book.folderPath);
-        void prisma.book
-          .update({ where: { id: bookId }, data: { coverPath: null } })
-          .catch(() => {});
+        if (!knownMissing) await fsp.access(book.folderPath);
+        if (book.coverPath !== null) {
+          void prisma.book
+            .update({ where: { id: bookId }, data: { coverPath: null } })
+            .catch(() => {});
+        }
       } catch (err) {
-        // Folder unreachable (stale NFS handle, unmounted share): report an
-        // uncacheable error rather than a blank image, so browsers and the
-        // mobile app's image cache retry once the library is back instead of
-        // keeping an empty cover.
         warnLibraryUnreachable(book.folderPath, err);
         res.setHeader("Cache-Control", "no-store");
         res.status(503).send("Library folder unavailable");
@@ -783,45 +823,8 @@ export const getCover = async (req: Request, res: Response) => {
     return;
   }
 
-  res.setHeader("Cache-Control", "public, max-age=86400");
-
-  if (requestedWidth) {
-    try {
-      const stat = await fsp.stat(filePath);
-      const cacheKey = crypto
-        .createHash("sha1")
-        .update(`${bookId}:${requestedWidth}:${filePath}:${stat.size}:${stat.mtimeMs}`)
-        .digest("hex");
-      const cachedThumbPath = path.join(COVER_THUMB_CACHE_DIR, `${cacheKey}.jpg`);
-
-      try {
-        await fsp.access(cachedThumbPath);
-        res.setHeader("Cache-Control", "public, max-age=604800, immutable");
-        res.setHeader("Content-Type", "image/jpeg");
-        res.sendFile(cachedThumbPath);
-        return;
-      } catch {
-        // Generate and cache below.
-      }
-
-      const buffer = await sharp(filePath)
-        .rotate()
-        .resize({ width: requestedWidth, withoutEnlargement: true, fit: "inside" })
-        .jpeg({ quality: 82, mozjpeg: true })
-        .toBuffer();
-      await fsp.mkdir(COVER_THUMB_CACHE_DIR, { recursive: true });
-      scheduleCoverThumbnailCacheCleanup(COVER_THUMB_CACHE_DIR);
-      await fsp.writeFile(cachedThumbPath, buffer).catch(() => {});
-      res.setHeader("Cache-Control", "public, max-age=604800, immutable");
-      res.setHeader("Content-Type", "image/jpeg");
-      res.end(buffer);
-      return;
-    } catch {
-      // Fall back to the original file on any resize error.
-    }
-  }
-
-  res.sendFile(filePath);
+  // The original, full size: no width asked for, or it couldn't be resized.
+  sendCoverFile(res, filePath, "public, max-age=86400");
 };
 
 
