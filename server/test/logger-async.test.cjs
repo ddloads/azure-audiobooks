@@ -1,3 +1,9 @@
+const distPath = (relativePath) => require('node:path').join(
+  __dirname,
+  '..',
+  require('node:fs').existsSync(require('node:path').join(__dirname, '..', '.test-dist')) ? '.test-dist' : 'dist',
+  relativePath,
+);
 const assert = require('node:assert');
 const test = require('node:test');
 const fs = require('node:fs');
@@ -8,7 +14,7 @@ test('application logger does not use blocking appendFileSync writes on log call
   const originalAppendFileSync = fs.appendFileSync;
   const originalCwd = process.cwd();
   const tempCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-logger-'));
-  const loggerModulePath = require.resolve('../dist/lib/logger.js');
+  const loggerModulePath = require.resolve(distPath('lib/logger.js'));
   delete require.cache[loggerModulePath];
 
   fs.appendFileSync = () => {
@@ -17,7 +23,7 @@ test('application logger does not use blocking appendFileSync writes on log call
 
   try {
     process.chdir(tempCwd);
-    const { createLogger } = require('../dist/lib/logger.js');
+    const { createLogger } = require(distPath('lib/logger.js'));
     assert.doesNotThrow(() => {
       createLogger('test').info('async logger smoke test', { token: 'secret-token' });
     });
@@ -35,7 +41,7 @@ test('listLogs reads log files without blocking fs sync APIs', async () => {
   const originalReadFileSync = fs.readFileSync;
   const originalCwd = process.cwd();
   const tempCwd = fs.mkdtempSync(path.join(os.tmpdir(), 'azure-log-list-'));
-  const loggerModulePath = require.resolve('../dist/lib/logger.js');
+  const loggerModulePath = require.resolve(distPath('lib/logger.js'));
   delete require.cache[loggerModulePath];
 
   try {
@@ -52,7 +58,7 @@ test('listLogs reads log files without blocking fs sync APIs', async () => {
       }) + '\n',
     );
 
-    const { listLogs } = require('../dist/lib/logger.js');
+    const { listLogs } = require(distPath('lib/logger.js'));
 
     fs.readdirSync = () => {
       throw new Error('readdirSync should not be called by listLogs');

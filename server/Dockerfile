@@ -89,6 +89,11 @@ COPY --from=builder /app/server/scripts ./scripts
 ENV TONE_PATH=/usr/local/bin/tone
 ENV PORT=4000
 ENV NODE_ENV=production
+# Node runs file reads, cover resizing and other blocking work on a pool of
+# worker threads, 4 by default. The library is on a network share whose disks
+# may need to spin up, so a few slow reads (e.g. an audiobook streaming) can
+# hold every thread and leave covers queued behind them.
+ENV UV_THREADPOOL_SIZE=16
 
 EXPOSE 4000
 

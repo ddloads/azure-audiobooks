@@ -29,6 +29,7 @@ import {
   chooseQuickMatchCandidate,
   applyMatchedFieldsToBook,
 } from "./books/shared";
+import { invalidateCoverThumbnails } from "../../lib/coverThumbnails";
 
 export const searchBookMatches = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -276,6 +277,8 @@ export const applyBookMatch = async (req: AuthRequest, res: Response): Promise<v
         const downloaded = await downloadCover(imageUrl, book.folderPath);
         if (downloaded) {
           updateData.coverPath = getCoverUrl(book.id);
+          // The cached resized copies are of the old cover.
+          await invalidateCoverThumbnails(book.id);
         }
       }
     }

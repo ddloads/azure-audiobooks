@@ -2,6 +2,11 @@ import fsp from "fs/promises";
 import path from "path";
 
 const THUMBNAIL_EXTENSION = ".jpg";
+// Each thumbnail may have a `<name>.json` record beside it (see
+// coverThumbnails.ts); it goes when its thumbnail goes.
+const META_EXTENSION = ".json";
+const TEMP_EXTENSION = ".tmp";
+const TEMP_MAX_AGE_MS = 60 * 60 * 1000;
 
 export const DEFAULT_COVER_THUMB_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 export const DEFAULT_COVER_THUMB_CACHE_MAX_FILES = 5_000;
@@ -27,6 +32,9 @@ type ThumbnailCacheEntry = {
 const isThumbnailCacheFile = (filename: string) =>
   path.extname(filename).toLowerCase() === THUMBNAIL_EXTENSION;
 
+const metaPathFor = (thumbnailPath: string) =>
+  `${thumbnailPath.slice(0, -THUMBNAIL_EXTENSION.length)}${META_EXTENSION}`;
+
 const removeCacheFiles = async (entries: ThumbnailCacheEntry[]) => {
   let deleted = 0;
   await Promise.all(
@@ -37,9 +45,27 @@ const removeCacheFiles = async (entries: ThumbnailCacheEntry[]) => {
       } catch {
         // Another request or process may have already removed it. Cleanup is best-effort.
       }
+      await fsp.rm(metaPathFor(entry.path), { force: true }).catch(() => undefined);
     }),
   );
   return deleted;
+};
+
+// Records whose thumbnail is gone, and temp files left by an interrupted write.
+const removeLeftovers = async (cacheDir: string, files: string[], now: number) => {
+  const names = new Set(files);
+  await Promise.all(files.map(async (filename) => {
+    const filePath = path.join(cacheDir, filename);
+    if (filename.endsWith(META_EXTENSION)) {
+      const thumbnail = `${filename.slice(0, -META_EXTENSION.length)}${THUMBNAIL_EXTENSION}`;
+      if (!names.has(thumbnail)) await fsp.rm(filePath, { force: true }).catch(() => undefined);
+      return;
+    }
+    if (filename.endsWith(TEMP_EXTENSION)) {
+      const stat = await fsp.stat(filePath).catch(() => null);
+      if (stat && now - stat.mtimeMs > TEMP_MAX_AGE_MS) await fsp.rm(filePath, { force: true }).catch(() => undefined);
+    }
+  }));
 };
 
 export const cleanupCoverThumbnailCache = async ({
@@ -79,6 +105,7 @@ export const cleanupCoverThumbnailCache = async ({
     .sort((a, b) => a.mtimeMs - b.mtimeMs);
   const overflow = maxFiles >= 0 && remaining.length > maxFiles ? remaining.slice(0, remaining.length - maxFiles) : [];
   const deleted = await removeCacheFiles([...stale, ...overflow]);
+  await removeLeftovers(cacheDir, files, now);
 
   return { scanned: thumbnails.length, deleted };
 };
